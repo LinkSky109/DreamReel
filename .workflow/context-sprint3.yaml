@@ -1,0 +1,27 @@
+task_id: "TASK-20261003-003"
+task_name: "DreamReel Sprint 3: 对话配音与镜头衔接"
+create_time: "2026-10-03T13:30:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+scope:
+  - id: "R06"
+    name: "多角色对话配音"
+    priority: "P1"
+    features:
+      - "识别剧本对话（角色名：台词）"
+      - "按角色分配不同音色 dialogueAssignments"
+      - "对话节奏控制（停顿）"
+      - "多段配音按时间轴拼接"
+  - id: "R08"
+    name: "镜头衔接与一致性控制"
+    priority: "P1"
+    features:
+      - "上一镜头尾帧作为下一镜头参考（img2img）"
+      - "全局风格锁定（色温/饱和度/对比度）"
+      - "场景连续性提示"
+
+state_log:
+  - time: "2026-10-03T13:30:00+08:00"
+    from: "GLOBAL_PENDING"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 3 启动"

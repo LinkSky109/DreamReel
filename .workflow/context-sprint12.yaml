@@ -1,0 +1,99 @@
+task_id: "TASK-20261004-012"
+task_name: "DreamReel Sprint 12: 造型注入视频 + 创意片头模块"
+create_time: "2026-10-04T19:30:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+reference:
+  benchmark_url: "https://www.liblib.tv/"
+  benchmark_name: "LibTV - 专业视频创作工具"
+  prev_sprint_context: ".workflow/context-sprint11.yaml"
+  gap_analysis: "见 docs/sprint11-gap-analysis.md（后置路线图 Sprint 12）"
+  delivery_report: "docs/sprint12-delivery-report.md"
+  pm_review: "docs/sprint12-pm-review.md"
+
+scope:
+  - id: "R26"
+    name: "造型 prompt 自动注入视频生成"
+    owner: "backend"
+    priority: "P1"
+    status: "DONE"
+    features:
+      - "videoService 新增 _enhanceWithStyling：按 currentShot.characterIds 收集 buildStylingPrompt() 拼入最终 prompt"
+      - "兼容 Character 实例与普通对象；空 characterIds/无造型不污染 prompt"
+      - "修复 projectService.hydrateProject 漏传 wardrobe/makeup/styling（重启丢失）"
+  - id: "R27"
+    name: "编辑器角色 tab 造型表单 UI"
+    owner: "frontend"
+    priority: "P1"
+    status: "DONE"
+    features:
+      - "角色卡片新增 wardrobe/makeup/styling 三字段（预填）与保存按钮"
+      - "PATCH /api/characters/:id/styling，成功 toast + getProject 合并 + 重渲染"
+      - "刷新后值回显；沿用 .form-*/.btn class 与暗色 CSS 变量"
+  - id: "R28"
+    name: "创意片头模块（对标 LibTV 创意片头）"
+    owner: "backend+frontend"
+    priority: "P1"
+    status: "DONE"
+    features:
+      - "titleSequenceService：4 模板 classic-gold/glitch-cyber/ink-wash/neon-retro"
+      - "Pillow（scripts/render_title_card.py + utils/titleCard.js）真实绘制片名/副标题 PNG，ffmpeg 合成并 mux 静音 AAC"
+      - "路由 GET /api/title-sequences、POST /api/title-sequences/:id/generate（400/404 语义）"
+      - "前端 titleSequences.js：卡片网格/生成/预览/插入 shots[0]；app.js 路由 + index.html 导航"
+      - "缺 python/Pillow 回退纯色背景并如实标记 titleRendered:false"
+
+out_of_scope:
+  - "导演模式（后置 Sprint 13）"
+  - "画布五 tab 整合（后置 Sprint 13/14）"
+  - "剧场厂牌体系（后置 Sprint 13）"
+  - "未修改 /Users/link/myApp/CineAI"
+
+test_baseline:
+  before: 321
+  after: 332
+  added: 11
+  result: "332 pass / 0 fail"
+  command: "npm test"
+  lint: "新增/修改文件零 eslint 错误；存量 43 个历史 error 不在本期范围"
+
+subagents:
+  backend:
+    agent_id: "s_000chVIMTCx"
+    status: "DONE"
+    scope: ["R26", "R28-backend"]
+  frontend:
+    agent_id: "s_000chVIxi2K"
+    status: "DONE"
+    scope: ["R27", "R28-frontend"]
+  pm_review:
+    agent_id: "s_000chOxpCq0"
+    status: "DONE"
+    scope: ["交付复核，只看不改"]
+    first_verdict: "带条件通过"
+    final_verdict: "通过 PASS"
+
+state_log:
+  - time: "2026-10-04T19:30:00+08:00"
+    from: "GLOBAL_PENDING"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 12 启动，R26/R27/R28；后端与前端子代理并行分派；基线 321 测试通过"
+  - time: "2026-10-04T20:35:00+08:00"
+    from: "GLOBAL_IN_DEV"
+    to: "GLOBAL_IN_TEST"
+    note: "后端 R26/R28 完成（331 测试），前端 R27/R28 完成并经真实浏览器验证"
+  - time: "2026-10-04T20:50:00+08:00"
+    from: "GLOBAL_IN_TEST"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "PM 首轮复核：带条件通过，3 项重要问题（片名未上屏/无音轨口径/README 未同步）"
+  - time: "2026-10-04T21:20:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_IN_TEST"
+    note: "两子代理并行修复：Pillow 标题卡真实上屏 + 静音 AAC 音轨 + 文案如实化 + README 同步；332 测试通过"
+  - time: "2026-10-04T21:35:00+08:00"
+    from: "GLOBAL_IN_TEST"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "PM 闭环复核：通过 PASS（像素 6955、ffprobe 双流、四模板抽帧可区分、332 测试无回归）"
+  - time: "2026-10-04T21:58:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_DONE"
+    note: "编排者 PORT=3017 最终冒烟全过（双流/400/404/静态 200）；交付报告与 README 已生成同步，流程闭环"

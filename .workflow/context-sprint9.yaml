@@ -1,0 +1,20 @@
+task_id: "TASK-20261004-009"
+task_name: "DreamReel Sprint 9: 企业版与私有化"
+create_time: "2026-10-04T10:40:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+scope:
+  - id: "R20"
+    name: "企业版与私有化"
+    priority: "P3"
+    features:
+      - "审计日志（关键操作留痕/查询）"
+      - "企业安全策略（SSO/密码/水印/数据驻留配置）"
+      - "企业管理概览（团队/成员/用量归集）"
+      - "私有化部署信息"
+
+state_log:
+  - time: "2026-10-04T10:40:00+08:00"
+    from: "GLOBAL_PENDING"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 9 启动"

@@ -1,0 +1,26 @@
+task_id: "TASK-20261003-005"
+task_name: "DreamReel Sprint 5: 作品广场与创作挑战"
+create_time: "2026-10-03T15:30:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+scope:
+  - id: "R09"
+    name: "作品广场与社交"
+    priority: "P2"
+    features:
+      - "公开作品广场流（浏览/分类/排序）"
+      - "作品点赞/收藏/播放"
+      - "作品详情与作者跳转"
+  - id: "R10"
+    name: "创作挑战与活动"
+    priority: "P2"
+    features:
+      - "官方创作挑战列表（主题/规则/周期/奖励）"
+      - "参与挑战（基于挑战主题创建项目并投稿）"
+      - "挑战作品排行与状态"
+
+state_log:
+  - time: "2026-10-03T15:30:00+08:00"
+    from: "GLOBAL_PENDING"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 5 启动"

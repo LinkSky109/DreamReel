@@ -1,0 +1,98 @@
+task_id: "TASK-20261004-013"
+task_name: "DreamReel Sprint 13: 导演模式 + 剧场计划厂牌体系"
+create_time: "2026-10-04T20:14:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+reference:
+  benchmark_url: "https://www.liblib.tv/"
+  benchmark_name: "LibTV - 专业视频创作工具"
+  prev_sprint_context: ".workflow/context-sprint12.yaml"
+  gap_analysis: "docs/sprint11-gap-analysis.md（第五节 Sprint 13 = 导演模式 + 剧场计划厂牌体系）"
+  delivery_report: "docs/sprint13-delivery-report.md"
+  pm_review: "docs/sprint13-pm-review.md"
+
+scope:
+  - id: "R29"
+    name: "导演模式（对标 LibTV 导演执导：prompt 编排增强）"
+    owner: "backend+frontend"
+    priority: "P1"
+    status: "DEV_DONE"
+    features:
+      - "src/config/directorProfiles.js：5 位导演档案（运镜/节奏/表演/色调光影/配乐情绪 + 导演阐述）+ 纯函数 orchestrateShot/buildDirectorPrompt"
+      - "directorService：list/get/apply/disable；apply 时为每个分镜编排 cameraMovement/duration/directorGuidance 并真实持久化到 project"
+      - "videoService 新增 _enhanceWithDirector，在 _enhanceWithStyling 之后、视觉风格锁定之前注入导演指令到最终 prompt（边界：关闭/未知导演不注入）"
+      - "路由 /api/directors：GET 列表、GET :id、POST :id/apply、POST /disable（静态路径先于 :id 注册）"
+      - "前端 views/directors.js：导演卡片/选择、导演阐述与分维度展示、应用到项目、逐镜指导表、开关；api.js/app.js/index.html 接线"
+  - id: "R30"
+    name: "剧场计划厂牌体系（对标 LibTV 剧场计划/TV Show）"
+    owner: "backend+frontend"
+    priority: "P1"
+    status: "DEV_DONE"
+    features:
+      - "src/models/Studio.js：厂牌（名称/简介/logo/风格定位/主理人）+ 签约成员 members + 剧集 shows（含 projectIds）+ 厂牌作品 projectIds"
+      - "studioService：create/get/list(广场)/update、签约/移除成员、创建剧集、作品归入厂牌/剧集、详情聚合"
+      - "路由 /api/studios：广场/详情/创建/更新、成员、剧集 CRUD、作品归入"
+      - "前端 views/studios.js：厂牌广场、厂牌详情（主理人/签约创作者/剧集与作品/归入作品）、创建厂牌表单；api.js/app.js/index.html 接线"
+
+out_of_scope:
+  - "画布五 tab 整合（Sprint 14）"
+  - "图片生成 / 音频生成独立 tab（Sprint 14）"
+  - "智能剪辑模块（Sprint 14）"
+  - "禁止修改 /Users/link/myApp/CineAI（全程只读）"
+  - "不清理仓库存量 43 个历史 eslint error（仅触碰本期新增/修改文件）"
+
+test_baseline:
+  before: 332
+  after: 365
+  added: 33
+  result: "365 pass / 0 fail（编排者 2026-10-04T20:36 独立复跑核实）"
+  command: "npm test"
+  lint: "新增文件零 eslint 错误；全仓 42 个历史 error（hint 预估 43，实测 42，差异为测量时点），未顺手修复"
+
+subagents:
+  backend:
+    agent_id: "s_000chZVyaEx"
+    status: "DEV_DONE"
+    port: 3021
+    scope: ["R29-backend", "R30-backend", "tests"]
+    owns: ["src/**", "tests/**"]
+  frontend:
+    agent_id: "s_000chZValOb"
+    status: "DEV_DONE"
+    port: 3022
+    scope: ["R29-frontend", "R30-frontend"]
+    owns: ["public/**"]
+  pm_review:
+    agent_id: "s_000chOWrRC6"
+    status: "DONE"
+    port_first: 3030
+    port_recheck: 3031
+    scope: ["交付复核，只看不改"]
+    verdicts: ["首轮即通过 PASS（唯一一轮）"]
+    note: "PASS 后仅改测试钩子与数据清理，未改生产业务逻辑，PASS 持续有效"
+
+state_log:
+  - time: "2026-10-04T20:14:00+08:00"
+    from: "GLOBAL_PENDING"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 13 启动，R29 导演模式 + R30 剧场厂牌；冻结 API 契约，后端与前端开发子代理同轮并行；基线 332 测试通过"
+  - time: "2026-10-04T20:36:00+08:00"
+    from: "GLOBAL_IN_DEV"
+    to: "GLOBAL_IN_TEST"
+    note: "后端 R29/R30 完成（新增 33 测试），前端两页完成并真实浏览器 E2E；编排者独立复跑 365 pass/0 fail、新文件 eslint 零错误、存量 42 历史 error 如实记录"
+  - time: "2026-10-04T20:38:00+08:00"
+    from: "GLOBAL_IN_TEST"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "派独立 PM 复核子代理 s_000chOWrRC6（PORT=3030，只看不改，自跑测试/HTTP 复测）"
+  - time: "2026-10-04T20:53:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "PM 首轮即通过 PASS：stub provider 实证导演 prompt 注入可区分、关闭/未知不污染；R30 全链路 curl 通过、重启不丢；边界与 CineAI 干净。唯一 Major=README 未同步（编排者收口），Minor=测试卫生/演示数据"
+  - time: "2026-10-04T20:58:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "编排者同步 README（功能/两 API 小节/测试数/结构/路线图）；后端补两新测试文件清理钩子（净增为0）、清理 6 测试厂牌+1 孤儿 project、改写雨夜影像厂为正经 demo；365 pass/0 fail"
+  - time: "2026-10-04T21:02:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_DONE"
+    note: "编排者 PORT=3040 最终独立冒烟全过（导演编排/注入边界、厂牌成员/剧集/归入去重、400/404/201、静态与深链 200）；进程端口与临时文件已清理；交付报告生成，流程闭环"

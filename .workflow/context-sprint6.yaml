@@ -1,0 +1,20 @@
+task_id: "TASK-20261003-006"
+task_name: "DreamReel Sprint 6: 团队协作空间"
+create_time: "2026-10-03T16:20:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+scope:
+  - id: "R12"
+    name: "团队协作空间"
+    priority: "P2"
+    features:
+      - "创建团队、团队资料"
+      - "邀请成员、角色权限（owner/editor/viewer）"
+      - "团队项目共享与成员列表"
+      - "团队工作台"
+
+state_log:
+  - time: "2026-10-03T16:20:00+08:00"
+    from: "GLOBAL_PENDING"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 6 启动"

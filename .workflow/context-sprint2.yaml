@@ -1,0 +1,69 @@
+task_id: "TASK-20261002-002"
+task_name: "DreamReel Sprint 2: 角色与场景体系"
+create_time: "2026-10-02T15:30:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+requirement:
+  req_id: "SPRINT-2"
+  req_title: "P1需求：场景库 + 角色表情动作 + 字幕样式"
+  acceptance_criteria:
+    - "内置场景库≥20个，支持用户自定义场景，镜头中可快速选择场景"
+    - "预设表情12种+动作10种，镜头中选择后自动组合到prompt"
+    - "多角色同框可指定每个角色的表情、动作和位置"
+    - "字幕支持字体/大小/颜色/描边/位置自定义"
+    - "双语字幕（中+英同时显示）"
+    - "字幕样式实时预览"
+    - "所有新功能有单元测试，321+测试全部通过"
+    - "前端页面全功能测试通过"
+  product_owner: "用户"
+  req_doc_link: "docs/requirements-analysis.md"
+
+dev_context:
+  dev_owner: "AI Agent"
+  feature_branch: "sprint-2-character-scene"
+  mr_id: ""
+  cr_approvers: []
+  unit_test_coverage: 0
+  lint_result: "pending"
+  dev_complete_time: ""
+  sub_tasks:
+    - id: "R05"
+      name: "场景库与场景复用"
+      status: "IN_DEV"
+      estimated_hours: 6
+    - id: "R04"
+      name: "角色表情与动作库"
+      status: "PENDING_DEV"
+      estimated_hours: 8
+    - id: "R07"
+      name: "字幕样式自定义"
+      status: "PENDING_DEV"
+      estimated_hours: 6
+
+test_context:
+  test_owner: "AI Agent"
+  test_env: "local"
+  test_case_total: 0
+  test_case_pass: 0
+  bug_count: 0
+  bug_closed_count: 0
+  test_report_link: ""
+  test_complete_time: ""
+
+consistency_context:
+  code_check: "pending"
+  env_check: "pending"
+  data_check: "pending"
+  doc_check: "pending"
+  inspection_report_link: ""
+
+sla_info:
+  total_deadline: "2026-10-09T23:59:00+08:00"
+  current_node_timeout: 0
+  risk_level: "normal"
+
+operation_logs:
+  - time: "2026-10-02T15:30:00+08:00"
+    operator: "AI Agent"
+    action: "Sprint 2 工作流初始化"
+    result: "GLOBAL_IN_DEV，3个P1子任务已录入，开始R05场景库开发"

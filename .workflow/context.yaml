@@ -1,0 +1,86 @@
+task_id: "TASK-20261002-001"
+task_name: "DreamReel Sprint 1: 核心创作体验提升"
+create_time: "2026-10-02T13:30:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+requirement:
+  req_id: "SPRINT-1"
+  req_title: "P0需求：单镜头重生成 + 可视化故事板 + BGM音效库"
+  acceptance_criteria:
+    - "单镜头可独立重新生成，支持锁定，不影响其他镜头"
+    - "时间轴可视化展示所有镜头，支持拖拽排序，实时显示总时长"
+    - "已生成镜头显示缩略图"
+    - "BGM库≥20首，按情绪分类，支持试听和AI推荐"
+    - "音效库≥30个"
+    - "三轨音量独立调节，导出时正确混音"
+    - "BGM自动淡入淡出"
+    - "所有新功能有单元测试，覆盖率≥80%"
+    - "前端页面全功能测试通过"
+    - "端到端验证：创建项目→生成剧本→生成视频→加BGM→导出成片"
+  product_owner: "用户"
+  req_doc_link: "docs/requirements-analysis.md"
+
+dev_context:
+  dev_owner: "AI Agent"
+  feature_branch: "sprint-1-core-experience"
+  mr_id: ""
+  cr_approvers: []
+  unit_test_coverage: 0
+  lint_result: "pending"
+  dev_complete_time: ""
+  sub_tasks:
+    - id: "R02"
+      name: "单镜头重生成与多版本候选"
+      status: "DEV_DONE"
+      estimated_hours: 11
+      actual_hours: 1.5
+    - id: "R01"
+      name: "可视化故事板/分镜时间轴"
+      status: "DEV_DONE"
+      estimated_hours: 10
+      actual_hours: 1
+    - id: "R03"
+      name: "BGM/音效库与三轨混音"
+      status: "DEV_DONE"
+      estimated_hours: 13
+      actual_hours: 1.5
+
+test_context:
+  test_owner: "AI Agent"
+  test_env: "local"
+  test_case_total: 0
+  test_case_pass: 0
+  bug_count: 0
+  bug_closed_count: 0
+  test_report_link: ""
+  test_complete_time: ""
+
+consistency_context:
+  code_check: "pending"
+  env_check: "pending"
+  data_check: "pending"
+  doc_check: "pending"
+  inspection_report_link: ""
+
+sla_info:
+  total_deadline: "2026-10-07T23:59:00+08:00"
+  current_node_timeout: 0
+  risk_level: "normal"
+
+operation_logs:
+  - time: "2026-10-02T13:30:00+08:00"
+    operator: "AI Agent"
+    action: "工作流初始化"
+    result: "GLOBAL_PENDING，需求分析完成，3个P0子任务已录入"
+  - time: "2026-10-02T14:00:00+08:00"
+    operator: "AI Agent"
+    action: "Sprint 1 开发完成"
+    result: "R02(单镜头重生成)+R01(故事板时间轴)+R03(BGM音效库)全部DEV_DONE，321单元测试通过，进入GLOBAL_IN_TEST"
+  - time: "2026-10-02T14:30:00+08:00"
+    operator: "AI Agent"
+    action: "Sprint 1 测试完成"
+    result: "API接口测试通过，前端页面全功能测试通过，修复debounce未定义bug，进入GLOBAL_IN_CONSISTENCY"
+  - time: "2026-10-02T15:00:00+08:00"
+    operator: "AI Agent"
+    action: "Sprint 1 交付完成"
+    result: "一致性校验通过，README已更新，交付报告已生成 docs/sprint1-delivery-report.md，GLOBAL_DONE"

@@ -1,0 +1,57 @@
+task_id: "TASK-20261004-011"
+task_name: "DreamReel Sprint 11: 对标 LibTV 差距补齐"
+create_time: "2026-10-04T18:00:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+reference:
+  benchmark_url: "https://www.liblib.tv/"
+  benchmark_name: "LibTV - 专业视频创作工具"
+  gap_analysis: "见 docs/sprint11-gap-analysis.md"
+
+scope:
+  - id: "R20"
+    name: "多视频模型 Provider 矩阵"
+    priority: "P0"
+    features:
+      - "新增 Seedance / Minimax / Wan 三个国产视频 Provider（兼容 OpenAI 风格接口）"
+      - "Provider 列表接口暴露可选模型与能力标签"
+      - "Mock 模式默认，真实 Key 配置后切换"
+  - id: "R22"
+    name: "剧本原创与改编"
+    priority: "P0"
+    features:
+      - "scriptService.adaptScript：基于已有小说/IP 文本扩写为分镜脚本"
+      - "路由 POST /api/script/adapt：入参 sourceText / adaptationType / targetDuration"
+      - "保留原创 generateScript 路径不变"
+  - id: "R23"
+    name: "角色造型室"
+    priority: "P1"
+    features:
+      - "Character 模型新增 wardrobe / makeup / styling 三个造型字段"
+      - "characterService.updateStyling 接口"
+      - "造型描述自动注入视频生成 prompt"
+  - id: "R25"
+    name: "广场作品一键复刻"
+    priority: "P0"
+    features:
+      - "galleryService.remix(publicProjectId, userId) 深拷贝公开作品为新项目"
+      - "镜头状态重置为 pending，不复制视频文件"
+      - "路由 POST /api/gallery/:id/remix"
+
+state_log:
+  - time: "2026-10-04T18:00:00+08:00"
+    from: "GLOBAL_PENDING"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 11 启动，对标 LibTV 补齐 4 个差距需求"
+  - time: "2026-10-04T18:45:00+08:00"
+    from: "GLOBAL_IN_DEV"
+    to: "GLOBAL_IN_TEST"
+    note: "R20/R22/R23/R25 后端+前端完成"
+  - time: "2026-10-04T18:50:00+08:00"
+    from: "GLOBAL_IN_TEST"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "321 单元测试通过，E2E 冒烟 4 接口全部 200"
+  - time: "2026-10-04T18:55:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_DONE"
+    note: "文档与 README 一致性校验通过，交付报告已生成"

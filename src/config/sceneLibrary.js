@@ -1,0 +1,226 @@
+/**
+ * 内置场景库
+ * 20+ 预设场景，支持快速复用
+ * 场景参考图存放于 storage/scenes/
+ */
+
+export const BUILTIN_SCENES = [
+  // 科幻类
+  {
+    id: 'scene-space-station',
+    name: '太空舱内部',
+    category: 'scifi',
+    description: '未来感太空舱，金属墙壁，全息显示屏，冷蓝色灯光',
+    tags: ['科幻', '太空', '室内', '未来'],
+    lighting: 'cold-blue',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-mars-surface',
+    name: '火星表面',
+    category: 'scifi',
+    description: '红色荒漠，远处山脉，低重力环境，橙红色天空',
+    tags: ['科幻', '火星', '户外', '荒漠'],
+    lighting: 'warm-orange',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-cyber-city',
+    name: '赛博都市',
+    category: 'scifi',
+    description: '霓虹灯闪烁的未来城市街道，高楼大厦，全息广告，雨夜',
+    tags: ['赛博朋克', '城市', '夜晚', '霓虹'],
+    lighting: 'neon',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-lab',
+    name: '未来实验室',
+    category: 'scifi',
+    description: '高科技实验室，白色墙壁，精密仪器，玻璃隔断',
+    tags: ['科幻', '实验室', '室内', '科技'],
+    lighting: 'bright-white',
+    referenceImage: null,
+  },
+
+  // 自然类
+  {
+    id: 'scene-rainforest',
+    name: '热带雨林',
+    category: 'nature',
+    description: '茂密的热带雨林，高大树木，藤蔓缠绕，阳光透过树叶',
+    tags: ['自然', '森林', '户外', '热带'],
+    lighting: 'dappled-sunlight',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-beach',
+    name: '海边沙滩',
+    category: 'nature',
+    description: '金色沙滩，蔚蓝海水，海浪拍岸，阳光明媚',
+    tags: ['自然', '海', '沙滩', '户外'],
+    lighting: 'bright-sunlight',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-snow-mountain',
+    name: '雪山',
+    category: 'nature',
+    description: '白雪皑皑的山峰，寒冷空气，蓝天白云',
+    tags: ['自然', '雪山', '户外', '冬季'],
+    lighting: 'cold-bright',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-desert',
+    name: '沙漠',
+    category: 'nature',
+    description: '广袤沙漠，沙丘起伏，烈日当空，远处海市蜃楼',
+    tags: ['自然', '沙漠', '户外', '干旱'],
+    lighting: 'hot-sunlight',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-forest',
+    name: '森林小径',
+    category: 'nature',
+    description: '幽静森林小径，落叶铺地，鸟鸣声，斑驳光影',
+    tags: ['自然', '森林', '小径', '户外'],
+    lighting: 'soft-dappled',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-ocean',
+    name: '深海',
+    category: 'nature',
+    description: '深蓝色海底，珊瑚礁，鱼群游动，光线从水面透入',
+    tags: ['自然', '海', '水下', '蓝色'],
+    lighting: 'underwater-blue',
+    referenceImage: null,
+  },
+
+  // 城市类
+  {
+    id: 'scene-old-street',
+    name: '古城街道',
+    category: 'city',
+    description: '青石板路，古老建筑，传统店铺，红灯笼',
+    tags: ['城市', '古城', '街道', '传统'],
+    lighting: 'warm-lantern',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-cafe',
+    name: '咖啡馆',
+    category: 'city',
+    description: '温馨咖啡馆，木质桌椅，暖黄灯光，窗外街景',
+    tags: ['城市', '咖啡馆', '室内', '温馨'],
+    lighting: 'warm-yellow',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-rooftop',
+    name: '城市天台',
+    category: 'city',
+    description: '高楼天台，俯瞰城市夜景，围栏，晚风',
+    tags: ['城市', '天台', '夜晚', '户外'],
+    lighting: 'city-night',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-subway',
+    name: '地铁站',
+    category: 'city',
+    description: '现代化地铁站，列车进站，人群，荧光灯',
+    tags: ['城市', '地铁', '室内', '交通'],
+    lighting: 'fluorescent',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-alley',
+    name: '小巷',
+    category: 'city',
+    description: '狭窄小巷，砖墙，垃圾桶，昏暗路灯',
+    tags: ['城市', '小巷', '户外', '昏暗'],
+    lighting: 'dim-streetlight',
+    referenceImage: null,
+  },
+
+  // 室内类
+  {
+    id: 'scene-living-room',
+    name: '现代客厅',
+    category: 'indoor',
+    description: '现代简约客厅，沙发，电视，落地窗，绿植',
+    tags: ['室内', '客厅', '现代', '家庭'],
+    lighting: 'natural-window',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-office',
+    name: '办公室',
+    category: 'indoor',
+    description: '开放式办公室，工位，电脑，落地窗，城市景观',
+    tags: ['室内', '办公室', '工作', '现代'],
+    lighting: 'bright-office',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-bedroom',
+    name: '卧室',
+    category: 'indoor',
+    description: '温馨卧室，大床，床头柜，台灯，窗帘',
+    tags: ['室内', '卧室', '温馨', '私人'],
+    lighting: 'soft-lamp',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-library',
+    name: '图书馆',
+    category: 'indoor',
+    description: '安静图书馆，高大书架，阅读桌，台灯',
+    tags: ['室内', '图书馆', '安静', '书籍'],
+    lighting: 'warm-reading',
+    referenceImage: null,
+  },
+
+  // 奇幻类
+  {
+    id: 'scene-castle',
+    name: '古堡大厅',
+    category: 'fantasy',
+    description: '中世纪古堡大厅，石墙，火把，长桌，盔甲',
+    tags: ['奇幻', '古堡', '室内', '中世纪'],
+    lighting: 'torchlight',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-magic-forest',
+    name: '魔法森林',
+    category: 'fantasy',
+    description: '神秘魔法森林，发光植物，精灵，雾气弥漫',
+    tags: ['奇幻', '森林', '魔法', '神秘'],
+    lighting: 'magical-glow',
+    referenceImage: null,
+  },
+  {
+    id: 'scene-temple',
+    name: '古代神殿',
+    category: 'fantasy',
+    description: '宏伟古代神殿，石柱，祭坛，阳光从穹顶洒入',
+    tags: ['奇幻', '神殿', '古代', '宏伟'],
+    lighting: 'dramatic-rays',
+    referenceImage: null,
+  },
+]
+
+export const SCENE_CATEGORIES = [
+  { id: 'all', name: '全部', icon: '🌍' },
+  { id: 'scifi', name: '科幻', icon: '🚀' },
+  { id: 'nature', name: '自然', icon: '🌿' },
+  { id: 'city', name: '城市', icon: '🏙️' },
+  { id: 'indoor', name: '室内', icon: '🏠' },
+  { id: 'fantasy', name: '奇幻', icon: '✨' },
+]
+
+export default BUILTIN_SCENES

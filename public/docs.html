@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DreamReel API 文档</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #0a0a0f;
+      color: #f0f0f5;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 280px;
+      background: #14141c;
+      border-right: 1px solid #2a2a3a;
+      padding: 24px 0;
+      position: fixed;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar-title {
+      padding: 0 24px 16px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #8b5cf6;
+    }
+    .sidebar-subtitle {
+      padding: 0 24px 20px;
+      font-size: 12px;
+      color: #666677;
+    }
+    .nav-section { margin-bottom: 16px; }
+    .nav-section-title {
+      padding: 8px 24px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #666677;
+      font-weight: 600;
+    }
+    .nav-item {
+      padding: 6px 24px;
+      color: #9999aa;
+      cursor: pointer;
+      text-decoration: none;
+      display: block;
+      font-size: 13px;
+      transition: color 0.2s;
+    }
+    .nav-item:hover { color: #f0f0f5; background: #1e1e2a; }
+    .content {
+      margin-left: 280px;
+      flex: 1;
+      padding: 40px 48px;
+      max-width: 900px;
+    }
+    h1 { font-size: 32px; margin-bottom: 8px; }
+    h2 {
+      font-size: 24px;
+      margin: 48px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #2a2a3a;
+    }
+    h3 { font-size: 18px; margin: 32px 0 12px; }
+    p { color: #9999aa; margin-bottom: 12px; }
+    .endpoint {
+      background: #14141c;
+      border: 1px solid #2a2a3a;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+    .endpoint-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #1e1e2a;
+      border-bottom: 1px solid #2a2a3a;
+    }
+    .method {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: monospace;
+    }
+    .method.get { background: rgba(16,185,129,0.2); color: #10b981; }
+    .method.post { background: rgba(139,92,246,0.2); color: #8b5cf6; }
+    .method.put { background: rgba(245,158,11,0.2); color: #f59e0b; }
+    .method.delete { background: rgba(239,68,68,0.2); color: #ef4444; }
+    .path { font-family: monospace; font-size: 14px; }
+    .endpoint-desc { padding: 12px 16px; color: #9999aa; font-size: 13px; }
+    .endpoint-body { padding: 16px; }
+    .params-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+    }
+    .params-table th, .params-table td {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid #2a2a3a;
+      font-size: 13px;
+    }
+    .params-table th { color: #666677; font-weight: 600; font-size: 12px; }
+    .params-table td { color: #9999aa; }
+    .params-table code {
+      background: #1e1e2a;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 12px;
+      color: #8b5cf6;
+    }
+    pre {
+      background: #0a0a0f;
+      border: 1px solid #2a2a3a;
+      border-radius: 6px;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    code { font-family: 'SF Mono', Monaco, monospace; }
+    .json-key { color: #8b5cf6; }
+    .json-string { color: #10b981; }
+    .json-number { color: #f59e0b; }
+    .json-bool { color: #ef4444; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge.required { background: rgba(239,68,68,0.2); color: #ef4444; }
+    .badge.optional { background: rgba(102,102,119,0.2); color: #666677; }
+    .note {
+      background: rgba(139,92,246,0.1);
+      border-left: 3px solid #8b5cf6;
+      padding: 12px 16px;
+      border-radius: 0 6px 6px 0;
+      margin: 16px 0;
+      font-size: 13px;
+      color: #9999aa;
+    }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 24px;
+      color: #8b5cf6;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-title">🎬 DreamReel API</div>
+      <div class="sidebar-subtitle">v0.1.0 · 梦卷 AI短片创作平台</div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">概览</div>
+        <a class="nav-item" href="#intro">简介</a>
+        <a class="nav-item" href="#auth">认证</a>
+        <a class="nav-item" href="#errors">错误处理</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">项目</div>
+        <a class="nav-item" href="#projects">项目 CRUD</a>
+        <a class="nav-item" href="#project-import-export">导入/导出</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">创作</div>
+        <a class="nav-item" href="#script">剧本生成</a>
+        <a class="nav-item" href="#video">视频生成</a>
+        <a class="nav-item" href="#characters">角色管理</a>
+        <a class="nav-item" href="#dubbing">配音字幕</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">增强功能</div>
+        <a class="nav-item" href="#styles">风格迁移</a>
+        <a class="nav-item" href="#templates">模板市场</a>
+        <a class="nav-item" href="#analysis">AI 影评</a>
+        <a class="nav-item" href="#collaboration">协作共创</a>
+        <a class="nav-item" href="#versions">版本历史</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">账户</div>
+        <a class="nav-item" href="#auth-api">用户认证</a>
+        <a class="nav-item" href="#subscription">订阅付费</a>
+        <a class="nav-item" href="#quota">额度管理</a>
+        <a class="nav-item" href="#stats">数据统计</a>
+        <a class="nav-item" href="#notifications">通知系统</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">系统</div>
+        <a class="nav-item" href="#moderation">内容审核</a>
+        <a class="nav-item" href="#providers">Provider 配置</a>
+        <a class="nav-item" href="#system">系统信息</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <a class="back-link" href="/">← 返回应用</a>
+      <h1>DreamReel API 文档</h1>
+      <p>梦卷 AI 短片创作平台的完整 API 接口文档。基础 URL：<code>http://localhost:3000/api</code></p>
+
+      <h2 id="intro">简介</h2>
+      <p>DreamReel API 采用 RESTful 设计，所有请求和响应均使用 JSON 格式。默认使用 Mock 模式，无需 API Key 即可体验全部功能。</p>
+
+      <div class="note">
+        <strong>Mock 模式：</strong>默认视频/LLM/TTS 均使用 Mock Provider，生成的视频为占位视频。如需接入真实模型，请设置环境变量 <code>VIDEO_PROVIDER</code>、<code>LLM_PROVIDER</code>、<code>TTS_PROVIDER</code>。
+      </div>
+
+      <h2 id="auth">认证</h2>
+      <p>API 支持两种访问模式：</p>
+      <ul style="color: #9999aa; margin-left: 20px; margin-bottom: 16px;">
+        <li><strong>未登录：</strong>自动使用 <code>default</code> 用户，适合快速体验</li>
+        <li><strong>已登录：</strong>在请求头中携带 <code>Authorization: Bearer &lt;token&gt;</code></li>
+      </ul>
+
+      <h2 id="errors">错误处理</h2>
+      <p>错误响应格式统一为：</p>
+      <pre><code>{
+  <span class="json-key">"error"</span>: <span class="json-string">"错误描述信息"</span>
+}</code></pre>
+
+      <h2 id="projects">项目管理</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/projects</span>
+        </div>
+        <div class="endpoint-desc">获取项目列表，支持搜索、筛选、排序和分页。</div>
+        <div class="endpoint-body">
+          <table class="params-table">
+            <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+            <tr><td><code>search</code></td><td>string</td><td><span class="badge optional">可选</span></td><td>按名称/描述搜索</td></tr>
+            <tr><td><code>status</code></td><td>string</td><td><span class="badge optional">可选</span></td><td>all / in-progress / completed / empty</td></tr>
+            <tr><td><code>style</code></td><td>string</td><td><span class="badge optional">可选</span></td><td>风格 ID 筛选</td></tr>
+            <tr><td><code>platform</code></td><td>string</td><td><span class="badge optional">可选</span></td><td>landscape / portrait / square</td></tr>
+            <tr><td><code>sort</code></td><td>string</td><td><span class="badge optional">可选</span></td><td>updatedAt / createdAt / name</td></tr>
+            <tr><td><code>limit</code></td><td>number</td><td><span class="badge optional">可选</span></td><td>每页数量，默认 50</td></tr>
+            <tr><td><code>offset</code></td><td>number</td><td><span class="badge optional">可选</span></td><td>偏移量</td></tr>
+          </table>
+          <pre><code>{
+  <span class="json-key">"total"</span>: <span class="json-number">42</span>,
+  <span class="json-key">"items"</span>: [
+    {
+      <span class="json-key">"id"</span>: <span class="json-string">"uuid"</span>,
+      <span class="json-key">"name"</span>: <span class="json-string">"我的项目"</span>,
+      <span class="json-key">"style"</span>: <span class="json-string">"nolan"</span>,
+      <span class="json-key">"shots"</span>: []
+    }
+  ]
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/projects</span>
+        </div>
+        <div class="endpoint-desc">创建新项目。</div>
+        <div class="endpoint-body">
+          <pre><code>{
+  <span class="json-key">"name"</span>: <span class="json-string">"火星探险"</span>,
+  <span class="json-key">"description"</span>: <span class="json-string">"项目描述"</span>,
+  <span class="json-key">"style"</span>: <span class="json-string">"nolan"</span>,
+  <span class="json-key">"platform"</span>: <span class="json-string">"landscape"</span>
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/projects/:projectId</span>
+        </div>
+        <div class="endpoint-desc">获取项目详情。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method put">PUT</span>
+          <span class="path">/api/projects/:projectId</span>
+        </div>
+        <div class="endpoint-desc">更新项目信息。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method delete">DELETE</span>
+          <span class="path">/api/projects/:projectId</span>
+        </div>
+        <div class="endpoint-desc">删除项目及其关联的视频、音频文件。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/projects/:projectId/favorite</span>
+        </div>
+        <div class="endpoint-desc">切换项目收藏状态。返回 <code>{ projectId, isFavorite }</code>。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/projects/:projectId/archive</span>
+        </div>
+        <div class="endpoint-desc">切换项目归档状态。归档项目默认不在列表中显示。返回 <code>{ projectId, isArchived }</code>。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/projects/:projectId/duplicate</span>
+        </div>
+        <div class="endpoint-desc">复制项目（深拷贝剧本/角色/镜头/场景）。镜头状态重置为 pending，不复制视频文件。Body: <code>{ newName? }</code>。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/projects/batch/delete</span>
+        </div>
+        <div class="endpoint-desc">批量删除项目。Body: <code>{ projectIds: string[] }</code>。返回 <code>{ success: [], failed: [] }</code>。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/projects/batch/archive</span>
+        </div>
+        <div class="endpoint-desc">批量归档/取消归档。Body: <code>{ projectIds: string[], archive: boolean }</code>。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/projects/batch/favorite</span>
+        </div>
+        <div class="endpoint-desc">批量收藏/取消收藏。Body: <code>{ projectIds: string[], favorite: boolean }</code>。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/projects/tags</span>
+        </div>
+        <div class="endpoint-desc">获取所有项目标签列表。</div>
+      </div>
+
+      <h2 id="project-import-export">项目导入/导出</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/projects/:projectId/export</span>
+        </div>
+        <div class="endpoint-desc">导出项目为 JSON 文件下载。包含剧本、角色、镜头、场景等完整数据。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/projects/import</span>
+        </div>
+        <div class="endpoint-desc">从 JSON 文件导入项目。导入的镜头状态重置为 pending，需重新生成视频。</div>
+        <div class="endpoint-body">
+          <p>请求体为导出的 JSON 文件内容（或 <code>{ projectData: {...} }</code> 格式）。</p>
+        </div>
+      </div>
+
+      <h2 id="script">剧本生成</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/script/generate</span>
+        </div>
+        <div class="endpoint-desc">AI 生成完整剧本，包含分镜、角色、旁白。</div>
+        <div class="endpoint-body">
+          <pre><code>{
+  <span class="json-key">"idea"</span>: <span class="json-string">"一个机器人在太空站觉醒"</span>,
+  <span class="json-key">"targetDuration"</span>: <span class="json-number">60</span>,
+  <span class="json-key">"style"</span>: <span class="json-string">"nolan"</span>,
+  <span class="json-key">"platform"</span>: <span class="json-string">"landscape"</span>,
+  <span class="json-key">"projectId"</span>: <span class="json-string">"uuid"</span>
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/script/revise</span>
+        </div>
+        <div class="endpoint-desc">根据反馈修改剧本。</div>
+      </div>
+
+      <h2 id="video">视频生成</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/video/generate</span>
+        </div>
+        <div class="endpoint-desc">生成单个镜头视频。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/video/generate-all/:projectId</span>
+        </div>
+        <div class="endpoint-desc">批量并行生成所有未完成镜头（默认 3 并发）。异步任务，返回 202 后轮询项目状态。</div>
+        <div class="endpoint-body">
+          <div class="note">
+            <strong>并行生成：</strong>通过 <code>VIDEO_MAX_CONCURRENT</code> 环境变量调整并发数，默认 3。
+          </div>
+        </div>
+      </div>
+
+      <h2 id="characters">角色管理</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/characters</span>
+        </div>
+        <div class="endpoint-desc">创建角色。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/characters/:id/lock</span>
+        </div>
+        <div class="endpoint-desc">锁定角色（添加参考图），用于保持多镜头一致性。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/characters/:id/evaluate</span>
+        </div>
+        <div class="endpoint-desc">评估角色一致性评分。</div>
+      </div>
+
+      <h2 id="dubbing">配音字幕</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/dubbing/generate</span>
+        </div>
+        <div class="endpoint-desc">为项目生成多语种配音和字幕。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/dubbing/voices</span>
+        </div>
+        <div class="endpoint-desc">获取可用音色列表。</div>
+      </div>
+
+      <h2 id="styles">风格迁移</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/styles</span>
+        </div>
+        <div class="endpoint-desc">获取所有可用导演风格预设（10 种）。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/styles/:styleId</span>
+        </div>
+        <div class="endpoint-desc">获取风格详情，包含视觉特征和 prompt 修饰词。</div>
+      </div>
+
+      <h2 id="templates">模板市场</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/templates</span>
+        </div>
+        <div class="endpoint-desc">获取所有内置模板（6 个）。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/templates/:templateId/create</span>
+        </div>
+        <div class="endpoint-desc">从模板创建项目，可自动生成剧本。</div>
+      </div>
+
+      <h2 id="analysis">AI 影评分析</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/analysis/:projectId</span>
+        </div>
+        <div class="endpoint-desc">AI 分析项目的镜头语言、叙事结构、节奏控制、角色一致性，给出专业级反馈。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/analysis/:projectId</span>
+        </div>
+        <div class="endpoint-desc">获取缓存的分析结果。</div>
+      </div>
+
+      <h2 id="collaboration">协作共创</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/collaboration/:projectId/comments</span>
+        </div>
+        <div class="endpoint-desc">获取项目评论列表。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/collaboration/:projectId/comments</span>
+        </div>
+        <div class="endpoint-desc">添加评论。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/collaboration/:projectId/activities</span>
+        </div>
+        <div class="endpoint-desc">获取项目活动记录时间线。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/collaboration/:projectId/share</span>
+        </div>
+        <div class="endpoint-desc">设置项目分享（公开/私有）。</div>
+      </div>
+
+      <h2 id="versions">版本历史</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/projects/:projectId/versions</span>
+        </div>
+        <div class="endpoint-desc">获取项目版本列表（按时间倒序）。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/projects/:projectId/versions</span>
+        </div>
+        <div class="endpoint-desc">手动保存当前版本。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/projects/:projectId/versions/:versionId/rollback</span>
+        </div>
+        <div class="endpoint-desc">回滚到指定版本（回滚前自动备份当前状态）。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method delete">DELETE</span>
+          <span class="path">/api/projects/:projectId/versions/:versionId</span>
+        </div>
+        <div class="endpoint-desc">删除指定版本。</div>
+      </div>
+
+      <h2 id="auth-api">用户认证</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/auth/register</span>
+        </div>
+        <div class="endpoint-desc">用户注册。使用 scrypt 密码哈希，零依赖 JWT。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/auth/login</span>
+        </div>
+        <div class="endpoint-desc">用户登录，返回 JWT Token（有效期 7 天）。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/auth/me</span>
+        </div>
+        <div class="endpoint-desc">获取当前用户信息。</div>
+      </div>
+
+      <h2 id="subscription">订阅付费</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/subscription/plans</span>
+        </div>
+        <div class="endpoint-desc">获取所有订阅计划（免费/基础/专业/企业）。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/subscription/current</span>
+        </div>
+        <div class="endpoint-desc">获取当前订阅状态。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/subscription/subscribe</span>
+        </div>
+        <div class="endpoint-desc">订阅/升级计划（当前为模拟支付，Stripe 接入预留）。</div>
+      </div>
+
+      <h2 id="quota">额度管理</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/quota/:userId</span>
+        </div>
+        <div class="endpoint-desc">获取用户额度使用情况（视频生成次数、配音时长）。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/quota/me</span>
+        </div>
+        <div class="endpoint-desc">获取当前登录用户的额度。</div>
+      </div>
+
+      <h2 id="stats">数据统计</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/stats/dashboard</span>
+        </div>
+        <div class="endpoint-desc">获取完整仪表盘数据（概览/趋势/风格分布/额度/最近项目）。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/stats/trend?days=14</span>
+        </div>
+        <div class="endpoint-desc">获取创作趋势数据。</div>
+      </div>
+
+      <h2 id="notifications">通知系统</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/notifications</span>
+        </div>
+        <div class="endpoint-desc">获取通知列表。支持 <code>?unread=true</code> 筛选未读，<code>?limit=20</code> 限制数量。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/notifications/unread-count</span>
+        </div>
+        <div class="endpoint-desc">获取未读通知数量。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/notifications/:id/read</span>
+        </div>
+        <div class="endpoint-desc">标记单条通知为已读。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/notifications/read-all</span>
+        </div>
+        <div class="endpoint-desc">标记所有通知为已读。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method delete">DELETE</span>
+          <span class="path">/api/notifications/:id</span>
+        </div>
+        <div class="endpoint-desc">删除单条通知。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method delete">DELETE</span>
+          <span class="path">/api/notifications</span>
+        </div>
+        <div class="endpoint-desc">清除所有通知。</div>
+      </div>
+
+      <h2 id="moderation">内容审核</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/moderation/check</span>
+        </div>
+        <div class="endpoint-desc">审核文本内容。Body: <code>{ text: string }</code>。返回 <code>{ passed, level, categories, details }</code>。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/moderation/check-batch</span>
+        </div>
+        <div class="endpoint-desc">批量审核文本。Body: <code>{ texts: string[] }</code>。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/moderation/stats</span>
+        </div>
+        <div class="endpoint-desc">获取内容审核统计数据。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/moderation/logs</span>
+        </div>
+        <div class="endpoint-desc">获取审核日志。支持 <code>?limit=50</code>。</div>
+      </div>
+
+      <h2 id="providers">Provider 配置</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/providers/status</span>
+        </div>
+        <div class="endpoint-desc">获取当前 Provider 配置状态，包括视频/LLM/TTS 的当前 Provider、可用列表、API Key 配置状态。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/providers/available</span>
+        </div>
+        <div class="endpoint-desc">获取所有可用 Provider 列表。视频: mock/runway/pika；LLM: mock/openai；TTS: mock/elevenlabs。</div>
+      </div>
+
+      <h2 id="system">系统信息</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/system/info</span>
+        </div>
+        <div class="endpoint-desc">获取完整系统信息：应用版本/运行时长、Node 版本、OS/CPU/内存、存储使用、当前配置。</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/system/health</span>
+        </div>
+        <div class="endpoint-desc">健康检查。返回 <code>{ status, timestamp, uptime }</code>。</div>
+      </div>
+
+      <div style="margin-top: 64px; padding-top: 24px; border-top: 1px solid #2a2a3a; color: #666677; font-size: 12px;">
+        DreamReel / 梦卷 · AI 短片创作平台 · API v0.1.0
+      </div>
+    </main>
+  </div>
+</body>
+</html>

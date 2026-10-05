@@ -1,0 +1,20 @@
+task_id: "TASK-20261004-008"
+task_name: "DreamReel Sprint 8: 素材商城"
+create_time: "2026-10-04T10:00:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+scope:
+  - id: "R14"
+    name: "素材商城"
+    priority: "P3"
+    features:
+      - "素材包浏览（风格/模板/音效，分类筛选）"
+      - "购买（免费领取/付费模拟支付）"
+      - "我的素材资产"
+      - "购买记录"
+
+state_log:
+  - time: "2026-10-04T10:00:00+08:00"
+    from: "GLOBAL_PENDING"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 8 启动"

@@ -1,0 +1,20 @@
+task_id: "TASK-20261004-007"
+task_name: "DreamReel Sprint 7: API 开放平台"
+create_time: "2026-10-04T09:30:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+scope:
+  - id: "R13"
+    name: "API 开放平台"
+    priority: "P3"
+    features:
+      - "API Key 创建/吊销/列表"
+      - "开放接口鉴权（Bearer API Key）"
+      - "开放接口：创建项目/生成视频/查询状态"
+      - "API 用量统计"
+
+state_log:
+  - time: "2026-10-04T09:30:00+08:00"
+    from: "GLOBAL_PENDING"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 7 启动"

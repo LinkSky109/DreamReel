@@ -1,0 +1,33 @@
+task_id: "TASK-20261003-004"
+task_name: "DreamReel Sprint 4: 作品包装与创作者展示"
+create_time: "2026-10-03T14:30:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+scope:
+  - id: "R16"
+    name: "AI海报与封面生成"
+    priority: "P2"
+    features:
+      - "基于项目剧本/镜头自动生成海报文案与版式"
+      - "多种海报比例（竖版海报/横版封面/方形社媒）"
+      - "标题/标语/风格自动编排"
+  - id: "R15"
+    name: "AI预告片自动生成"
+    priority: "P2"
+    features:
+      - "自动挑选高光镜头"
+      - "生成预告片节奏（短镜头+悬念字幕）"
+      - "输出预告片脚本/镜头序列"
+  - id: "R11"
+    name: "创作者主页"
+    priority: "P2"
+    features:
+      - "创作者资料与作品列表"
+      - "作品统计（数量/总时长/获赞）"
+      - "主页公开链接"
+
+state_log:
+  - time: "2026-10-03T14:30:00+08:00"
+    from: "GLOBAL_PENDING"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 4 启动"
