@@ -8,7 +8,7 @@ import logger from '../utils/logger.js'
 import fs from 'fs'
 import path from 'path'
 
-const STORAGE_DIR = path.join(process.cwd(), config.storage.path)
+const STORAGE_DIR = path.resolve(config.storage.path)
 
 /**
  * 将纯 JSON 对象还原为 Model 实例
@@ -19,16 +19,34 @@ function hydrateProject(data) {
   const project = new Project({
     id: data.id,
     name: data.name,
+    description: data.description,
     coverUrl: data.coverUrl,
     status: data.status,
     targetDuration: data.targetDuration,
     style: data.style,
     platform: data.platform,
     script: data.script,
+    tags: data.tags,
+    isFavorite: data.isFavorite,
+    isArchived: data.isArchived,
     userId: data.userId,
+    audioConfig: data.audioConfig,
+    subtitleStyle: data.subtitleStyle,
+    dialogueAssignments: data.dialogueAssignments,
+    visualStyle: data.visualStyle,
+    isPublished: data.isPublished,
+    publishedAt: data.publishedAt,
+    likeCount: data.likeCount,
+    viewCount: data.viewCount,
+    galleryCategory: data.galleryCategory,
+    challengeId: data.challengeId,
+    teamId: data.teamId,
+    providerPreferences: data.providerPreferences,
     // R29：导演模式；R30：所属厂牌
     directorMode: data.directorMode,
     studioId: data.studioId,
+    editPlan: data.editPlan,
+    lastAccessedAt: data.lastAccessedAt,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   })
@@ -82,6 +100,7 @@ function hydrateProject(data) {
         cameraMovement: s.cameraMovement,
         characterIds: s.characterIds,
         sceneId: s.sceneId,
+        referenceImages: s.referenceImages,
         videoUrl: s.videoUrl,
         status: s.status,
         consistencyScore: s.consistencyScore,
@@ -229,6 +248,17 @@ export class ProjectService {
     project.updatedAt = new Date().toISOString()
     this._persist(project)
     return project
+  }
+
+  /**
+   * R34：仅允许剪辑服务写入 editPlan
+   */
+  async setEditPlan(projectId, plan) {
+    const project = await this.getProject(projectId)
+    project.editPlan = plan
+    project.updatedAt = new Date().toISOString()
+    this._persist(project)
+    return project.editPlan
   }
 
   /**
@@ -718,7 +748,8 @@ export class ProjectService {
       if (project.shots) {
         for (const shot of project.shots) {
           if (shot.videoUrl && shot.videoUrl.startsWith('/storage/')) {
-            const videoPath = path.join(STORAGE_DIR, shot.videoUrl.replace('/storage/', ''))
+            const videoPath = this._resolveStoragePath(shot.videoUrl)
+            if (!videoPath) continue
             if (fs.existsSync(videoPath)) {
               fs.unlinkSync(videoPath)
             }
@@ -727,7 +758,8 @@ export class ProjectService {
       }
       // 清理缩略图
       if (project.coverUrl && project.coverUrl.startsWith('/storage/')) {
-        const thumbPath = path.join(STORAGE_DIR, project.coverUrl.replace('/storage/', ''))
+        const thumbPath = this._resolveStoragePath(project.coverUrl)
+        if (!thumbPath) return
         if (fs.existsSync(thumbPath)) {
           fs.unlinkSync(thumbPath)
         }
@@ -735,6 +767,12 @@ export class ProjectService {
     } catch (error) {
       logger.warn('Cleanup project files failed:', error.message)
     }
+  }
+
+  _resolveStoragePath(url) {
+    const resolved = path.resolve(STORAGE_DIR, url.replace('/storage/', ''))
+    const root = path.resolve(STORAGE_DIR) + path.sep
+    return resolved.startsWith(root) ? resolved : null
   }
 }
 

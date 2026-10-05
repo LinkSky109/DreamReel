@@ -1,0 +1,129 @@
+task_id: "TASK-20261005-015"
+task_name: "DreamReel Sprint 15: 音频生成 + 智能剪辑"
+create_time: "2026-10-05T20:05:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+reference:
+  prev_sprint_context: ".workflow/context-sprint14.yaml"
+  prev_delivery_report: "docs/sprint14-delivery-report.md"
+  requirements_source: "docs/sprint14-requirements-analysis.md（第六/七节 R33/R34）"
+  carry_forward: "Sprint 14 Wave 1 工作树改动未提交，已随分支 sprint-15-audio-smart-edit 继续；10 个用户既存未提交改动必须保留"
+
+baseline:
+  repo_root: "/Users/link/work/DreamReel"
+  git_repo: true
+  git_branch: "sprint-15-audio-smart-edit"
+  test_command: "npm test"
+  test_total: 465
+  test_pass: 465
+  test_fail: 0
+  lint_command: "npm run lint"
+  lint_total_errors: 84
+  lint_src_tests_errors: 47
+  lint_public_js_errors: 37
+  audio_assets_total_before: 0
+
+scope:
+  - id: "R33"
+    name: "音频生成独立 Tab"
+    owner: "backend+frontend"
+    priority: "P1"
+    status: "DEV_DONE"
+    features:
+      - "Mock TTS 产本地真实可播放占位音（WAV），明确 placeholder=true"
+      - "ElevenLabs 真实语音路径保留，placeholder=false"
+      - "ffmpeg 程序化生成 BGM/SFX 素材包，补齐现有 20 BGM + 29 SFX 元数据的可用文件"
+      - "音频 tab 展示 provider/占位口径、BGM/SFX 可用性、三轨音量"
+      - "新增混音预听接口 POST /api/audio/preview，返回真实混音文件"
+    acceptance:
+      - "Mock 生成音频文件真实存在且可播放，provider=mock 且 placeholder=true"
+      - "BGM/SFX seed 后 available=true"
+      - "混音预听返回真实音频文件，音量参数进入 ffmpeg filter"
+      - "不做 AI 作曲 / 声音克隆；程序化音频明确标注"
+  - id: "R34"
+    name: "智能剪辑模块"
+    owner: "backend+frontend"
+    priority: "P1"
+    status: "DEV_DONE"
+    features:
+      - "editPlanService：快节奏/叙事/抒情/商业四种规则预设"
+      - "目标总时长自适应；锁定镜头不压缩；BPM 切点对齐"
+      - "project.editPlan 持久化与 hydrate"
+      - "POST /api/edit-plans/generate、GET/DELETE /api/edit-plans/:projectId、POST render"
+      - "videoCompositingService.renderEditPlan 真实渲染；xfade 不支持时降级硬切并如实标记"
+      - "剪辑 tab 展示方案表与渲染/清除操作"
+    acceptance:
+      - "4 镜头目标 15s 生成确定性方案，总时长误差 <= 1s"
+      - "锁定镜头时长不被压缩"
+      - "BPM 存在时切点对齐 beat grid 并标明来源"
+      - "方案清除不修改原镜头；渲染输出真实 MP4"
+      - "不做 ML 内容理解 / 自动高光识别"
+
+out_of_scope:
+  - "AI 作曲 / 声音克隆 / 音色训练"
+  - "ML 视频内容理解 / 自动高光 / 美感打分"
+  - "多轨视频叠加 / 蒙版 / 关键帧 NLE"
+  - "修改 /Users/link/myApp/CineAI"
+
+dev_context:
+  dev_owner: "AI Agent（orchestrator 主实现；独立 reviewer 复核）"
+  feature_branch: "sprint-15-audio-smart-edit"
+  unit_test_coverage: "488 tests / 0 fail（新增 R33 9 例 + R34 13 例 + 清理 containment 1 例）；未启用行覆盖率统计"
+  lint_result: "新增/修改目标文件 0 error；src/tests 存量 46 error（较上期少 1）；public/js 37 个历史 error"
+  dev_complete_time: "2026-10-05T20:15:00+08:00"
+
+test_context:
+  test_owner: "AI Agent"
+  test_env: "local, isolated STORAGE_PATH, NODE_ENV=test"
+  test_case_total: 488
+  test_case_pass: 488
+  bug_count: 0
+  bug_closed_count: 0
+  test_report_link: ""
+  test_complete_time: "2026-10-05T20:18:00+08:00"
+
+consistency_context:
+  code_check: "PASS（新文件 lint 0；node --check 全过；音频/剪辑接口加项目归属校验）"
+  env_check: "PASS（ffmpeg BGM/SFX/混音/xfade 实测可用；audioService 修复硬编码 storage，走 STORAGE_PATH）"
+  data_check: "PASS（project.editPlan hydrate/白名单；方案清除不改原镜头；测试库隔离）"
+  doc_check: "PASS（README 功能/API/测试数/路线图已同步；PM 复核与交付报告已生成）"
+  inspection_report_link: "docs/sprint15-pm-review.md"
+
+sla_info:
+  total_deadline: "2026-10-12T23:59:00+08:00"
+  current_node_timeout: 0
+  risk_level: "normal"
+
+state_log:
+  - time: "2026-10-05T20:05:00+08:00"
+    from: "GLOBAL_PENDING"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 15 启动，R33 音频生成 + R34 智能剪辑；基线 465 pass / 0 fail，84 lint error（47 src/tests + 37 public/js）；创建分支 sprint-15-audio-smart-edit"
+  - time: "2026-10-05T20:12:00+08:00"
+    from: "GLOBAL_IN_DEV"
+    to: "GLOBAL_IN_DEV"
+    note: "R33 完成：Mock TTS 本地 WAV 占位音、ElevenLabs placeholder=false、程序化 20 BGM + 30 SFX、/api/audio/preview 混音预听；修复 audioService 硬编码 storage 未走 STORAGE_PATH"
+  - time: "2026-10-05T20:15:00+08:00"
+    from: "GLOBAL_IN_DEV"
+    to: "GLOBAL_IN_DEV"
+    note: "R34 完成：4 种剪辑预设、目标时长自适应、锁定镜头保留、BPM 切点、editPlan 持久化、xfade 探测与硬切降级、真实 MP4 渲染 + 混音；新增 audio/edit 路由项目归属校验"
+  - time: "2026-10-05T20:18:00+08:00"
+    from: "GLOBAL_IN_DEV"
+    to: "GLOBAL_IN_TEST"
+    note: "自动化与 HTTP 冒烟通过：480 pass / 0 fail，测试库隔离 OK；R33 6 例、R34 9 例全绿"
+  - time: "2026-10-05T20:22:00+08:00"
+    from: "GLOBAL_IN_TEST"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "agent-browser 真实验证：音频 tab provider 占位口径正确、混音预听 3 轨 6s；剪辑 tab 生成 140 BPM 方案、xfade 渲染 5.7s 含混音音轨、控制台零 error"
+  - time: "2026-10-05T20:30:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "正确性复核发现 P1：/api/audio 缺 authOptional、渲染无法延长源片、短旁白截短成片；P2：方案 id/时间不确定、非法 targetDuration、BGM/SFX 无试听、preview 泄露绝对路径、audioConfig hydrate 丢失。已全部修复并新增回归测试"
+  - time: "2026-10-05T20:36:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "安全复核发现 Critical：项目删除清理可路径穿越删文件、editPlan 可被通用 PUT 篡改；High：storage 外媒体可进入渲染。已修 containment、setEditPlan 专用写入、resolveVideoPath/AudioPath containment、输入上限；回归 488 pass / 0 fail，删除穿越探针 deletedFiles:0"
+  - time: "2026-10-05T20:40:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_DONE"
+    note: "两组独立复核二次复测 PASS；生成 docs/sprint15-pm-review.md 与 docs/sprint15-delivery-report.md；README/context/交付全量对齐。残留：通用项目 PUT/DELETE 授权缺口（既有）、公开媒体 URL、循环扩展语义、xfade 降级未强制验证"

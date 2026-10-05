@@ -7,6 +7,14 @@ import { api } from '../api.js'
 import { showToast, state, refreshQuota } from '../app.js'
 import { i18n } from '../i18n.js'
 import { ProviderSelector } from '../components/providerSelector.js'
+import {
+  resolveInitialTab,
+  normalizeTab,
+  rememberTab,
+  setTabInUrl,
+  renderTabNav,
+} from './editorTabs.js'
+import { renderImagesTab } from './images.js'
 
 /**
  * 防抖函数
@@ -66,8 +74,10 @@ export async function renderEditor(container, projectId) {
 }
 
 function renderEditorLayout(container, project) {
+  currentTab = normalizeTab(resolveInitialTab())
+
   container.innerHTML = `
-    <div class="page-header">
+    <div class="page-header editor-page-header">
       <div style="display: flex; align-items: center; gap: 16px;">
         <button class="btn btn-sm" onclick="location.hash=''">← 返回</button>
         <div>
@@ -93,42 +103,22 @@ function renderEditorLayout(container, project) {
     </div>
 
     <div class="editor-layout">
-      <aside class="editor-sidebar">
-        <div class="editor-nav-item ${currentTab === 'script' ? 'active' : ''}" data-tab="script">
-          <span>📝</span> ${i18n.t('editorTabs.script')}
-        </div>
-        <div class="editor-nav-item ${currentTab === 'characters' ? 'active' : ''}" data-tab="characters">
-          <span>👤</span> ${i18n.t('editorTabs.characters')}
-        </div>
-        <div class="editor-nav-item ${currentTab === 'shots' ? 'active' : ''}" data-tab="shots">
-          <span>🎬</span> ${i18n.t('editorTabs.shots')}
-        </div>
-        <div class="editor-nav-item ${currentTab === 'dubbing' ? 'active' : ''}" data-tab="dubbing">
-          <span>🎙️</span> ${i18n.t('editorTabs.dubbing')}
-        </div>
-        <div class="editor-nav-item ${currentTab === 'analysis' ? 'active' : ''}" data-tab="analysis">
-          <span>🔍</span> ${i18n.t('editorTabs.analysis')}
-        </div>
-        <div class="editor-nav-item ${currentTab === 'collab' ? 'active' : ''}" data-tab="collab">
-          <span>👥</span> ${i18n.t('editorTabs.collaboration')}
-        </div>
-        <div class="editor-nav-item ${currentTab === 'versions' ? 'active' : ''}" data-tab="versions">
-          <span>📜</span> ${i18n.t('editorTabs.versions')}
-        </div>
-        <div class="editor-nav-item ${currentTab === 'settings' ? 'active' : ''}" data-tab="settings">
-          <span>⚙️</span> 项目设置
-        </div>
+      <aside class="editor-sidebar" id="editorSidebar">
+        ${renderTabNav(i18n)}
       </aside>
 
       <div class="editor-content">
-        <div class="tab-panel ${currentTab === 'script' ? 'active' : ''}" id="tab-script"></div>
-        <div class="tab-panel ${currentTab === 'characters' ? 'active' : ''}" id="tab-characters"></div>
-        <div class="tab-panel ${currentTab === 'shots' ? 'active' : ''}" id="tab-shots"></div>
-        <div class="tab-panel ${currentTab === 'dubbing' ? 'active' : ''}" id="tab-dubbing"></div>
-        <div class="tab-panel ${currentTab === 'analysis' ? 'active' : ''}" id="tab-analysis"></div>
-        <div class="tab-panel ${currentTab === 'collab' ? 'active' : ''}" id="tab-collab"></div>
-        <div class="tab-panel ${currentTab === 'versions' ? 'active' : ''}" id="tab-versions"></div>
-        <div class="tab-panel ${currentTab === 'settings' ? 'active' : ''}" id="tab-settings"></div>
+        <div class="tab-panel" id="tab-script"></div>
+        <div class="tab-panel" id="tab-images"></div>
+        <div class="tab-panel" id="tab-shots"></div>
+        <div class="tab-panel" id="tab-dubbing"></div>
+        <div class="tab-panel" id="tab-edit"></div>
+        <div class="tab-panel" id="tab-characters"></div>
+        <div class="tab-panel" id="tab-scenes"></div>
+        <div class="tab-panel" id="tab-analysis"></div>
+        <div class="tab-panel" id="tab-collab"></div>
+        <div class="tab-panel" id="tab-versions"></div>
+        <div class="tab-panel" id="tab-settings"></div>
       </div>
     </div>
 
@@ -168,16 +158,11 @@ function renderEditorLayout(container, project) {
     </div>
   `
 
+  applyTabState(container)
+
   // 标签切换
   container.querySelectorAll('.editor-nav-item').forEach((item) => {
-    item.addEventListener('click', () => {
-      currentTab = item.dataset.tab
-      container.querySelectorAll('.editor-nav-item').forEach((i) => i.classList.remove('active'))
-      item.classList.add('active')
-      container.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'))
-      document.getElementById(`tab-${currentTab}`).classList.add('active')
-      renderActiveTab(project)
-    })
+    item.addEventListener('click', () => switchTab(item.dataset.tab))
   })
 
   // 重命名
@@ -258,6 +243,25 @@ function renderEditorLayout(container, project) {
   renderActiveTab(project)
 }
 
+function applyTabState(container = document) {
+  const normalized = normalizeTab(currentTab)
+  currentTab = normalized
+  container.querySelectorAll('.editor-nav-item').forEach((item) => {
+    item.classList.toggle('active', item.dataset.tab === normalized)
+  })
+  container.querySelectorAll('.tab-panel').forEach((panel) => {
+    panel.classList.toggle('active', panel.id === `tab-${normalized}`)
+  })
+}
+
+function switchTab(tabId) {
+  currentTab = normalizeTab(tabId)
+  rememberTab(currentTab)
+  setTabInUrl(currentTab)
+  applyTabState()
+  if (state.currentProject) renderActiveTab(state.currentProject)
+}
+
 /**
  * 绑定键盘快捷键事件
  */
@@ -303,9 +307,13 @@ function bindKeyboardShortcuts(project) {
   // 切换标签页
   const tabEvents = {
     'editor-tab-script': 'script',
+    'editor-tab-images': 'images',
     'editor-tab-characters': 'characters',
     'editor-tab-shots': 'shots',
+    'editor-tab-video': 'shots',
     'editor-tab-dubbing': 'dubbing',
+    'editor-tab-audio': 'dubbing',
+    'editor-tab-edit': 'edit',
     'editor-tab-analysis': 'analysis',
     'editor-tab-collab': 'collab',
     'editor-tab-versions': 'versions',
@@ -508,14 +516,24 @@ function renderActiveTab(project) {
     case 'script':
       renderScriptTab(project)
       break
+    case 'images':
+      renderImagesTab(document.getElementById('tab-images'), { project, showToast })
+        .catch((error) => showToast(error.message, 'error'))
+      break
     case 'characters':
       renderCharactersTab(project)
+      break
+    case 'scenes':
+      renderScenesTab()
       break
     case 'shots':
       renderShotsTab(project)
       break
     case 'dubbing':
       renderDubbingTab(project)
+      break
+    case 'edit':
+      renderEditTab(project)
       break
     case 'analysis':
       renderAnalysisTab(project)
@@ -529,6 +547,203 @@ function renderActiveTab(project) {
     case 'settings':
       renderProjectSettingsTab(project)
       break
+  }
+}
+
+async function renderEditTab(project) {
+  const panel = document.getElementById('tab-edit')
+  panel.innerHTML = `
+    <div class="section-header">
+      <h2 class="section-title">智能剪辑</h2>
+      <div class="section-subtitle">按目标时长与节奏自动生成剪辑方案，再渲染成片。</div>
+    </div>
+    <div class="loading-overlay"><div class="loading"></div><span>加载剪辑能力…</span></div>
+  `
+
+  let profiles = []
+  let plan = null
+  let xfadeSupported = false
+  let bgms = []
+
+  try {
+    const [profileRes, bgmRes, supportRes] = await Promise.all([
+      api.getEditProfiles(),
+      api.listBgm({ emotion: 'all', search: '' }),
+      api.getTransitionSupport(project.id).catch(() => ({ xfade: false })),
+    ])
+    profiles = profileRes.items || []
+    bgms = bgmRes.items || []
+    xfadeSupported = supportRes.xfade === true
+  } catch (error) {
+    panel.innerHTML = `<div class="empty-state"><div class="empty-state-text">剪辑能力加载失败：${escapeHtml(error.message)}</div></div>`
+    return
+  }
+
+  try {
+    plan = await api.getEditPlan(project.id)
+  } catch {
+    plan = null
+  }
+
+  const bgmOptions = [
+    `<option value="">不指定 BGM</option>`,
+    ...bgms.map((b) => `<option value="${escapeHtml(b.id)}" ${project.audioConfig?.bgmId === b.id ? 'selected' : ''}>${escapeHtml(b.name)}${b.available ? '' : '（文件缺失）'}</option>`),
+  ].join('')
+
+  panel.innerHTML = `
+    <div class="section-header">
+      <h2 class="section-title">智能剪辑</h2>
+      <div class="section-subtitle">规则驱动剪辑方案，不做 ML 内容理解或自动高光识别。</div>
+    </div>
+    <div class="image-provider-note">
+      <span>转场能力：<strong>${xfadeSupported ? 'xfade 淡入淡出可用' : '当前 ffmpeg 不支持 xfade，将降级硬切'}</strong></span>
+      <span class="image-provider-badge ${xfadeSupported ? 'real' : 'placeholder'}">${xfadeSupported ? '支持交叉溶解' : '硬切降级'}</span>
+    </div>
+    <div class="image-gen-form">
+      <div class="image-gen-controls">
+        <label class="image-gen-control">剪辑风格
+          <select class="form-select form-select-sm" id="editProfileSelect">
+            ${profiles.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} — ${escapeHtml(p.description)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="image-gen-control">目标时长（秒）
+          <input type="number" class="form-input form-input-sm" id="editTargetDuration" min="3" max="180" value="${Number(project.targetDuration) || 30}" style="width:120px;" />
+        </label>
+        <label class="image-gen-control">BGM（用于 BPM 切点）
+          <select class="form-select form-select-sm" id="editBgmSelect">${bgmOptions}</select>
+        </label>
+        <button class="btn btn-primary" id="generateEditPlanBtn">✂️ 生成剪辑方案</button>
+        <button class="btn btn-sm" id="clearEditPlanBtn">清除方案</button>
+      </div>
+    </div>
+    <div id="editPlanSection"></div>
+  `
+
+  const planSection = panel.querySelector('#editPlanSection')
+
+  function renderPlanSection() {
+    if (!plan) {
+      planSection.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✂️</div><div class="empty-state-text">还没有剪辑方案，先生成一个。</div></div>'
+      return
+    }
+    planSection.innerHTML = `
+      <div class="card" style="margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:600;">${escapeHtml(plan.summary)}</div>
+            <div class="image-asset-meta">
+              ${plan.bpm ? `${plan.bpm} BPM · beat ${plan.beatGrid?.toFixed(2)}s` : '无 BPM'} ·
+              ${plan.transition === 'fade' ? '淡入淡出' : '硬切'} ·
+              总时长 ${plan.totalDuration}s
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="renderEditPlanBtn">🎬 渲染剪辑成片</button>
+        </div>
+        <table class="edit-plan-table">
+          <thead><tr><th>#</th><th>镜头</th><th>入/出</th><th>时长</th><th>转场</th><th>说明</th></tr></thead>
+          <tbody>
+            ${plan.shots.map((shot) => `
+              <tr>
+                <td>${shot.index + 1}</td>
+                <td>${escapeHtml(shot.shotId)}</td>
+                <td>${shot.in}s → ${shot.out}s</td>
+                <td>${shot.duration}s</td>
+                <td>${shot.transition === 'fade' ? '淡入淡出' : '硬切'}</td>
+                <td>${escapeHtml(shot.reason)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div id="editRenderResult" style="margin-top:12px;"></div>
+      </div>
+    `
+
+    planSection.querySelector('#renderEditPlanBtn').addEventListener('click', async () => {
+      const btn = planSection.querySelector('#renderEditPlanBtn')
+      btn.disabled = true
+      btn.textContent = '渲染中...'
+      try {
+        const result = await api.renderEditPlan(project.id)
+        planSection.querySelector('#editRenderResult').innerHTML = `
+          <video controls src="${escapeHtml(result.outputUrl)}" style="width:100%;max-height:360px;border-radius:8px;"></video>
+          <div class="image-asset-meta" style="margin-top:6px;">
+            ${result.shotCount} 个镜头 · ${Number(result.duration || plan.totalDuration).toFixed(1)}s ·
+            转场：${result.transitionApplied === 'xfade' ? 'xfade' : 'cut'}
+            ${result.transitionFallback ? '（已降级硬切）' : ''}
+            ${result.hasAudio ? ' · 含混音音轨' : ' · 无音轨'}
+          </div>
+        `
+        showToast('剪辑成片渲染完成')
+      } catch (error) {
+        showToast(error.message, 'error')
+      } finally {
+        btn.disabled = false
+        btn.textContent = '🎬 渲染剪辑成片'
+      }
+    })
+  }
+
+  renderPlanSection()
+
+  panel.querySelector('#generateEditPlanBtn').addEventListener('click', async () => {
+    const btn = panel.querySelector('#generateEditPlanBtn')
+    btn.disabled = true
+    btn.textContent = '生成中...'
+    try {
+      plan = await api.generateEditPlan({
+        projectId: project.id,
+        profile: panel.querySelector('#editProfileSelect').value,
+        targetDuration: Number(panel.querySelector('#editTargetDuration').value),
+        bgmId: panel.querySelector('#editBgmSelect').value || null,
+      })
+      renderPlanSection()
+      showToast('剪辑方案已生成')
+    } catch (error) {
+      showToast(error.message, 'error')
+    } finally {
+      btn.disabled = false
+      btn.textContent = '✂️ 生成剪辑方案'
+    }
+  })
+
+  panel.querySelector('#clearEditPlanBtn').addEventListener('click', async () => {
+    try {
+      await api.clearEditPlan(project.id)
+      plan = null
+      renderPlanSection()
+      showToast('剪辑方案已清除')
+    } catch (error) {
+      showToast(error.message, 'error')
+    }
+  })
+}
+
+async function renderScenesTab() {
+  const panel = document.getElementById('tab-scenes')
+  panel.innerHTML = '<div class="loading-overlay"><div class="loading"></div><span>加载场景库…</span></div>'
+  try {
+    const data = await api.listScenes()
+    const scenes = data.items || []
+    panel.innerHTML = `
+      <div class="section-header">
+        <h2 class="section-title">场景库</h2>
+        <div class="section-subtitle">场景在镜头编辑中选择；图片生成页的图片可回填为项目场景参考图。</div>
+      </div>
+      <div class="scene-library-grid">
+        ${scenes.map((scene) => `
+          <div class="scene-card">
+            ${scene.referenceImage ? `<img class="scene-card-image" src="${escapeHtml(scene.referenceImage)}" alt="${escapeHtml(scene.name)}" loading="lazy" />` : `<div class="scene-card-image scene-card-placeholder">${escapeHtml(scene.category || 'scene')}</div>`}
+            <div class="scene-card-body">
+              <div class="scene-card-title">${escapeHtml(scene.name)}</div>
+              <div class="scene-card-meta">${escapeHtml(scene.category || '')} · ${escapeHtml(scene.lighting || '')} ${scene.isBuiltin ? '· 内置' : '· 自定义'}</div>
+              <div class="scene-card-desc">${escapeHtml(scene.description || '')}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `
+  } catch (error) {
+    panel.innerHTML = `<div class="empty-state"><div class="empty-state-text">场景库加载失败：${escapeHtml(error.message)}</div></div>`
   }
 }
 
@@ -2135,6 +2350,7 @@ async function renderDubbingTab(project) {
     <div class="section-header">
       <h2 class="section-title">一键配音 + 字幕</h2>
     </div>
+    <div id="dubbingProviderNote" class="image-provider-note">检测 TTS Provider…</div>
 
     <div class="card">
       <div class="dubbing-controls">
@@ -2229,6 +2445,8 @@ async function renderDubbingTab(project) {
           </div>
         </div>
         <button class="btn btn-primary btn-sm" id="saveAudioConfigBtn" style="margin-top: 12px;">💾 保存音频配置</button>
+        <button class="btn btn-sm" id="previewMixBtn" style="margin-top: 12px; margin-left: 8px;">▶️ 预听混音</button>
+        <div id="mixPreviewResult" style="margin-top: 12px;"></div>
       </div>
     </div>
 
@@ -2419,6 +2637,14 @@ async function renderDubbingTab(project) {
   bindVolume('bgmVolume', 'bgmVolumeValue')
   bindVolume('sfxVolume', 'sfxVolumeValue')
 
+  let previewAudio = null
+  function playAudioPreview(url) {
+    if (!url) return
+    if (!previewAudio) previewAudio = new Audio()
+    previewAudio.src = url
+    previewAudio.play().catch(() => showToast('试听失败', 'error'))
+  }
+
   // 加载 BGM 列表
   async function loadBgmList() {
     try {
@@ -2439,11 +2665,20 @@ async function renderDubbingTab(project) {
         })
       }
       list.innerHTML = result.items.map((b) => `
-        <button class="tag-btn ${selectedBgm === b.id ? 'tag-btn-active' : ''} ${!b.available ? 'tag-btn-disabled' : ''}"
-                data-bgm-id="${b.id}" title="${b.name} (${b.duration}s)">
-          ${b.name}${!b.available ? ' ⚠️' : ''}
-        </button>
+        <span class="audio-chip">
+          <button class="tag-btn ${selectedBgm === b.id ? 'tag-btn-active' : ''} ${!b.available ? 'tag-btn-disabled' : ''}"
+                  data-bgm-id="${b.id}" title="${b.name} (${b.duration}s)">
+            ${b.name}${!b.available ? ' ⚠️' : ''}
+          </button>
+          ${b.available ? `<button class="audio-play-btn" data-preview-url="${b.url}" title="试听 ${b.name}">▶</button>` : ''}
+        </span>
       `).join('')
+      list.querySelectorAll('.audio-play-btn').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          event.stopPropagation()
+          playAudioPreview(btn.dataset.previewUrl)
+        })
+      })
       list.querySelectorAll('[data-bgm-id]').forEach((btn) => {
         btn.addEventListener('click', () => {
           if (btn.classList.contains('tag-btn-disabled')) {
@@ -2484,11 +2719,20 @@ async function renderDubbingTab(project) {
         })
       }
       list.innerHTML = result.items.map((s) => `
-        <button class="tag-btn ${selectedSfx.includes(s.id) ? 'tag-btn-active' : ''} ${!s.available ? 'tag-btn-disabled' : ''}"
-                data-sfx-id="${s.id}" title="${s.name}">
-          ${s.name}${!s.available ? ' ⚠️' : ''}
-        </button>
+        <span class="audio-chip">
+          <button class="tag-btn ${selectedSfx.includes(s.id) ? 'tag-btn-active' : ''} ${!s.available ? 'tag-btn-disabled' : ''}"
+                  data-sfx-id="${s.id}" title="${s.name}">
+            ${s.name}${!s.available ? ' ⚠️' : ''}
+          </button>
+          ${s.available ? `<button class="audio-play-btn" data-preview-url="${s.url}" title="试听 ${s.name}">▶</button>` : ''}
+        </span>
       `).join('')
+      list.querySelectorAll('.audio-play-btn').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          event.stopPropagation()
+          playAudioPreview(btn.dataset.previewUrl)
+        })
+      })
       list.querySelectorAll('[data-sfx-id]').forEach((btn) => {
         btn.addEventListener('click', () => {
           if (btn.classList.contains('tag-btn-disabled')) {
@@ -2561,6 +2805,48 @@ async function renderDubbingTab(project) {
     } finally {
       btn.disabled = false
       btn.textContent = '💾 保存音频配置'
+    }
+  })
+
+  // R33：TTS provider 口径提示
+  api.getProviderStatus()
+    .then((status) => {
+      const tts = status.tts || {}
+      const real = tts.current && tts.current !== 'mock'
+      document.getElementById('dubbingProviderNote').innerHTML = `
+        <span>当前 TTS Provider：<strong>${escapeHtml(tts.current || 'mock')}</strong></span>
+        <span class="image-provider-badge ${real ? 'real' : 'placeholder'}">${real ? '真实语音合成' : '本地占位音（非真实语音）'}</span>
+      `
+    })
+    .catch(() => {
+      document.getElementById('dubbingProviderNote').textContent = 'TTS Provider 状态未知'
+    })
+
+  // R33：混音预听（使用已保存的音频配置）
+  document.getElementById('previewMixBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('previewMixBtn')
+    btn.disabled = true
+    btn.textContent = '生成预听中...'
+    try {
+      const result = await api.previewAudioMix({
+        projectId: project.id,
+        language: document.getElementById('dubbingLanguage').value,
+        voiceId: document.getElementById('dubbingVoice').value,
+        speed: parseFloat(document.getElementById('dubbingSpeed').value),
+      })
+      document.getElementById('mixPreviewResult').innerHTML = `
+        <audio controls src="${escapeHtml(result.url)}" style="width:100%;"></audio>
+        <div class="image-asset-meta" style="margin-top:6px;">
+          ${result.tracks.length} 轨 · ${result.duration.toFixed(1)}s
+          ${result.placeholderVoices ? ' · 包含占位音（非真实语音）' : ''}
+        </div>
+      `
+      showToast('混音预听已生成')
+    } catch (error) {
+      showToast(error.message, 'error')
+    } finally {
+      btn.disabled = false
+      btn.textContent = '▶️ 预听混音'
     }
   })
 
@@ -2793,6 +3079,7 @@ function renderDubbingResult(result) {
         <div style="font-weight: 600;">配音结果</div>
         <div style="font-size: 12px; color: var(--text-muted);">
           ${result.audioTracks.length} 条音轨 · 总时长 ${result.totalDuration.toFixed(1)}s · ${result.subtitles.language} 字幕
+          ${result.placeholderVoices ? ' · <span class="image-provider-badge placeholder">占位音，非真实语音</span>' : ''}
         </div>
       </div>
 
@@ -2805,6 +3092,7 @@ function renderDubbingResult(result) {
             <span style="font-size: 11px; color: var(--text-muted); margin-right: 8px;">
               ${track.type === 'narration' ? '旁白' : '台词'}
             </span>
+            ${track.placeholder ? '<span class="image-provider-badge placeholder" style="margin-right:6px;">占位</span>' : ''}
             ${escapeHtml(track.text)}
           </div>
           <div class="dubbing-track-time">${track.startTime.toFixed(1)}s - ${track.endTime.toFixed(1)}s</div>

@@ -40,13 +40,15 @@ import enterpriseRouter from './routes/enterprise.js'
 import titleSequencesRouter from './routes/titleSequences.js'
 import directorsRouter from './routes/directors.js'
 import studiosRouter from './routes/studios.js'
+import imagesRouter from './routes/images.js'
+import editPlansRouter from './routes/editPlans.js'
 import { authOptional } from './middleware/auth.js'
 import { performanceMonitor } from './services/performanceMonitor.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const PUBLIC_DIR = path.join(__dirname, '..', 'public')
-const STORAGE_DIR = path.join(__dirname, '..', config.storage.path)
+const STORAGE_DIR = path.resolve(config.storage.path)
 
 const app = express()
 
@@ -99,7 +101,7 @@ app.use('/api/providers', providersRouter)
 app.use('/api/system', systemRouter)
 app.use('/api/webhooks', webhooksRouter)
 app.use('/api/ai-assistant', aiAssistantRouter)
-app.use('/api/audio', audioRouter)
+app.use('/api/audio', authOptional, audioRouter)
 app.use('/api/scenes', scenesRouter)
 app.use('/api/marketing', authOptional, marketingRouter)
 app.use('/api/creators', authOptional, creatorsRouter)
@@ -113,9 +115,17 @@ app.use('/api/enterprise', authOptional, enterpriseRouter)
 app.use('/api/title-sequences', titleSequencesRouter)
 app.use('/api/directors', directorsRouter)
 app.use('/api/studios', studiosRouter)
+app.use('/api/images', authOptional, imagesRouter)
+app.use('/api/edit-plans', authOptional, editPlansRouter)
 
-// Static files (storage - generated videos, exports)
-app.use('/storage', express.static(STORAGE_DIR))
+// Static files: only expose media subdirectories, never storage/data (DB, hashes, keys)
+const PUBLIC_STORAGE_DIRS = ['videos', 'exports', 'thumbnails', 'title-sequences', 'images', 'audio', 'scenes']
+for (const dir of PUBLIC_STORAGE_DIRS) {
+  app.use(`/storage/${dir}`, express.static(path.join(STORAGE_DIR, dir)))
+}
+app.use('/storage', (_req, res) => {
+  res.status(404).json({ error: 'Not found' })
+})
 
 // Static files (audio - BGM and SFX)
 app.use('/audio/bgm', express.static(path.join(STORAGE_DIR, 'audio', 'bgm')))

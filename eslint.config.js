@@ -1,6 +1,6 @@
 export default [
   {
-    files: ['src/**/*.js', 'tests/**/*.js'],
+    files: ['src/**/*.js', 'tests/**/*.js', 'public/js/**/*.js'],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',

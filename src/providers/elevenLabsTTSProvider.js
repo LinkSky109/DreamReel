@@ -2,11 +2,9 @@ import { BaseTTSProvider } from './baseTTSProvider.js'
 import logger from '../utils/logger.js'
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
+import config from '../config/index.js'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const STORAGE_DIR = path.join(__dirname, '..', '..', 'storage')
+const STORAGE_DIR = path.resolve(config.storage.path)
 const VOICES_DIR = path.join(STORAGE_DIR, 'audio', 'voices')
 
 // 确保目录存在
@@ -86,6 +84,8 @@ export class ElevenLabsTTSProvider extends BaseTTSProvider {
       return {
         audioUrl,
         duration: this.estimateDuration(params.text),
+        placeholder: false,
+        provider: 'elevenlabs',
       }
     } catch (error) {
       logger.error('ElevenLabs synthesize failed:', error.message)

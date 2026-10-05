@@ -47,6 +47,8 @@ class StorageService {
         this.data.teams = this._normalizeKeyed(this.data.teams)
         // R30：剧场厂牌
         this.data.studios = this._normalizeKeyed(this.data.studios)
+        // R32：图片生成资产
+        this.data.imageAssets = this._normalizeKeyed(this.data.imageAssets)
         const projectCount = Object.keys(this.data.projects).length
         logger.info(`Storage loaded: ${projectCount} projects from ${DATA_FILE}`)
       } else {
@@ -159,7 +161,10 @@ class StorageService {
       this.data.usage[userId] = {}
     }
     if (!this.data.usage[userId][today]) {
-      this.data.usage[userId][today] = { videoGenerations: 0 }
+      this.data.usage[userId][today] = { videoGenerations: 0, imageGenerations: 0 }
+    }
+    if (this.data.usage[userId][today].imageGenerations === undefined) {
+      this.data.usage[userId][today].imageGenerations = 0
     }
     if (!this.data.usage[userId][month]) {
       this.data.usage[userId][month] = { dubbingSeconds: 0 }
@@ -176,6 +181,8 @@ class StorageService {
     const usage = this.getUsage(userId)
     if (type === 'video') {
       usage.daily.videoGenerations += amount
+    } else if (type === 'image') {
+      usage.daily.imageGenerations += amount
     } else if (type === 'dubbing') {
       usage.monthly.dubbingSeconds += amount
     }

@@ -10,8 +10,9 @@
     "dev:backend": "node --watch src/server.js",
     "dev:frontend": "node scripts/frontend-server.js",
     "dev:all": "node scripts/frontend-server.js & node --watch src/server.js",
-    "test": "NODE_ENV=test node --test tests/*.test.js",
-    "lint": "eslint src/ tests/",
+    "test": "node scripts/run-tests.js",
+    "lint": "eslint src/ tests/ public/js/",
+    "seed:audio": "node scripts/seed_audio_pack.js",
     "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\""
   },
   "keywords": [

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { audioService } from '../services/audioService.js'
+import { projectService } from '../services/projectService.js'
 
 const router = Router()
 
@@ -84,6 +85,28 @@ router.get('/stats', (req, res) => {
     res.json(stats)
   } catch (error) {
     res.status(400).json({ error: error.message })
+  }
+})
+
+/**
+ * R33：混音预听（真实文件）
+ */
+router.post('/preview', async (req, res) => {
+  try {
+    const { projectId, language, voiceId, speed, duration } = req.body
+    if (!projectId) {
+      return res.status(400).json({ error: 'projectId is required' })
+    }
+    const project = await projectService.getProject(projectId)
+    const userId = req.user?.id || 'default'
+    if ((project.userId || 'default') !== userId) {
+      return res.status(404).json({ error: `Project not found: ${projectId}` })
+    }
+    const result = await audioService.previewMix(project, { language, voiceId, speed, duration })
+    res.json(result)
+  } catch (error) {
+    const status = error.message.startsWith('Project not found') ? 404 : 400
+    res.status(status).json({ error: error.message })
   }
 })
 

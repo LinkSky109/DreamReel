@@ -14,6 +14,7 @@ export const SFX_LIBRARY = [
   { id: 'ambient-crowd', name: '人群嘈杂', category: 'ambient', tags: ['人群', '噪音', '环境'], filename: 'ambient-crowd.mp3' },
   { id: 'ambient-cafe', name: '咖啡馆', category: 'ambient', tags: ['咖啡', '环境', '室内'], filename: 'ambient-cafe.mp3' },
   { id: 'ambient-traffic', name: '车流声', category: 'ambient', tags: ['车', '交通', '城市'], filename: 'ambient-traffic.mp3' },
+  { id: 'ambient-fire', name: '火焰噼啪', category: 'ambient', tags: ['火', '壁炉', '环境'], filename: 'ambient-fire.mp3' },
 
   // 动作音
   { id: 'action-footstep', name: '脚步声', category: 'action', tags: ['脚步', '行走', '动作'], filename: 'action-footstep.mp3' },

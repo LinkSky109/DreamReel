@@ -81,6 +81,55 @@ export const ffmpeg = {
   },
 
   /**
+   * 按指定时长裁剪单个视频（R34 智能剪辑）
+   */
+  async trimVideo(videoPath, outputPath, duration) {
+    await this.run([
+      '-stream_loop', '-1',
+      '-i', videoPath,
+      '-t', String(duration),
+      '-an',
+      '-c:v', 'libx264',
+      '-preset', 'ultrafast',
+      '-pix_fmt', 'yuv420p',
+      '-r', '24',
+      outputPath,
+    ])
+    return outputPath
+  },
+
+  /**
+   * 两段视频交叉溶解（R34）
+   */
+  async crossfadeVideos(videoPathA, videoPathB, outputPath, transitionDuration, offset) {
+    await this.run([
+      '-i', videoPathA,
+      '-i', videoPathB,
+      '-filter_complex',
+      `[0:v][1:v]xfade=transition=fade:duration=${transitionDuration}:offset=${offset}[v]`,
+      '-map', '[v]',
+      '-an',
+      '-c:v', 'libx264',
+      '-preset', 'ultrafast',
+      '-pix_fmt', 'yuv420p',
+      '-r', '24',
+      outputPath,
+    ])
+    return outputPath
+  },
+
+  /**
+   * 运行时探测 ffmpeg 是否包含某滤镜
+   */
+  async hasFilter(filterName) {
+    const { stdout } = await execFileAsync('ffmpeg', ['-hide_banner', '-filters'], {
+      timeout: 20000,
+      maxBuffer: 4 * 1024 * 1024,
+    })
+    return new RegExp(`\\b${filterName}\\b`).test(stdout)
+  },
+
+  /**
    * 合并视频和音频
    */
   async mergeAudio(videoPath, audioPath, outputPath) {
@@ -248,6 +297,21 @@ export const ffmpeg = {
     } catch (error) {
       throw new Error(`Volume adjustment failed: ${error.message}`)
     }
+  },
+
+  /**
+   * 调整音量并补齐到指定时长（R33 混音预听）
+   */
+  async adjustVolumeAndPad(inputPath, outputPath, volume = 1.0, duration = 5) {
+    await this.run([
+      '-i', inputPath,
+      '-af', `volume=${volume},apad`,
+      '-t', String(duration),
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      outputPath,
+    ])
+    return outputPath
   },
 
   /**

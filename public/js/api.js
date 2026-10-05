@@ -237,6 +237,25 @@ export const api = {
   createScene: (data) => request('/scenes', { method: 'POST', body: data }),
   updateScene: (id, data) => request(`/scenes/${id}`, { method: 'PUT', body: data }),
   deleteScene: (id) => request(`/scenes/${id}`, { method: 'DELETE' }),
+
+  // R32: 图片生成
+  getImageProviders: () => request('/images/providers'),
+  generateImages: (data) => request('/images/generate', { method: 'POST', body: data }),
+  listImageAssets: (params = {}) => request(`/images/assets${buildQueryString(params)}`),
+  getImageAsset: (id) => request(`/images/assets/${id}`),
+  deleteImageAsset: (id) => request(`/images/assets/${id}`, { method: 'DELETE' }),
+  applyImageAsset: (id, data) => request(`/images/assets/${id}/apply`, { method: 'POST', body: data }),
+
+  // R33: 音频混音预听
+  previewAudioMix: (data) => request('/audio/preview', { method: 'POST', body: data }),
+
+  // R34: 智能剪辑
+  getEditProfiles: () => request('/edit-plans/profiles'),
+  generateEditPlan: (data) => request('/edit-plans/generate', { method: 'POST', body: data }),
+  getEditPlan: (projectId) => request(`/edit-plans/${projectId}`),
+  clearEditPlan: (projectId) => request(`/edit-plans/${projectId}`, { method: 'DELETE' }),
+  renderEditPlan: (projectId) => request(`/edit-plans/${projectId}/render`, { method: 'POST' }),
+  getTransitionSupport: (projectId) => request(`/edit-plans/${projectId}/transition-support`),
   previewVoice: (data) => request('/dubbing/preview', { method: 'POST', body: data }),
 
   // R08：连续性检查

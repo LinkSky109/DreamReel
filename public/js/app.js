@@ -93,8 +93,9 @@ export function showToast(message, type = 'success') {
 
 // 路由
 function router() {
-  const hash = location.hash.slice(1).replace(/^\//, '')
-  const [path, param] = hash.split('/')
+  const rawHash = location.hash.slice(1).replace(/^\//, '')
+  const [hashPath] = rawHash.split('?')
+  const [path, param] = hashPath.split('/')
 
   if (path === 'login') {
     renderAuthPage(app)
@@ -150,12 +151,13 @@ function router() {
 
 // 侧边栏导航高亮
 function updateSidebarActive() {
-  const hash = location.hash.slice(1).replace(/^\//, '')
-  const [path] = hash.split('/')
+  const rawHash = location.hash.slice(1).replace(/^\//, '')
+  const [hashPath] = rawHash.split('?')
+  const [path] = hashPath.split('/')
 
   document.querySelectorAll('.sidebar-link').forEach((link) => {
     const route = link.dataset.route || ''
-    const isActive = route === hash || (route && hash.startsWith(route + '/'))
+    const isActive = route === hashPath || (route && hashPath.startsWith(route + '/'))
     link.classList.toggle('active', isActive)
   })
 }

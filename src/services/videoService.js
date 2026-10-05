@@ -8,11 +8,8 @@ import { getDirector, buildDirectorPrompt } from '../config/directorProfiles.js'
 import fs from 'fs'
 import path from 'path'
 import { exec } from 'child_process'
-import { fileURLToPath } from 'url'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const STORAGE_DIR = path.join(__dirname, '..', '..', 'storage')
+const STORAGE_DIR = path.resolve(config.storage.path)
 
 /**
  * 视频生成 Service
@@ -41,13 +38,16 @@ export class VideoService {
     const { projectId, shotId, prompt, referenceImages = [], duration = 5, resolution = '720p', aspectRatio = '16:9', project, prevFramePath = null } = params
 
     try {
-      // Phase 1: 按 projectId 获取对应 Provider 实例
-      const provider = getVideoProviderForProject(projectId, project?.userId)
+      // Phase 1: 按 projectId 获取对应 Provider 实例，无项目级偏好时复用服务默认 provider
+      const provider = getVideoProviderForProject(projectId, project?.userId, this.provider)
 
       // 找到当前 shot，获取角色表情动作配置
       const currentShot = project?.shots?.find((s) => s.id === shotId)
+      const effectiveReferenceImages = Array.from(
+        new Set([...(currentShot?.referenceImages || []), ...referenceImages])
+      )
       // 构建增强 prompt：注入角色描述和表情动作
-      let enhancedPrompt = this.enhancePromptWithCharacters(prompt, project, referenceImages)
+      let enhancedPrompt = this.enhancePromptWithCharacters(prompt, project, effectiveReferenceImages)
       if (currentShot?.characterActions && Object.keys(currentShot.characterActions).length > 0) {
         enhancedPrompt = this._enhanceWithCharacterActions(enhancedPrompt, currentShot, project)
       }
@@ -64,7 +64,7 @@ export class VideoService {
       }
 
       // R08：上一镜头尾帧作为参考图（img2img），保证镜头衔接
-      const allRefImages = [...referenceImages]
+      const allRefImages = [...effectiveReferenceImages]
       if (prevFramePath) {
         allRefImages.unshift(prevFramePath)
         logger.info(`Shot ${shotId} using previous frame as continuity reference`)
@@ -590,6 +590,11 @@ export class VideoService {
   collectReferenceImages(shot, project) {
     const images = []
 
+    // R32：镜头级参考图（图片生成回填）优先进入视频生成
+    if (shot.referenceImages && Array.isArray(shot.referenceImages)) {
+      images.push(...shot.referenceImages)
+    }
+
     // 角色参考图
     if (shot.characterIds && project.characters) {
       for (const charId of shot.characterIds) {
@@ -608,7 +613,7 @@ export class VideoService {
       }
     }
 
-    return images.slice(0, 3) // 最多 3 张参考图
+    return Array.from(new Set(images)).slice(0, 3) // 去重后最多 3 张参考图
   }
 
   /**

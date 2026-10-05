@@ -38,6 +38,13 @@ const config = {
     modelId: process.env.ELEVENLABS_MODEL || 'eleven_monolingual_v1',
   },
 
+  image: {
+    provider: process.env.IMAGE_PROVIDER || 'mock',
+    apiKey: process.env.OPENAI_IMAGE_API_KEY || process.env.OPENAI_API_KEY || '',
+    baseUrl: process.env.OPENAI_IMAGE_BASE_URL || '',
+    model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1',
+  },
+
   character: {
     consistencyThreshold: parseFloat(process.env.CHARACTER_CONSISTENCY_THRESHOLD) || 0.65,
   },
@@ -49,6 +56,7 @@ const config = {
   quota: {
     free: {
       videoGenerationsPerDay: 5,
+      imageGenerationsPerDay: 10,
       maxDurationSeconds: 5,
       maxResolution: '720p',
       maxCharacters: 3,
@@ -66,6 +74,7 @@ const config = {
         priceYearly: 0,
         features: {
           videoGenerationsPerDay: 5,
+          imageGenerationsPerDay: 10,
           maxDurationSeconds: 5,
           maxResolution: '720p',
           maxCharacters: 3,
@@ -84,6 +93,7 @@ const config = {
         priceYearly: 290,
         features: {
           videoGenerationsPerDay: 50,
+          imageGenerationsPerDay: 50,
           maxDurationSeconds: 10,
           maxResolution: '1080p',
           maxCharacters: 5,
@@ -102,6 +112,7 @@ const config = {
         priceYearly: 990,
         features: {
           videoGenerationsPerDay: 200,
+          imageGenerationsPerDay: 200,
           maxDurationSeconds: 15,
           maxResolution: '4k',
           maxCharacters: 10,
@@ -120,6 +131,7 @@ const config = {
         priceYearly: 4990,
         features: {
           videoGenerationsPerDay: 1000,
+          imageGenerationsPerDay: 1000,
           maxDurationSeconds: 30,
           maxResolution: '4k',
           maxCharacters: 50,

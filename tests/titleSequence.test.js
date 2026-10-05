@@ -5,10 +5,28 @@ import os from 'os'
 import path from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
+import { fileURLToPath } from 'url'
 import { titleSequenceService, TITLE_TEMPLATES } from '../src/services/titleSequenceService.js'
 import { ffmpeg } from '../src/utils/ffmpeg.js'
 
 const execFileAsync = promisify(execFile)
+const RENDER_SCRIPT = fileURLToPath(new URL('../scripts/render_title_card.py', import.meta.url))
+
+const TITLE_RUNTIME_SKIP = '缺少 python3/Pillow/CJK 字体，无法验证片名上屏'
+
+/**
+ * 探测片头渲染运行时：需要 python3 + Pillow + 可渲染 CJK 的字体。
+ * 该依赖为可选项，缺失时相关用例跳过而非失败。
+ */
+async function titleRuntimeReady() {
+  try {
+    const { stdout } = await execFileAsync('python3', [RENDER_SCRIPT, '--check'])
+    const info = JSON.parse(stdout.trim().split('\n').pop())
+    return info.ok === true && info.cjkFont === true
+  } catch {
+    return false
+  }
+}
 
 /** 读取 mp4 的流信息（codec_type / codec_name） */
 async function probeStreams(file) {
@@ -90,7 +108,9 @@ describe('R28 创意片头模块', () => {
     assert.throws(() => titleSequenceService.getTemplate('not-exist'), /Title template not found/)
   })
 
-  it('生成片头：含 h264 视频流 + aac 音轨，时长 3-5 秒', async () => {
+  it('生成片头：含 h264 视频流 + aac 音轨，时长 3-5 秒', async (t) => {
+    if (!(await titleRuntimeReady())) return t.skip(TITLE_RUNTIME_SKIP)
+
     const result = await titleSequenceService.generateTitleSequence({
       templateId: 'classic-gold',
       projectId: 'demo-proj',
@@ -120,7 +140,9 @@ describe('R28 创意片头模块', () => {
     assert.equal(result.audio, 'silent')
   })
 
-  it('片名真实上屏：首帧含足量烫金 #d9b45a 像素', async () => {
+  it('片名真实上屏：首帧含足量烫金 #d9b45a 像素', async (t) => {
+    if (!(await titleRuntimeReady())) return t.skip(TITLE_RUNTIME_SKIP)
+
     const result = await titleSequenceService.generateTitleSequence({
       templateId: 'classic-gold',
       projectId: 'pixel-probe',

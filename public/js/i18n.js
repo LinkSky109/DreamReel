@@ -105,6 +105,10 @@ const translations = {
     // 编辑器
     editorTabs: {
       script: '剧本',
+      images: '图片',
+      video: '视频',
+      audio: '音频',
+      edit: '剪辑',
       characters: '角色',
       shots: '镜头',
       dubbing: '配音字幕',
@@ -446,6 +450,10 @@ const translations = {
     // Editor
     editorTabs: {
       script: 'Script',
+      images: 'Images',
+      video: 'Video',
+      audio: 'Audio',
+      edit: 'Edit',
       characters: 'Characters',
       shots: 'Shots',
       dubbing: 'Dubbing',
