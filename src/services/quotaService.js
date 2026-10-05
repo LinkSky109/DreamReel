@@ -62,6 +62,25 @@ export class QuotaService {
   }
 
   /**
+   * R32：检查图片生成额度
+   */
+  checkImageQuota(userId, requestedCount = 1) {
+    const quota = this._getUserQuota(userId)
+    const usage = storageService.getUsage(userId)
+    const used = usage.daily.imageGenerations || 0
+    const limit = quota.imageGenerationsPerDay ?? 10
+    const remaining = Math.max(0, limit - used)
+
+    return {
+      allowed: remaining >= requestedCount,
+      remaining,
+      limit,
+      used,
+      reason: remaining >= requestedCount ? null : `今日图片生成额度不足（剩余 ${remaining} 张，需要 ${requestedCount} 张）`,
+    }
+  }
+
+  /**
    * 消耗视频生成额度
    */
   consumeVideoQuota(userId) {
@@ -88,6 +107,31 @@ export class QuotaService {
   }
 
   /**
+   * R32：消耗图片生成额度
+   */
+  consumeImageQuota(userId, count = 1) {
+    const check = this.checkImageQuota(userId, count)
+    if (!check.allowed) {
+      throw new Error(check.reason)
+    }
+    storageService.incrementUsage(userId, 'image', count)
+    logger.info(`Image quota consumed for user ${userId}: ${count} image(s)`)
+    return { remaining: check.remaining - count, limit: check.limit }
+  }
+
+  /**
+   * R32：生成失败的图片不占用额度
+   */
+  refundImageQuota(userId, count = 1) {
+    if (count <= 0) return this.checkImageQuota(userId, 0)
+    const usage = storageService.getUsage(userId)
+    usage.daily.imageGenerations = Math.max(0, (usage.daily.imageGenerations || 0) - count)
+    storageService.save()
+    logger.info(`Image quota refunded for user ${userId}: ${count} image(s)`)
+    return this.checkImageQuota(userId, 0)
+  }
+
+  /**
    * 获取用户额度概览
    */
   getQuotaOverview(userId) {
@@ -101,6 +145,14 @@ export class QuotaService {
           used: usage.daily.videoGenerations,
           limit: quota.videoGenerationsPerDay,
           remaining: Math.max(0, quota.videoGenerationsPerDay - usage.daily.videoGenerations),
+          resetAt: this._getNextDayReset(),
+        },
+      },
+      image: {
+        daily: {
+          used: usage.daily.imageGenerations || 0,
+          limit: quota.imageGenerationsPerDay ?? 10,
+          remaining: Math.max(0, (quota.imageGenerationsPerDay ?? 10) - (usage.daily.imageGenerations || 0)),
           resetAt: this._getNextDayReset(),
         },
       },

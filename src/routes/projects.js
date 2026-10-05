@@ -1,16 +1,20 @@
 import { Router } from 'express'
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
 import { projectService } from '../services/projectService.js'
 import { thumbnailService } from '../services/thumbnailService.js'
-import { authService } from '../services/authService.js'
 import { resolveProviderConfig } from '../providers/providerResolver.js'
+import config from '../config/index.js'
 import logger from '../utils/logger.js'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const STORAGE_DIR = path.resolve(__dirname, '..', '..', 'storage')
+const STORAGE_DIR = path.resolve(config.storage.path)
+const STORAGE_ROOT = STORAGE_DIR + path.sep
+
+function resolveStoragePath(url) {
+  if (!url || typeof url !== 'string' || !url.startsWith('/storage/')) return null
+  const resolved = path.resolve(STORAGE_DIR, url.replace(/^\/storage\//, ''))
+  return resolved.startsWith(STORAGE_ROOT) ? resolved : null
+}
 
 /**
  * 清理项目关联的所有文件（视频、音频、导出）
@@ -22,7 +26,8 @@ function cleanupProjectFiles(project) {
     if (project.shots) {
       for (const shot of project.shots) {
         if (shot.videoUrl) {
-          const filePath = path.join(STORAGE_DIR, shot.videoUrl.replace(/^\/storage\//, ''))
+          const filePath = resolveStoragePath(shot.videoUrl)
+          if (!filePath) continue
           if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath)
             deleted.push(filePath)
@@ -32,8 +37,8 @@ function cleanupProjectFiles(project) {
     }
     // 清理配音音频
     if (project.script && project.script.dubbing && project.script.dubbing.audioUrl) {
-      const audioPath = path.join(STORAGE_DIR, project.script.dubbing.audioUrl.replace(/^\/storage\//, ''))
-      if (fs.existsSync(audioPath)) {
+      const audioPath = resolveStoragePath(project.script.dubbing.audioUrl)
+      if (audioPath && fs.existsSync(audioPath)) {
         fs.unlinkSync(audioPath)
         deleted.push(audioPath)
       }
@@ -501,7 +506,6 @@ router.put('/:id/shots/:shotId/duration', async (req, res) => {
 router.get('/:projectId/model-config', async (req, res) => {
   try {
     const project = await projectService.getProject(req.params.projectId)
-    const userId = getUserId(req)
 
     const resolved = {
       video: resolveProviderConfig('video', project.id, project.userId),

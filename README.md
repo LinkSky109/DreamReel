@@ -11,11 +11,13 @@ DreamReel 让每个人都能像做梦一样拍电影。覆盖剧本、分镜、�
 | 功能 | 说明 |
 |------|------|
 | AI 视频生成 | 集成主流模型，prompt → 短片，支持单镜/批量/并行生成（默认 3 并发）；**单镜头重生成 + 多版本候选（3个）+ 镜头锁定**，批量生成自动跳过已锁定镜头 |
+| 图片生成 | **文生图 Provider（Mock 本地真实 PNG / OpenAI Images 兼容），支持 16:9 / 9:16 / 1:1 / 4:3、5 种风格、1-4 张候选；生成图可回填为镜头 / 角色 / 场景参考图，进入既有视频生成链路** |
 | 智能剧本助手 | 一句话 → 完整分镜脚本（含角色、台词、运镜、时长） |
 | 角色/场景一致性 | 角色锁定 + 参考图注入 + 一致性评分；**角色表情动作库（12种表情 + 10种动作 + 5种位置，按镜头逐角色配置并自动注入 prompt）**；**角色造型室（服装/妆容/整体造型）在镜头生成时自动注入该镜头关联角色的造型 prompt，服务重启后造型不丢失** |
 | 场景库 | **22 个内置场景（科幻/自然/城市/室内/奇幻 5 大类），支持用户自定义场景 CRUD，镜头中快速选择并自动关联** |
 | 可视化故事板 | **横向时间轴展示所有镜头，支持拖拽排序，实时显示总时长，已生成镜头显示缩略图** |
-| 一键配音 + 字幕 | 多语种旁白 + SRT 字幕自动生成，5 种预设音色；**多角色对话配音（按角色自动识别台词并分配独立音色、句间停顿控制、多段时间轴拼接）；BGM 库（20首/9种情绪，AI 推荐）+ 音效库（30个/6类）+ 三轨音量独立调节（配音/BGM/音效）+ BGM 淡入淡出；字幕样式自定义（字体/字号/颜色/描边/位置/粗斜体/阴影 + 双语字幕 + 实时预览）** |
+| 一键配音 + 字幕 | 多语种旁白 + SRT 字幕自动生成，5 种预设音色；**多角色对话配音（按角色自动识别台词并分配独立音色、句间停顿控制、多段时间轴拼接）；BGM 库（20首/9种情绪，AI 推荐）+ 音效库（30个/6类）+ 三轨音量独立调节（配音/BGM/音效）+ BGM 淡入淡出；字幕样式自定义（字体/字号/颜色/描边/位置/粗斜体/阴影 + 双语字幕 + 实时预览）**；**Mock TTS 产本地真实占位音（非真实语音，接口/UI 明示），配置 ElevenLabs 后产真实语音；新增三轨混音预听（真实音频文件）** |
+| 智能剪辑 | **规则驱动剪辑方案（快节奏/叙事/抒情/商业广告），目标时长自适应、锁定镜头不压缩、BGM BPM 切点对齐、xfade 能力探测与硬切降级、方案持久化与真实 MP4 渲染；明确不做 ML 内容理解或自动高光识别** |
 | 镜头衔接与一致性 | **上一镜头尾帧作为下一镜头参考图（img2img，顺序生成时自动衔接）；全局视觉风格锁定（色温/饱和度/对比度/亮度，生成时自动注入）；场景与角色连续性自动检查并给出提示** |
 | 视频合成导出 | ffmpeg 合成多镜头成片，含配音字幕，MP4 输出；**导出时自动三轨混音（amix）** |
 
@@ -85,7 +87,7 @@ DreamReel 让每个人都能像做梦一样拍电影。覆盖剧本、分镜、�
 - **框架**: Express 4
 - **语言**: JavaScript (ES Modules)
 - **视频处理**: ffmpeg（合成、拼接、配音、缩略图提取）
-- **测试**: Node.js built-in test runner（365 个测试）
+- **测试**: Node.js built-in test runner（`npm test` 全量执行，当前 488 个用例；测试使用独立 STORAGE_PATH，不污染开发库）
 - **代码规范**: ESLint + Prettier
 - **提交规范**: Conventional Commits
 - **认证**: JWT (HMAC-SHA256, 零依赖)
@@ -110,9 +112,16 @@ open http://localhost:3000
 
 # 运行测试
 npm test
+
+# 生成程序化 BGM/SFX 素材包（首次使用音频 tab 时执行一次）
+npm run seed:audio
 ```
 
-> **创意片头渲染依赖（可选）**：片头的片名/副标题上屏由 Python + Pillow 绘制标题卡（`scripts/render_title_card.py`），再由 ffmpeg 合成。本机需具备 `python3`、`pip install pillow` 及系统中文字体（macOS 自带 Songti/STHeiti，开箱可用）。缺少该运行时，片头会自动回退为纯色氛围背景，并在接口返回中如实标记 `titleRendered:false`，不影响其余功能。Docker 部署需在镜像中预装 Python3 + Pillow。
+> **创意片头渲染依赖（可选）**：片头的片名/副标题上屏由 Python + Pillow 绘制标题卡（`scripts/render_title_card.py`），再由 ffmpeg 合成。本机需具备 `python3`、`pip install pillow` 及可渲染中文的字体（macOS 自带 Songti/STHeiti，开箱可用；Linux/容器需安装 CJK 字体，如 `fonts-noto-cjk`，也可用环境变量 `TITLE_CARD_FONT` 显式指定字体文件）。缺少该运行时，片头会自动回退为纯色氛围背景，并在接口返回中如实标记 `titleRendered:false`，不影响其余功能。Dockerfile 已预装 `python3` + `python3-pil` + `fonts-noto-cjk`。
+
+> **图片生成 Provider**：`IMAGE_PROVIDER=mock` 时用 Python + Pillow 在本地渲染真实 PNG（可离线运行）；字体缺失时仍产出 PNG，并返回 `textRendered:false`。配置 `IMAGE_PROVIDER=openai` + `OPENAI_IMAGE_API_KEY` 后走 OpenAI Images 兼容接口，可用 `OPENAI_IMAGE_BASE_URL` 指向自建网关。
+
+> **音频口径**：`TTS_PROVIDER=mock` 时产出本地可播放的占位音（用于流程与时长验证，不是真实语音）；配置 `ELEVENLABS_API_KEY` + `TTS_PROVIDER=elevenlabs` 后产真实语音。`npm run seed:audio` 用 ffmpeg 程序化生成 BGM/SFX 素材，属于程序化音频，不是 AI 作曲。
 
 ### Docker 部署
 
@@ -214,6 +223,30 @@ docker-compose down
 | POST | `/api/studios/:id/projects/:projectId` | 把作品归入厂牌（项目不存在 → 404），回写 `project.studioId` |
 | GET | `/api/studios/:id/projects` | 厂牌全部作品 |
 | POST | `/api/studios/:id/shows/:showId/projects/:projectId` | 把作品归入剧集（自动并入厂牌、重复归入自动去重） |
+
+### 图片生成（R32）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/images/providers` | 图片 Provider 状态与模型目录（mock / openai） |
+| POST | `/api/images/generate` | 生成 1-4 张图片，body `{ projectId, prompt, aspectRatio, style, count }`；参数越界 → 400，审核/额度不足 → 403，项目不存在 → 404；成功 201 |
+| GET | `/api/images/assets?projectId=` | 项目图片资产列表 |
+| GET | `/api/images/assets/:id` | 单个图片资产（不存在 → 404） |
+| DELETE | `/api/images/assets/:id` | 删除资产与本地文件 |
+| POST | `/api/images/assets/:id/apply` | 回填为参考图，body `{ targetType: shot\|character\|scene, targetId, projectId }`；自动去重，目标不存在 → 404 |
+| GET | `/api/images/stats` | 图片资产统计 |
+
+### 音频与智能剪辑（R33 / R34）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/audio/preview` | 用已保存的音频配置生成三轨混音预听，body `{ projectId, language, voiceId, speed }`；返回真实音频 URL、轨道数与 `placeholderVoices` |
+| GET | `/api/edit-plans/profiles` | 剪辑预设列表（fast / narrative / lyrical / commercial） |
+| POST | `/api/edit-plans/generate` | 生成剪辑方案，body `{ projectId, profile, targetDuration, bgmId }`；成功 201 |
+| GET | `/api/edit-plans/:projectId` | 读取当前剪辑方案（无方案 → 404） |
+| DELETE | `/api/edit-plans/:projectId` | 清除剪辑方案，不修改原镜头 |
+| POST | `/api/edit-plans/:projectId/render` | 渲染剪辑成片，返回 MP4 URL、转场应用结果与 `hasAudio` |
+| GET | `/api/edit-plans/:projectId/transition-support` | 探测 xfade 转场能力 |
 
 ### 配音字幕
 
@@ -393,6 +426,7 @@ MAX_RESOLUTION=720p
 | 资源 | 免费额度 |
 |------|----------|
 | 视频生成 | 5 次/天 |
+| 图片生成 | 10 张/天 |
 | 配音时长 | 10 分钟/月 |
 | 单镜时长 | 最长 5 秒 |
 | 分辨率 | 最高 720p |
@@ -418,7 +452,8 @@ MAX_RESOLUTION=720p
 - **Sprint 11–12**: 多模型矩阵、剧本改编、角色造型室、广场一键复刻、创意片头 ✅
 - **Sprint 13**: 导演模式（导演 prompt 编排）、剧场计划厂牌体系 ✅
 - **Phase 1**: 各阶段模型可自定义 — 全局偏好 + 项目级 Provider 配置 + 四级回退链 ✅
-- **Sprint 14（计划中）**: 画布五 tab 整合、图片生成 / 音频生成独立 tab、智能剪辑模块
+- **Sprint 14（Wave 1 已交付）**: 五合一创作画布（剧本 / 图片 / 视频 / 音频 / 剪辑 + 更多工具）、图片生成独立 tab、生成图回填参考图、测试存储隔离与前端 lint 覆盖 ✅
+- **Sprint 15（Wave 2 已交付）**: 音频生成独立 tab（Mock TTS 本地真实占位音 / 程序化 BGM·SFX / 三轨混音预听）、智能剪辑模块（规则 EDL / BPM 对齐 / xfade 探测与硬切降级 / 真实渲染）✅
 
 > 各 Sprint 的范围与证据见 `docs/sprint*-delivery-report.md`，对标 LibTV 的差距分析见 `docs/sprint11-gap-analysis.md`。
 

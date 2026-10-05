@@ -72,6 +72,8 @@ export class DubbingService {
           voiceId: lineVoice,
           audioUrl: audio.audioUrl,
           duration: audio.duration,
+          placeholder: audio.placeholder === true,
+          provider: audio.provider || ttsProvider.name,
           startTime: currentTime,
           endTime: currentTime + audio.duration,
         })
@@ -95,6 +97,8 @@ export class DubbingService {
         totalDuration: currentTime,
         dialogueAssignments: assignments,
         burnSubtitles,
+        placeholderVoices: audioTracks.some((track) => track.placeholder === true),
+        ttsProvider: ttsProvider.name,
       }
     } catch (error) {
       logger.error('Dubbing generation failed:', error.message)

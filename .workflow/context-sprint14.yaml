@@ -1,0 +1,241 @@
+task_id: "TASK-20261005-014"
+task_name: "DreamReel Sprint 14: 五合一画布 + 图片生成 + 工程收口"
+create_time: "2026-10-05T19:20:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+planning:
+  requirements_doc: "docs/sprint14-requirements-analysis.md"
+  workflow_plan: "docs/sprint14-workflow-plan.md"
+  recommended_wave1: ["R31", "R32", "R35"]
+  recommended_wave2: ["R33", "R34"]
+  wave_split_reason: "R31/R32/R35 可独立闭环并互相支撑；R33/R34 均需新增 ffmpeg 能力与 editor.js 深层改动，混入同一轮会显著放大回归面"
+
+reference:
+  benchmark_url: "https://www.liblib.tv/"
+  benchmark_name: "LibTV - 专业视频创作工具"
+  gap_analysis: "docs/sprint11-gap-analysis.md（第五/六节：五合一画布、图片生成、音频生成、智能剪辑后置路线）"
+  prev_sprint_context: ".workflow/context-sprint13.yaml"
+  prev_delivery_report: "docs/sprint13-delivery-report.md"
+  prev_pm_review: "docs/sprint13-pm-review.md"
+
+baseline:
+  repo_root: "/Users/link/work/DreamReel"
+  git_repo: true
+  git_branch: "main"
+  git_head: "d28a368 feat: Phase 1 — 各阶段模型可自定义"
+  dirty_worktree_files: 10
+  dirty_worktree_note: "既存未提交改动（Dockerfile/README/arch_report/scripts/render_title_card.py/elevenLabsTTSProvider/videoProviderFactory/server/videoService/titleSequence.test/videoParallel.test），非本期产物，禁止回退"
+  test_command: "npm test"
+  test_total: 439
+  test_pass: 439
+  test_fail: 0
+  lint_command: "npx eslint src/ tests/"
+  lint_errors: 47
+  lint_warnings: 0
+  frontend_lint_covered: false
+  editor_file_lines: 3361
+  audio_assets_total: 0
+  image_provider_exists: false
+
+scope:
+  - id: "R31"
+    name: "五合一创作画布整合"
+    owner: "frontend"
+    priority: "P0"
+    wave: 1
+    status: "DEV_DONE"
+    features:
+      - "一级 5 tab：剧本 / 图片 / 视频 / 音频 / 剪辑"
+      - "二级更多工具：角色 / 场景 / 分析 / 协作 / 版本 / 设置"
+      - "URL + localStorage tab 恢复；旧 tab 标识与键盘事件兼容"
+      - "移动端横向滚动与不重叠布局"
+    acceptance:
+      - "一级导航只显示五个入口，二级入口全部可达"
+      - "刷新后停留在当前 tab"
+      - "旧链接 #/project/:id 默认进入剧本且不报错"
+  - id: "R32"
+    name: "图片生成独立 Tab"
+    owner: "backend+frontend"
+    priority: "P0"
+    wave: 1
+    status: "DEV_DONE"
+    features:
+      - "BaseImageProvider + MockImageProvider（真实 PNG）+ OpenAI 兼容 ImageProvider"
+      - "POST /api/images/generate（1-4 张，prompt/比例/风格/数量）"
+      - "GET/DELETE /api/images/assets；POST /api/images/assets/:id/apply"
+      - "ImageAsset 持久化 + storageService 规范化 + 图片额度 + 内容审核"
+      - "生成图设为镜头 / 角色 / 场景参考图，进入既有视频生成链路"
+      - "前端图片 tab：生成表单、候选网格、资产库、回填操作"
+    acceptance:
+      - "Mock 产出真实存在且可 HTTP 访问的 PNG"
+      - "回填 referenceImages 后服务重启不丢，且后续视频生成传给 provider"
+      - "空 prompt / 数量越界 400；额度不足 403 且不落资产；未知资产 404"
+      - "字体不可用时仍产出 PNG 且 textRendered=false"
+  - id: "R35"
+    name: "工程健康收口（测试存储隔离 + 前端 lint）"
+    owner: "backend+orchestrator"
+    priority: "P0"
+    wave: 1
+    status: "DEV_DONE"
+    features:
+      - "npm test 注入独立 STORAGE_PATH"
+      - "增加开发库项目数 / 厂牌数前后不变断言"
+      - "eslint 覆盖 public/js/**/*.js"
+      - "记录存量 error 基线，不要求清零"
+    acceptance:
+      - "npm test 后开发库项目数不变"
+      - "npm run lint 同时检查 src/、tests/、public/js/"
+      - "本期新增文件 0 error"
+
+next_sprint:
+  - id: "R33"
+    name: "音频生成独立 Tab"
+    priority: "P1"
+    wave: 2
+    status: "DELIVERED（见 .workflow/context-sprint15.yaml）"
+    boundary: "TTS 真实/占位双口径；程序化 BGM/SFX；不做 AI 作曲与声音克隆"
+  - id: "R34"
+    name: "智能剪辑模块"
+    priority: "P1"
+    wave: 2
+    status: "DELIVERED（见 .workflow/context-sprint15.yaml）"
+    boundary: "规则驱动 EDL + 真实渲染；不做 ML 内容理解与自动高光识别"
+
+out_of_scope:
+  - "画布式无限自由拖拽节点编辑器"
+  - "AI 音乐生成 / 声音克隆 / 音色训练"
+  - "视频内容理解 / 自动高光识别"
+  - "图片编辑 / 局部重绘 / 扩图 / 抠图"
+  - "引入前端框架或新增运行时 npm 依赖"
+  - "修复全部 47 个存量 lint error"
+  - "修改 /Users/link/myApp/CineAI（全程只读）"
+
+dev_context:
+  dev_owner: "AI Agent（orchestrator 主实现；独立 reviewer 复核待执行）"
+  feature_branch: "sprint-14-canvas-image"
+  mr_id: ""
+  cr_approvers: []
+  unit_test_coverage: "465 tests / 0 fail（新增 R32 service 20 例 + route 6 例）；未启用行覆盖率统计"
+  lint_result: "新增文件 0 error；src/tests 存量 47 error 未扩大；public/js 首次纳入后暴露 37 个历史 error"
+  dev_complete_time: "2026-10-05T19:35:00+08:00"
+  sub_tasks:
+    - id: "R31"
+      name: "五合一创作画布整合"
+      owner: "frontend"
+      status: "DEV_DONE"
+      estimated_hours: 24
+    - id: "R32"
+      name: "图片生成独立 Tab"
+      owner: "backend+frontend"
+      status: "DEV_DONE"
+      estimated_hours: 42
+    - id: "R35"
+      name: "工程健康收口"
+      owner: "backend+orchestrator"
+      status: "DEV_DONE"
+      estimated_hours: 8
+
+test_context:
+  test_owner: "AI Agent（独立 test subagent）"
+  test_env: "local, PORT=3021/3022/3040, NODE_ENV=test, isolated STORAGE_PATH"
+  test_case_total: 465
+  test_case_pass: 465
+  bug_count: 0
+  bug_closed_count: 0
+  test_report_link: "docs/sprint14-workflow-plan.md（证据要求）+ 本轮 curl/浏览器输出"
+  test_complete_time: "2026-10-05T19:40:00+08:00"
+
+consistency_context:
+  code_check: "PASS（新增文件 lint 0 error；node --check 全过；不改 CineAI；安全修复：/storage 白名单、图片资产按用户隔离、image provider 忽略项目级 baseUrl、prompt/响应大小上限、失败额度退款）"
+  env_check: "PASS（ffmpeg/python3/Pillow 可用；测试使用独立 STORAGE_PATH）"
+  data_check: "PASS（ImageAsset 与 shot.referenceImages 重启不丢；测试前后开发库 48 projects 未变）"
+  doc_check: "PASS（README 功能/API/测试数/路线图已同步；需求分析、执行规划、PM 复核、交付报告四件套齐全）"
+  inspection_report_link: "docs/sprint14-pm-review.md"
+
+sla_info:
+  total_deadline: "2026-10-10T23:59:00+08:00"
+  dev_cycle_hours: 72
+  test_cycle_hours: 48
+  code_review_hours: 24
+  bug_fix_hours: 12
+  upgrade_levels_hours: [2, 8, 24, 48]
+  current_node_timeout: 0
+  risk_level: "normal"
+
+subagents:
+  backend:
+    status: "NOT_SPAWNED（写入面集中，由 orchestrator 串行实现以避免 editor.js/server.js 冲突）"
+    port: 3021
+    scope: ["R32-backend", "R35-backend", "tests"]
+    owns: ["src/providers/image*", "src/services/imageService.js", "src/routes/images.js", "src/models/ImageAsset.js", "tests/image*.test.js"]
+  frontend:
+    status: "NOT_SPAWNED（同上）"
+    port: 3022
+    scope: ["R31-frontend", "R32-frontend"]
+    owns: ["public/index.html", "public/js/app.js", "public/js/api.js", "public/js/views/editor.js", "public/js/views/editorTabs.js", "public/js/views/images.js", "public/css/style.css"]
+  test:
+    status: "VERIFIED_BY_REVIEWERS（本地 HTTP + agent-browser + 两名独立复核子代理复测通过）"
+    port: 3023
+    scope: ["HTTP 冒烟", "浏览器走查", "重启持久化", "测试隔离验证"]
+    owns: ["tests/**（仅新增测试文件）"]
+  pm_review:
+    status: "DONE"
+    port_first: 3030
+    port_recheck: 3031
+    scope: ["交付复核，只看不改"]
+    owns: ["docs/sprint14-pm-review.md"]
+    verdicts: ["正确性复核 PASS", "安全复核 PASS（Critical/High 修复后复测）"]
+
+shared_file_ownership:
+  orchestrator_only:
+    - "src/config/index.js"
+    - "src/server.js"
+    - "src/services/storageService.js"
+    - "src/services/quotaService.js"
+    - "src/services/projectService.js"
+    - "package.json"
+    - "eslint.config.js"
+    - "README.md"
+  conflict_rule: "editor.js 仅允许 frontend 一个写入者；共享文件在后端契约冻结后由编排者串行修改"
+
+state_log:
+  - time: "2026-10-05T19:20:00+08:00"
+    from: "N/A"
+    to: "GLOBAL_PENDING"
+    note: "完成 Sprint 14 详细需求分析（R31-R35），裁决 Wave 1 = R31+R32+R35、Wave 2 = R33+R34；锁定基线 439 pass/0 fail、47 lint error、无 image provider、音频素材为 0；规划就绪，等待需求确认事件进入 GLOBAL_IN_DEV"
+  - time: "2026-10-05T19:22:00+08:00"
+    from: "GLOBAL_PENDING"
+    to: "GLOBAL_IN_DEV"
+    note: "需求确认并启动 Wave 1；创建分支 sprint-14-canvas-image；锁定基线 439 pass / 47 lint error；保留工作区 10 个既存未提交改动"
+  - time: "2026-10-05T19:28:00+08:00"
+    from: "GLOBAL_IN_DEV"
+    to: "GLOBAL_IN_DEV"
+    note: "R32 后端完成：image provider 抽象、Mock 真实 PNG、OpenAI 兼容适配、ImageAsset、/api/images、图片额度；新增 18 例测试全绿；修复 Mock renderer stdin 阻塞与 Shot.referenceImages hydrate 丢失"
+  - time: "2026-10-05T19:32:00+08:00"
+    from: "GLOBAL_IN_DEV"
+    to: "GLOBAL_IN_DEV"
+    note: "R31/R32 前端完成：五合一画布 tab 契约、URL tab slug（video/audio）、图片生成页、回填参考图；移动端 390px 布局回修"
+  - time: "2026-10-05T19:35:00+08:00"
+    from: "GLOBAL_IN_DEV"
+    to: "GLOBAL_IN_TEST"
+    note: "R35 工程收口完成：npm test 使用独立 STORAGE_PATH 并断言开发库不变；public/js 纳入 lint；全套 457 pass / 0 fail"
+  - time: "2026-10-05T19:40:00+08:00"
+    from: "GLOBAL_IN_TEST"
+    to: "GLOBAL_IN_TEST"
+    note: "独立 HTTP 冒烟 + agent-browser 真实验证通过：一级 tab 5 个、更多工具 6 个、深链刷新保持、UI 生成 2 张真实 PNG、回填 shot.referenceImages、桌面/390px 截图、控制台零 error"
+  - time: "2026-10-05T19:42:00+08:00"
+    from: "GLOBAL_IN_TEST"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "进入一致性校验；README 已同步功能/API/测试数/路线图；等待独立复核 PASS"
+  - time: "2026-10-05T19:45:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "独立正确性复核发现 P1：shot.referenceImages 未进入视频生成；已修 generateShot 合并镜头参考图，并新增 provider 捕获测试。P2 场景入口与失败额度退款同步收口"
+  - time: "2026-10-05T19:50:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "独立安全复核发现 Critical：/storage 暴露 db、图片资产匿名枚举/删除、OpenAI 兼容 provider SSRF；已修：storage 白名单只暴露媒体目录、资产 API 所有权校验与 filePath 脱敏、忽略项目级 image config、下载 URL 私网拦截与大小限制、prompt 长度上限。回归：465 pass / 0 fail；/storage/data/db.json→404，图片 URL→200，越权→404，匿名列表无 filePath"
+  - time: "2026-10-05T19:55:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_DONE"
+    note: "两组独立复核二次复测 PASS；生成 docs/sprint14-pm-review.md 与 docs/sprint14-delivery-report.md；README/context/需求/规划/交付全量对齐；Wave 1 交付完成"

@@ -1,8 +1,13 @@
 # DreamReel Dockerfile
 FROM node:20-slim
 
-# 安装 ffmpeg
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+# 安装 ffmpeg + 片头标题卡渲染依赖（python3 / Pillow / 中文字体）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ffmpeg \
+      python3 \
+      python3-pil \
+      fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

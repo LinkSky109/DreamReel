@@ -1,4 +1,5 @@
 import ffmpeg from '../utils/ffmpeg.js'
+import { audioService } from './audioService.js'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import path from 'path'
@@ -117,18 +118,129 @@ export class VideoCompositingService {
   }
 
   /**
+   * R34：按 editPlan 渲染智能剪辑成片
+   */
+  async renderEditPlan(project, plan) {
+    if (!plan || !Array.isArray(plan.shots) || plan.shots.length === 0) {
+      throw new Error('Invalid edit plan: shots are required')
+    }
+    if (plan.shots.length > 200) {
+      throw new Error('Invalid edit plan: too many shots')
+    }
+    for (const planShot of plan.shots) {
+      if (!Number.isFinite(planShot.duration) || planShot.duration <= 0 || planShot.duration > 60) {
+        throw new Error(`Invalid edit plan shot duration: ${planShot.duration}`)
+      }
+    }
+    const plannedDuration = Number.isFinite(plan.totalDuration)
+      ? plan.totalDuration
+      : plan.shots.reduce((sum, shot) => sum + shot.duration, 0)
+    const exportId = `edit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const outputPath = path.join(EXPORTS_DIR, `${exportId}.mp4`)
+    const outputUrl = `/storage/exports/${exportId}.mp4`
+    const tempFiles = []
+
+    try {
+      const trimmed = []
+      for (const planShot of plan.shots) {
+        const shot = (project.shots || []).find((item) => item.id === planShot.shotId)
+        if (!shot?.videoUrl) throw new Error(`Shot not ready for edit: ${planShot.shotId}`)
+        const inputPath = this.resolveVideoPath(shot.videoUrl)
+        const trimmedPath = path.join(TEMP_DIR, `${exportId}_${trimmed.length}.mp4`)
+        await ffmpeg.trimVideo(inputPath, trimmedPath, planShot.duration)
+        tempFiles.push(trimmedPath)
+        trimmed.push({ path: trimmedPath, duration: planShot.duration })
+      }
+
+      const xfadeSupported = await ffmpeg.hasFilter('xfade').catch(() => false)
+      const wantsFade = plan.transition === 'fade'
+      const useFade = wantsFade && xfadeSupported && trimmed.length > 1
+      let videoPath
+
+      if (useFade) {
+        let currentPath = trimmed[0].path
+        let currentDuration = trimmed[0].duration
+        for (let i = 1; i < trimmed.length; i += 1) {
+          const next = trimmed[i]
+          const transitionDuration = Math.min(
+            plan.transitionDuration || 0.4,
+            Math.min(currentDuration, next.duration) / 3
+          )
+          const offset = Math.max(0, currentDuration - transitionDuration)
+          const crossfadePath = path.join(TEMP_DIR, `${exportId}_xfade_${i}.mp4`)
+          await ffmpeg.crossfadeVideos(currentPath, next.path, crossfadePath, transitionDuration, offset)
+          tempFiles.push(crossfadePath)
+          currentPath = crossfadePath
+          currentDuration = currentDuration + next.duration - transitionDuration
+        }
+        videoPath = currentPath
+      } else {
+        const concatPath = path.join(TEMP_DIR, `${exportId}_concat.mp4`)
+        await ffmpeg.concatVideos(trimmed.map((item) => item.path), concatPath)
+        tempFiles.push(concatPath)
+        videoPath = concatPath
+      }
+
+      let finalVideo = videoPath
+      let hasAudio = false
+      try {
+        const preview = await audioService.previewMix(project, { duration: plannedDuration })
+        if (preview.tracks.length > 0) {
+          const audioPath = path.join(STORAGE_DIR, preview.url.replace('/storage/', ''))
+          const mergedPath = path.join(TEMP_DIR, `${exportId}_with_audio.mp4`)
+          await ffmpeg.mergeAudio(videoPath, audioPath, mergedPath)
+          tempFiles.push(mergedPath)
+          finalVideo = mergedPath
+          hasAudio = true
+        }
+      } catch (audioError) {
+        logger.warn(`Edit plan audio mux skipped: ${audioError.message}`)
+      }
+
+      fs.copyFileSync(finalVideo, outputPath)
+      const duration = await ffmpeg.getDuration(outputPath)
+      return {
+        exportId,
+        outputPath,
+        outputUrl,
+        duration,
+        transitionApplied: useFade ? 'xfade' : 'cut',
+        transitionFallback: wantsFade && !xfadeSupported,
+        hasAudio,
+        shotCount: plan.shots.length,
+      }
+    } finally {
+      for (const file of tempFiles) {
+        try {
+          if (fs.existsSync(file)) fs.unlinkSync(file)
+        } catch { /* ignore cleanup errors */ }
+      }
+    }
+  }
+
+  /**
    * 将 URL 解析为本地文件路径
    */
   resolveVideoPath(videoUrl) {
     if (videoUrl.startsWith('/storage/')) {
-      return path.join(STORAGE_DIR, videoUrl.replace('/storage/', ''))
+      const resolved = path.resolve(STORAGE_DIR, videoUrl.replace('/storage/', ''))
+      const root = path.resolve(STORAGE_DIR) + path.sep
+      if (!resolved.startsWith(root)) {
+        throw new Error(`Invalid storage path: ${videoUrl}`)
+      }
+      return resolved
     }
     if (videoUrl.startsWith('http')) {
       // 远程 URL 需要先下载，MVP 阶段暂不支持
       throw new Error(`Remote video URL not supported for export: ${videoUrl}`)
     }
-    // 本地路径
-    return path.resolve(videoUrl)
+    // 本地路径必须在 STORAGE_DIR 内，避免任意本地文件被导入成片
+    const resolved = path.resolve(videoUrl)
+    const root = path.resolve(STORAGE_DIR) + path.sep
+    if (!resolved.startsWith(root)) {
+      throw new Error(`Local video path outside storage is not allowed: ${videoUrl}`)
+    }
+    return resolved
   }
 
   /**
@@ -219,7 +331,7 @@ export class VideoCompositingService {
     } finally {
       // 清理临时文件
       for (const f of tempFiles) {
-        try { if (fs.existsSync(f)) fs.unlinkSync(f) } catch (_) {}
+        try { if (fs.existsSync(f)) fs.unlinkSync(f) } catch { /* ignore cleanup errors */ }
       }
     }
   }
@@ -254,7 +366,9 @@ export class VideoCompositingService {
    */
   resolveAudioPath(audioUrl) {
     if (audioUrl.startsWith('/storage/')) {
-      return path.join(STORAGE_DIR, audioUrl.replace('/storage/', ''))
+      const resolved = path.resolve(STORAGE_DIR, audioUrl.replace('/storage/', ''))
+      const root = path.resolve(STORAGE_DIR) + path.sep
+      return resolved.startsWith(root) ? resolved : null
     }
     return path.join(STORAGE_DIR, 'audio', path.basename(audioUrl))
   }

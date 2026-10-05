@@ -11,7 +11,7 @@ import logger from '../utils/logger.js'
 
 /**
  * 校验 Provider 是否已配置 API Key
- * @param {string} stage - 'video' | 'llm' | 'tts'
+ * @param {string} stage - 'video' | 'llm' | 'tts' | 'image'
  * @param {string} providerName
  * @returns {boolean}
  */
@@ -53,12 +53,21 @@ export function isProviderConfigured(stage, providerName) {
     }
   }
 
+  if (stage === 'image') {
+    switch (providerName) {
+      case 'openai':
+        return !!config.image.apiKey
+      default:
+        return false
+    }
+  }
+
   return false
 }
 
 /**
  * 解析 Provider 配置
- * @param {string} stage - 'video' | 'llm' | 'tts'
+ * @param {string} stage - 'video' | 'llm' | 'tts' | 'image'
  * @param {string|null} projectId
  * @param {string|null} userId
  * @returns {{provider: string, model: string|null, config: object, source: string}}

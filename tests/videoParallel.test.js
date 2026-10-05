@@ -47,12 +47,48 @@ test('videoService: generateShotsParallel should respect concurrency limit', asy
     shots.push({ id: `shot${i}`, description: `镜头${i}`, duration: 1, characterIds: [], sceneId: null })
   }
 
-  const start = Date.now()
-  const results = await videoService.generateShotsParallel(shots, project, null, null, 2)
-  const elapsed = (Date.now() - start) / 1000
+  // 用可控 stub 替代真实 mock+ffmpeg，避免全量测试并行时 CPU 竞争导致的墙钟抖动
+  const originalProvider = videoService.provider
+  const originalPoll = videoService.pollTaskStatus
+  let inFlight = 0
+  let maxInFlight = 0
+  let taskSeq = 0
 
-  assert.equal(results.length, 4)
-  // 4个镜头，2并发，每个约2-3秒，应该在6-10秒内完成
-  // 串行需要8-12秒
-  assert.ok(elapsed < 15, `Expected < 15s with concurrency 2, got ${elapsed}s`)
+  videoService.provider = {
+    name: 'concurrency-stub',
+    supportsReferenceImages: () => false,
+    generateVideo: async () => {
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      inFlight--
+      return { taskId: `stub-${taskSeq++}` }
+    },
+  }
+  videoService.pollTaskStatus = async (taskId) => {
+    const task = videoService.activeTasks.get(taskId)
+    if (task) {
+      task.resolve({ videoUrl: 'mock://done.mp4', status: 'completed', consistencyScore: 0.8 })
+      videoService.activeTasks.delete(taskId)
+    }
+  }
+
+  try {
+    const start = Date.now()
+    const results = await videoService.generateShotsParallel(shots, project, null, null, 2)
+    const elapsed = (Date.now() - start) / 1000
+
+    assert.equal(results.length, 4)
+    for (const result of results) {
+      assert.equal(result.success, true)
+    }
+    // 4 个镜头、并发上限 2：同时在飞的请求不应超过 2，且确实用满了并发
+    assert.equal(maxInFlight, 2, `Expected max in-flight 2, got ${maxInFlight}`)
+    // 串行需 4×50ms，理想为 2×50ms；上限放宽以免调度抖动造成偶发失败
+    assert.ok(elapsed < 5, `Expected < 5s with concurrency 2, got ${elapsed}s`)
+  } finally {
+    videoService.provider = originalProvider
+    videoService.pollTaskStatus = originalPoll
+    videoService.activeTasks.clear()
+  }
 })

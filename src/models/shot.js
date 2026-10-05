@@ -23,6 +23,7 @@ export class Shot {
     cameraMovement,
     characterIds,
     sceneId,
+    referenceImages,
     videoUrl,
     status,
     consistencyScore,
@@ -47,6 +48,7 @@ export class Shot {
     this.cameraMovement = cameraMovement || 'static'
     this.characterIds = characterIds || []
     this.sceneId = sceneId || null
+    this.referenceImages = Array.isArray(referenceImages) ? referenceImages : []
     this.videoUrl = videoUrl || null
     this.status = status || SHOT_STATUS.PENDING
     this.consistencyScore = consistencyScore ?? null
@@ -84,6 +86,7 @@ export class Shot {
       cameraMovement: this.cameraMovement,
       characterIds: this.characterIds,
       sceneId: this.sceneId,
+      referenceImages: this.referenceImages,
       videoUrl: this.videoUrl,
       status: this.status,
       consistencyScore: this.consistencyScore,

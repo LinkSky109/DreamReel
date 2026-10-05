@@ -12,6 +12,10 @@ import {
   getAvailableProviders as getAvailableTTSProviders,
   getTTSModelCatalog,
 } from '../providers/ttsProviderFactory.js'
+import {
+  getAvailableProviders as getAvailableImageProviders,
+  getImageModelCatalog,
+} from '../providers/imageProviderFactory.js'
 
 const router = Router()
 
@@ -45,6 +49,13 @@ router.get('/status', (req, res) => {
         available: getAvailableTTSProviders(),
         configured: {
           elevenlabs: !!config.tts.elevenLabsApiKey,
+        },
+      },
+      image: {
+        current: config.image.provider,
+        available: getAvailableImageProviders(),
+        configured: {
+          openai: !!config.image.apiKey,
         },
       },
     }
@@ -89,6 +100,15 @@ router.get('/available', (req, res) => {
       return
     }
 
+    if (stage === 'image') {
+      res.json({
+        stage: 'image',
+        current: config.image.provider,
+        models: getImageModelCatalog(),
+      })
+      return
+    }
+
     // 默认返回所有阶段
     res.json({
       video: {
@@ -102,6 +122,10 @@ router.get('/available', (req, res) => {
       tts: {
         current: config.tts.provider,
         models: getTTSModelCatalog(),
+      },
+      image: {
+        current: config.image.provider,
+        models: getImageModelCatalog(),
       },
     })
   } catch (error) {

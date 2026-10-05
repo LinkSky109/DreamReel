@@ -11,7 +11,7 @@ export const PROJECT_STATUS = {
 }
 
 export class Project {
-  constructor({ id, name, description, coverUrl, status, targetDuration, style, platform, script, characters, scenes, shots, tags, isFavorite, isArchived, userId, audioConfig, subtitleStyle, dialogueAssignments, visualStyle, isPublished, publishedAt, likeCount, viewCount, galleryCategory, challengeId, teamId, directorMode, studioId, providerPreferences, createdAt, updatedAt, lastAccessedAt }) {
+  constructor({ id, name, description, coverUrl, status, targetDuration, style, platform, script, characters, scenes, shots, tags, isFavorite, isArchived, userId, audioConfig, subtitleStyle, dialogueAssignments, visualStyle, isPublished, publishedAt, likeCount, viewCount, galleryCategory, challengeId, teamId, directorMode, studioId, providerPreferences, editPlan, createdAt, updatedAt, lastAccessedAt }) {
     this.id = id || uuidv4()
     this.name = name || '未命名项目'
     this.description = description || ''
@@ -41,6 +41,8 @@ export class Project {
     this.directorMode = directorMode || { enabled: false, directorId: null, appliedAt: null }
     // R30：所属剧场厂牌 id
     this.studioId = studioId || null
+    // R34：智能剪辑方案
+    this.editPlan = editPlan || null
     this.userId = userId || 'default'
     this.audioConfig = audioConfig || {
       bgmId: null,
@@ -171,6 +173,7 @@ export class Project {
       teamId: this.teamId,
       directorMode: this.directorMode,
       studioId: this.studioId,
+      editPlan: this.editPlan,
       userId: this.userId,
       audioConfig: this.audioConfig,
       subtitleStyle: this.subtitleStyle,

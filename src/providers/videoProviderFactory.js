@@ -62,19 +62,26 @@ export function getVideoProvider() {
  * 获取项目感知的视频 Provider 实例（Phase 1）
  * @param {string|null} projectId
  * @param {string|null} userId
+ * @param {BaseVideoProvider|null} defaultProvider - 解析落到全局默认/兜底时复用的实例（默认取全局单例）
  * @returns {BaseVideoProvider}
  */
-export function getVideoProviderForProject(projectId = null, userId = null) {
+export function getVideoProviderForProject(projectId = null, userId = null, defaultProvider = null) {
   if (!projectId && !userId) {
-    return getVideoProvider()
+    return defaultProvider || getVideoProvider()
   }
 
   const resolved = resolveProviderConfig('video', projectId, userId)
+
+  // 全局默认/兜底不需要项目级实例，复用调用方的默认 provider（避免每镜头新建实例）
+  if (resolved.source === 'global-default' || resolved.source === 'fallback') {
+    return defaultProvider || getVideoProvider()
+  }
+
   const ProviderClass = PROVIDER_MAP[resolved.provider]
 
   if (!ProviderClass) {
     logger.warn(`Unknown video provider: ${resolved.provider}, falling back to mock`)
-    return new MockVideoProvider(config.video)
+    return defaultProvider || new MockVideoProvider(config.video)
   }
 
   const mergedConfig = buildMergedConfig('video', resolved.provider, resolved.config, resolved.model)

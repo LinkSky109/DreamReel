@@ -20,6 +20,7 @@ render_title_card.py — 用 Pillow 渲染创意片头标题卡 PNG。
 import io
 import json
 import math
+import os
 import sys
 
 try:
@@ -28,23 +29,66 @@ except ImportError:
     print(json.dumps({"ok": False, "error": "Pillow not installed"}), file=sys.stderr)
     sys.exit(2)
 
-SONGTI = "/System/Library/Fonts/Supplemental/Songti.ttc"
-HEITI = "/System/Library/Fonts/STHeiti Medium.ttc"
-ARIAL_UNICODE = "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
+# 字体候选：优先 macOS 系统字体，其次 Linux（Noto CJK），最后 ASCII 兜底。
+# 可用 TITLE_CARD_FONT 环境变量显式指定字体文件路径。
+MAC_SONGTI = "/System/Library/Fonts/Supplemental/Songti.ttc"
+MAC_HEITI = "/System/Library/Fonts/STHeiti Medium.ttc"
+MAC_ARIAL_UNICODE = "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
+
+LINUX_SONGTI = [
+    "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+]
+LINUX_HEITI = [
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+]
+ASCII_FALLBACK = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+]
+
+FONT_OVERRIDE = os.environ.get("TITLE_CARD_FONT", "").strip()
+
+
+def _font_candidates(family="songti"):
+    """返回 (CJK 候选, ASCII 兜底候选)，已去重。"""
+    if family == "songti":
+        mac = [MAC_SONGTI, MAC_ARIAL_UNICODE, MAC_HEITI]
+        linux = LINUX_SONGTI
+    else:
+        mac = [MAC_HEITI, MAC_ARIAL_UNICODE, MAC_SONGTI]
+        linux = LINUX_HEITI
+
+    cjk = []
+    for path in ([FONT_OVERRIDE] if FONT_OVERRIDE else []) + mac + linux:
+        if path and path not in cjk:
+            cjk.append(path)
+
+    ascii_fallback = [p for p in ASCII_FALLBACK if p not in cjk]
+    return cjk, ascii_fallback
+
+
+def _try_truetype(path, size):
+    try:
+        return ImageFont.truetype(path, size, index=0)
+    except Exception:
+        return None
 
 
 def load_font(size, family="songti"):
-    candidates = []
-    if family == "songti":
-        candidates = [SONGTI, ARIAL_UNICODE, HEITI]
-    else:
-        candidates = [HEITI, ARIAL_UNICODE, SONGTI]
-    for path in candidates:
-        try:
-            return ImageFont.truetype(path, size, index=0)
-        except Exception:
-            continue
+    cjk, ascii_fallback = _font_candidates(family)
+    for path in cjk + ascii_fallback:
+        font = _try_truetype(path, size)
+        if font is not None:
+            return font
     return ImageFont.load_default()
+
+
+def has_cjk_font():
+    """是否存在可加载的 CJK 字体（不含仅支持 ASCII 的兜底字体）。"""
+    cjk, _ = _font_candidates("songti")
+    return any(_try_truetype(path, 16) is not None for path in cjk)
 
 
 def text_size(draw, text, font):
@@ -200,6 +244,11 @@ RENDERERS = {
 
 
 def main():
+    # 自检模式：供测试/部署预检渲染运行时能力（不改动任何文件）
+    if len(sys.argv) >= 2 and sys.argv[1] == "--check":
+        print(json.dumps({"ok": True, "pillow": True, "cjkFont": has_cjk_font()}))
+        return
+
     if len(sys.argv) >= 2:
         payload = sys.argv[1]
     else:
