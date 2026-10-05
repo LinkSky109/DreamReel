@@ -4,12 +4,19 @@ import crypto from 'crypto'
  * 用户模型
  */
 export class User {
-  constructor({ id, username, email, passwordHash, salt, createdAt, updatedAt }) {
+  constructor({ id, username, email, passwordHash, salt, defaultProviderPreferences, createdAt, updatedAt }) {
     this.id = id
     this.username = username
     this.email = email
     this.passwordHash = passwordHash
     this.salt = salt
+    // Phase 1: 全局默认 Provider 偏好
+    this.defaultProviderPreferences = defaultProviderPreferences || {
+      video: null,
+      llm: null,
+      tts: null,
+      updatedAt: null,
+    }
     this.createdAt = createdAt || new Date().toISOString()
     this.updatedAt = updatedAt || new Date().toISOString()
   }
@@ -30,6 +37,7 @@ export class User {
       id: this.id,
       username: this.username,
       email: this.email,
+      defaultProviderPreferences: this.defaultProviderPreferences,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     }

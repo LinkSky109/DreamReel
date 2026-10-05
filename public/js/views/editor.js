@@ -6,6 +6,7 @@
 import { api } from '../api.js'
 import { showToast, state, refreshQuota } from '../app.js'
 import { i18n } from '../i18n.js'
+import { ProviderSelector } from '../components/providerSelector.js'
 
 /**
  * 防抖函数
@@ -114,6 +115,9 @@ function renderEditorLayout(container, project) {
         <div class="editor-nav-item ${currentTab === 'versions' ? 'active' : ''}" data-tab="versions">
           <span>📜</span> ${i18n.t('editorTabs.versions')}
         </div>
+        <div class="editor-nav-item ${currentTab === 'settings' ? 'active' : ''}" data-tab="settings">
+          <span>⚙️</span> 项目设置
+        </div>
       </aside>
 
       <div class="editor-content">
@@ -124,6 +128,7 @@ function renderEditorLayout(container, project) {
         <div class="tab-panel ${currentTab === 'analysis' ? 'active' : ''}" id="tab-analysis"></div>
         <div class="tab-panel ${currentTab === 'collab' ? 'active' : ''}" id="tab-collab"></div>
         <div class="tab-panel ${currentTab === 'versions' ? 'active' : ''}" id="tab-versions"></div>
+        <div class="tab-panel ${currentTab === 'settings' ? 'active' : ''}" id="tab-settings"></div>
       </div>
     </div>
 
@@ -304,6 +309,7 @@ function bindKeyboardShortcuts(project) {
     'editor-tab-analysis': 'analysis',
     'editor-tab-collab': 'collab',
     'editor-tab-versions': 'versions',
+    'editor-tab-settings': 'settings',
   }
 
   Object.entries(tabEvents).forEach(([event, tab]) => {
@@ -519,6 +525,9 @@ function renderActiveTab(project) {
       break
     case 'versions':
       renderVersionsTab(project)
+      break
+    case 'settings':
+      renderProjectSettingsTab(project)
       break
   }
 }
@@ -3256,6 +3265,86 @@ function renderTrailerResult(box, r) {
       }).join('')}
     </div>
   `
+}
+
+// ========== 项目设置标签 ==========
+function renderProjectSettingsTab(project) {
+  const panel = document.getElementById('tab-settings')
+  panel.innerHTML = `
+    <div class="section-header">
+      <h2 class="section-title">⚙️ 项目设置</h2>
+    </div>
+    <div class="settings-layout">
+      <!-- 左侧：模型配置 -->
+      <div class="settings-main">
+        <div class="settings-card">
+          <h3 class="settings-card-title">🤖 AI 模型配置</h3>
+          <p class="settings-card-desc">为当前项目自定义各阶段使用的 AI 模型。留空则使用全局默认值。</p>
+          <div id="projectModelConfig">
+            <div class="provider-selector-loading">
+              <div class="loading"></div>
+              <span>加载模型配置...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- 右侧：项目信息 -->
+      <div class="settings-sidebar">
+        <div class="settings-card">
+          <h3 class="settings-card-title">📋 项目信息</h3>
+          <div class="info-list">
+            <div class="info-item">
+              <span class="info-key">项目 ID</span>
+              <span class="info-value info-value-small">${project.id}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">创建时间</span>
+              <span class="info-value">${new Date(project.createdAt).toLocaleString('zh-CN')}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">更新时间</span>
+              <span class="info-value">${new Date(project.updatedAt).toLocaleString('zh-CN')}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">平台</span>
+              <span class="info-value">${project.platform === 'portrait' ? '竖屏 (9:16)' : '横屏 (16:9)'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">目标时长</span>
+              <span class="info-value">${project.targetDuration || 60} 秒</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">镜头数</span>
+              <span class="info-value">${project.shots?.length || 0}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">角色数</span>
+              <span class="info-value">${project.characters?.length || 0}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+
+  // 初始化 ProviderSelector
+  const configContainer = document.getElementById('projectModelConfig')
+  if (configContainer) {
+    const selector = new ProviderSelector(configContainer, {
+      mode: 'project',
+      projectId: project.id,
+      onChange: (stage, value) => {
+        // 实时变更，不自动保存
+      },
+      onSave: (preferences) => {
+        // 保存成功后更新本地 project 对象
+        project.providerPreferences = preferences
+      },
+    })
+    selector.init().catch(() => {
+      configContainer.innerHTML = '<div class="settings-hint">加载模型配置失败，请刷新重试</div>'
+    })
+  }
 }
 
 // ========== 通用模态工具 ==========

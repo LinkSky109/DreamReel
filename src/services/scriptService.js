@@ -1,4 +1,4 @@
-import { getLLMProvider } from '../providers/llmProviderFactory.js'
+import { getLLMProvider, getLLMProviderForProject } from '../providers/llmProviderFactory.js'
 import { Character } from '../models/character.js'
 import { v4 as uuidv4 } from 'uuid'
 import logger from '../utils/logger.js'
@@ -42,12 +42,24 @@ export class ScriptService {
 
   /**
    * 从一句话生成完整分镜脚本
+   * @param {Object} params
+   * @param {string} params.idea
+   * @param {number} params.targetDuration
+   * @param {string} params.style
+   * @param {string} params.platform
+   * @param {string|null} params.projectId - Phase 1: 用于 Provider 选择
+   * @param {string|null} params.userId - Phase 1: 用于 Provider 回退
    */
-  async generateScript({ idea, targetDuration = 60, style = '', platform = 'landscape' }) {
+  async generateScript({ idea, targetDuration = 60, style = '', platform = 'landscape', projectId = null, userId = null }) {
     try {
       if (!idea || idea.trim().length === 0) {
         throw new Error('Idea is required')
       }
+
+      // Phase 1: 按 projectId 获取对应 Provider 实例
+      const llmProvider = projectId || userId
+        ? getLLMProviderForProject(projectId, userId)
+        : this.llmProvider
 
       const shotCount = Math.ceil(targetDuration / 5)
       const platformHint = platform === 'portrait' ? '竖屏9:16构图' : '横屏16:9电影构图'
@@ -60,7 +72,7 @@ export class ScriptService {
 请生成完整分镜脚本。`
 
       logger.info(`Generating script for: ${idea.slice(0, 50)}...`)
-      const result = await this.llmProvider.generateJSON({
+      const result = await llmProvider.generateJSON({
         systemPrompt: SYSTEM_PROMPT,
         userPrompt,
         options: { temperature: 0.8, maxTokens: 3000 },
@@ -77,9 +89,17 @@ export class ScriptService {
 
   /**
    * 基于反馈修改剧本
+   * @param {Object} params
+   * @param {string|null} params.projectId - Phase 1: 用于 Provider 选择
+   * @param {string|null} params.userId - Phase 1: 用于 Provider 回退
    */
-  async reviseScript({ script, feedback }) {
+  async reviseScript({ script, feedback, projectId = null, userId = null }) {
     try {
+      // Phase 1: 按 projectId 获取对应 Provider 实例
+      const llmProvider = projectId || userId
+        ? getLLMProviderForProject(projectId, userId)
+        : this.llmProvider
+
       const userPrompt = `当前剧本：
 ${JSON.stringify(script, null, 2)}
 
@@ -87,7 +107,7 @@ ${JSON.stringify(script, null, 2)}
 
 请根据修改意见生成更新后的剧本，保持 JSON 格式不变。`
 
-      const result = await this.llmProvider.generateJSON({
+      const result = await llmProvider.generateJSON({
         systemPrompt: SYSTEM_PROMPT,
         userPrompt,
         options: { temperature: 0.7 },
@@ -110,7 +130,7 @@ ${JSON.stringify(script, null, 2)}
    * @param {'landscape'|'portrait'} params.platform
    * @param {string} params.focus - 保留/突出的情节或人物
    */
-  async adaptScript({ sourceText, adaptationType = 'short_drama', targetDuration = 60, style = '', platform = 'portrait', focus = '' }) {
+  async adaptScript({ sourceText, adaptationType = 'short_drama', targetDuration = 60, style = '', platform = 'portrait', focus = '', projectId = null, userId = null }) {
     if (!sourceText || sourceText.trim().length < 10) {
       throw new Error('sourceText is required and must be at least 10 characters')
     }
@@ -146,9 +166,14 @@ ${sourceText.slice(0, 4000)}
 画面比例：${platformHint}${styleHint}${focusHint}
 请输出改编后的完整分镜脚本 JSON。`
 
+    // Phase 1: 按 projectId 获取对应 Provider 实例
+    const llmProvider = projectId || userId
+      ? getLLMProviderForProject(projectId, userId)
+      : this.llmProvider
+
     logger.info(`Adapting script: source=${sourceText.length} chars, type=${adaptationType}`)
 
-    const result = await this.llmProvider.generateJSON({
+    const result = await llmProvider.generateJSON({
       systemPrompt,
       userPrompt,
       options: { temperature: 0.7, maxTokens: 3000 },

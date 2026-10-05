@@ -393,6 +393,13 @@ export const api = {
   runAIQuickAction: (projectId, actionId, userId) => request(`/ai-assistant/quick-action/${projectId}`, { method: 'POST', body: { actionId, userId } }),
   clearAIConversation: (projectId) => request(`/ai-assistant/conversation/${projectId}`, { method: 'DELETE' }),
 
+  // Phase 1: Provider 配置
+  getAvailableProviderCatalog: (stage) => request(`/providers/available${stage ? `?stage=${stage}` : ''}`),
+  getProjectModelConfig: (projectId) => request(`/projects/${projectId}/model-config`),
+  updateProjectModelConfig: (projectId, data) => request(`/projects/${projectId}/model-config`, { method: 'PUT', body: data }),
+  getUserModelPreferences: () => request('/auth/me/model-preferences'),
+  updateUserModelPreferences: (data) => request('/auth/me/model-preferences', { method: 'PUT', body: data }),
+
   // System & Providers
   getSystemInfo: () => request('/system/info'),
   getProviderStatus: () => request('/providers/status'),

@@ -11,7 +11,7 @@ export const PROJECT_STATUS = {
 }
 
 export class Project {
-  constructor({ id, name, description, coverUrl, status, targetDuration, style, platform, script, characters, scenes, shots, tags, isFavorite, isArchived, userId, audioConfig, subtitleStyle, dialogueAssignments, visualStyle, isPublished, publishedAt, likeCount, viewCount, galleryCategory, challengeId, teamId, directorMode, studioId, createdAt, updatedAt, lastAccessedAt }) {
+  constructor({ id, name, description, coverUrl, status, targetDuration, style, platform, script, characters, scenes, shots, tags, isFavorite, isArchived, userId, audioConfig, subtitleStyle, dialogueAssignments, visualStyle, isPublished, publishedAt, likeCount, viewCount, galleryCategory, challengeId, teamId, directorMode, studioId, providerPreferences, createdAt, updatedAt, lastAccessedAt }) {
     this.id = id || uuidv4()
     this.name = name || '未命名项目'
     this.description = description || ''
@@ -74,6 +74,13 @@ export class Project {
       saturation: 0, // -100 ~ 100
       contrast: 0, // -100 ~ 100
       brightness: 0, // -100 ~ 100
+    }
+    // Phase 1: 各阶段 Provider 配置
+    this.providerPreferences = providerPreferences || {
+      video: null,
+      llm: null,
+      tts: null,
+      updatedAt: null,
     }
     this.createdAt = createdAt || new Date().toISOString()
     this.updatedAt = updatedAt || new Date().toISOString()
@@ -169,6 +176,7 @@ export class Project {
       subtitleStyle: this.subtitleStyle,
       dialogueAssignments: this.dialogueAssignments,
       visualStyle: this.visualStyle,
+      providerPreferences: this.providerPreferences,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       lastAccessedAt: this.lastAccessedAt,

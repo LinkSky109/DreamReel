@@ -146,11 +146,14 @@ app.use((error, _req, res, _next) => {
   })
 })
 
-// Start server
-app.listen(config.port, () => {
-  logger.info(`DreamReel API server running on port ${config.port}`)
-  logger.info(`Environment: ${config.env}`)
-  logger.info(`Health check: http://localhost:${config.port}/health`)
-})
-
 export default app
+
+// Start server only when run directly (not when imported for testing)
+const isMainModule = import.meta.url === `file://${process.argv[1]}`
+if (isMainModule) {
+  app.listen(config.port, () => {
+    logger.info(`DreamReel API server running on port ${config.port}`)
+    logger.info(`Environment: ${config.env}`)
+    logger.info(`Health check: http://localhost:${config.port}/health`)
+  })
+}

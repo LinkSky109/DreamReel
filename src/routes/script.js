@@ -32,7 +32,7 @@ router.post('/generate', async (req, res) => {
       })
     }
 
-    const script = await scriptService.generateScript({ idea, targetDuration, style, platform })
+    const script = await scriptService.generateScript({ idea, targetDuration, style, platform, projectId, userId: req.user?.id })
 
     // 内容审核：检查生成的剧本
     const scriptText = [script.synopsis, ...script.shots.map((s) => `${s.description} ${s.dialogue} ${s.narration}`)].join(' ')
@@ -127,7 +127,7 @@ router.post('/revise', async (req, res) => {
     if (!script || !feedback) {
       return res.status(400).json({ error: 'script and feedback are required' })
     }
-    const revised = await scriptService.reviseScript({ script, feedback })
+    const revised = await scriptService.reviseScript({ script, feedback, projectId: req.body.projectId, userId: req.user?.id })
     res.json(revised)
   } catch (error) {
     res.status(400).json({ error: error.message })
@@ -159,6 +159,8 @@ router.post('/adapt', async (req, res) => {
       style,
       platform,
       focus,
+      projectId,
+      userId: req.user?.id,
     })
 
     if (projectId) {

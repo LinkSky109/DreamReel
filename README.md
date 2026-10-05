@@ -274,6 +274,19 @@ docker-compose down
 |------|------|------|
 | GET | `/api/quota/:userId` | 额度概览 |
 
+### Provider 配置（Phase 1 — 各阶段模型可自定义）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/providers/available` | 获取全部可用 Provider 目录（含 configured 状态） |
+| GET | `/api/providers/available?stage=video` | 按阶段过滤 Provider 目录 |
+| GET | `/api/projects/:id/model-config` | 获取项目级 Provider 配置 + 实际生效值 |
+| PUT | `/api/projects/:id/model-config` | 更新项目级 Provider 配置（仅所有者/管理员） |
+| GET | `/api/auth/me/model-preferences` | 获取用户全局默认 Provider 偏好 + 实际生效值 |
+| PUT | `/api/auth/me/model-preferences` | 更新用户全局默认 Provider 偏好 |
+
+> **四级回退链**：项目级配置 → 用户全局默认 → 系统全局默认（`.env`）→ Mock。每次回退前校验目标 Provider 是否已配置 API Key；未配置则自动置灰不可选。切换 Provider 不影响已生成内容（任务级 Provider 快照）。
+
 ## 项目结构
 
 ```
@@ -404,6 +417,7 @@ MAX_RESOLUTION=720p
 - **Later (P2)**: 真实模型接入、用户注册登录、订阅付费、移动端、API 开放平台 ✅
 - **Sprint 11–12**: 多模型矩阵、剧本改编、角色造型室、广场一键复刻、创意片头 ✅
 - **Sprint 13**: 导演模式（导演 prompt 编排）、剧场计划厂牌体系 ✅
+- **Phase 1**: 各阶段模型可自定义 — 全局偏好 + 项目级 Provider 配置 + 四级回退链 ✅
 - **Sprint 14（计划中）**: 画布五 tab 整合、图片生成 / 音频生成独立 tab、智能剪辑模块
 
 > 各 Sprint 的范围与证据见 `docs/sprint*-delivery-report.md`，对标 LibTV 的差距分析见 `docs/sprint11-gap-analysis.md`。

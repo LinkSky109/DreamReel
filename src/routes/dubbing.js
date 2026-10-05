@@ -65,15 +65,24 @@ router.get('/voices', async (_req, res) => {
 // 预览单句配音
 router.post('/preview', async (req, res) => {
   try {
-    const { text, language, voiceId, speed } = req.body
+    const { text, language, voiceId, speed, projectId } = req.body
     if (!text) {
       return res.status(400).json({ error: 'text is required' })
     }
+
+    // Phase 1: 若传了 projectId，则按项目级 Provider 配置预览
+    let project = null
+    if (projectId) {
+      project = await projectService.getProject(projectId)
+    }
+
     const result = await dubbingService.previewVoice({
       text,
       language: language || 'zh',
       voiceId: voiceId || 'zh_male_calm',
       speed: speed || 1.0,
+      projectId: project?.id || null,
+      userId: project?.userId || req.user?.id || null,
     })
     res.json(result)
   } catch (error) {

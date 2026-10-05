@@ -4,8 +4,14 @@ import {
   getAvailableProviders as getAvailableVideoProviders,
   getVideoModelCatalog,
 } from '../providers/videoProviderFactory.js'
-import { getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
-import { getAvailableProviders as getAvailableTTSProviders } from '../providers/ttsProviderFactory.js'
+import {
+  getAvailableProviders as getAvailableLLMProviders,
+  getLLMModelCatalog,
+} from '../providers/llmProviderFactory.js'
+import {
+  getAvailableProviders as getAvailableTTSProviders,
+  getTTSModelCatalog,
+} from '../providers/ttsProviderFactory.js'
 
 const router = Router()
 
@@ -49,14 +55,54 @@ router.get('/status', (req, res) => {
 })
 
 /**
- * 获取所有可用 Provider 列表
+ * 获取所有可用 Provider 列表（Phase 1 扩展：支持按 stage 过滤，返回完整元数据）
+ * GET /api/providers/available?stage=video|llm|tts
  */
 router.get('/available', (req, res) => {
   try {
+    const { stage } = req.query
+
+    if (stage === 'video') {
+      res.json({
+        stage: 'video',
+        current: config.video.provider,
+        models: getVideoModelCatalog(),
+      })
+      return
+    }
+
+    if (stage === 'llm') {
+      res.json({
+        stage: 'llm',
+        current: config.llm.provider,
+        models: getLLMModelCatalog(),
+      })
+      return
+    }
+
+    if (stage === 'tts') {
+      res.json({
+        stage: 'tts',
+        current: config.tts.provider,
+        models: getTTSModelCatalog(),
+      })
+      return
+    }
+
+    // 默认返回所有阶段
     res.json({
-      video: getAvailableVideoProviders(),
-      llm: getAvailableLLMProviders(),
-      tts: getAvailableTTSProviders(),
+      video: {
+        current: config.video.provider,
+        models: getVideoModelCatalog(),
+      },
+      llm: {
+        current: config.llm.provider,
+        models: getLLMModelCatalog(),
+      },
+      tts: {
+        current: config.tts.provider,
+        models: getTTSModelCatalog(),
+      },
     })
   } catch (error) {
     res.status(500).json({ error: error.message })

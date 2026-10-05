@@ -1,4 +1,4 @@
-import { getVideoProvider } from '../providers/videoProviderFactory.js'
+import { getVideoProvider, getVideoProviderForProject } from '../providers/videoProviderFactory.js'
 import { SHOT_STATUS } from '../models/shot.js'
 import config from '../config/index.js'
 import { styleService } from './styleService.js'
@@ -41,6 +41,9 @@ export class VideoService {
     const { projectId, shotId, prompt, referenceImages = [], duration = 5, resolution = '720p', aspectRatio = '16:9', project, prevFramePath = null } = params
 
     try {
+      // Phase 1: 按 projectId 获取对应 Provider 实例
+      const provider = getVideoProviderForProject(projectId, project?.userId)
+
       // 找到当前 shot，获取角色表情动作配置
       const currentShot = project?.shots?.find((s) => s.id === shotId)
       // 构建增强 prompt：注入角色描述和表情动作
@@ -68,16 +71,16 @@ export class VideoService {
       }
 
       // 检查 provider 是否支持参考图
-      const supportsRef = this.provider.supportsReferenceImages()
+      const supportsRef = provider.supportsReferenceImages()
       const finalRefImages = supportsRef ? allRefImages : []
 
       if (!supportsRef && allRefImages.length > 0) {
-        logger.warn(`Provider ${this.provider.name} does not support reference images, using text description only`)
+        logger.warn(`Provider ${provider.name} does not support reference images, using text description only`)
       }
 
       logger.info(`Generating video for shot ${shotId}, duration=${duration}s`)
 
-      const { taskId } = await this.provider.generateVideo({
+      const { taskId } = await provider.generateVideo({
         prompt: enhancedPrompt,
         referenceImages: finalRefImages,
         duration,
@@ -97,6 +100,7 @@ export class VideoService {
           status: 'generating',
           duration,
           resolution,
+          provider, // Phase 1: 保存当前使用的 provider，避免切换后影响已启动任务
         })
         this.pollTaskStatus(taskId)
       })
@@ -113,9 +117,12 @@ export class VideoService {
     const taskInfo = this.activeTasks.get(taskId)
     if (!taskInfo) return
 
+    // Phase 1: 使用任务启动时的 provider，避免切换后影响已启动任务
+    const provider = taskInfo.provider || this.provider
+
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        const status = await this.provider.getTaskStatus(taskId)
+        const status = await provider.getTaskStatus(taskId)
 
         if (status.status === 'completed' || status.status === 'succeeded') {
           // 生成完成，计算一致性评分
@@ -216,10 +223,13 @@ export class VideoService {
       throw new Error(`Task not found: ${taskId}`)
     }
 
+    // Phase 1: 使用任务启动时的 provider
+    const provider = taskInfo.provider || this.provider
+
     try {
       // 尝试调用 provider 的取消方法
-      if (typeof this.provider.cancelTask === 'function') {
-        await this.provider.cancelTask(taskId)
+      if (typeof provider.cancelTask === 'function') {
+        await provider.cancelTask(taskId)
       }
     } catch (e) {
       logger.warn(`Provider cancelTask failed: ${e.message}`)

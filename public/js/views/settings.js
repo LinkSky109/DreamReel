@@ -1,6 +1,7 @@
 import { api } from '../api.js'
 import { showToast } from '../app.js'
 import { i18n } from '../i18n.js'
+import { ProviderSelector } from '../components/providerSelector.js'
 
 /**
  * 设置页面
@@ -48,6 +49,20 @@ export async function renderSettingsPage(container) {
           </div>
           <div class="settings-hint">
             💡 通过环境变量切换 Provider，修改后需重启服务。详见 <code>.env.example</code>
+          </div>
+        </section>
+
+        <!-- Phase 1: 全局默认模型偏好 -->
+        <section class="settings-section">
+          <div class="section-header-row">
+            <h2 class="section-title">🌍 全局默认模型偏好</h2>
+            <span class="settings-hint-inline">设置后，新建项目将默认使用这些 Provider</span>
+          </div>
+          <div id="userModelPreferences">
+            <div class="provider-selector-loading">
+              <div class="loading"></div>
+              <span>加载中...</span>
+            </div>
           </div>
         </section>
 
@@ -315,6 +330,19 @@ export async function renderSettingsPage(container) {
         </section>
       </div>
     `
+    // Phase 1: 初始化全局默认模型偏好选择器
+    const prefsContainer = document.getElementById('userModelPreferences')
+    if (prefsContainer) {
+      const selector = new ProviderSelector(prefsContainer, {
+        mode: 'user',
+        onChange: (stage, value) => {
+          // 实时变更，不自动保存，等用户点击保存按钮
+        },
+      })
+      selector.init().catch(() => {
+        prefsContainer.innerHTML = '<div class="settings-hint">加载偏好设置失败，请刷新重试</div>'
+      })
+    }
   } catch (err) {
     container.innerHTML = `
       <div class="settings-page">

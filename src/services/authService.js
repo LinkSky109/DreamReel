@@ -120,6 +120,45 @@ export class AuthService {
   }
 
   /**
+   * 更新用户模型偏好
+   * @param {string} userId
+   * @param {Object} params
+   * @param {Object|null} params.video
+   * @param {Object|null} params.llm
+   * @param {Object|null} params.tts
+   */
+  updateUserModelPreferences(userId, { video, llm, tts }) {
+    const user = this.getUserById(userId)
+    if (!user) {
+      throw new Error('用户不存在')
+    }
+
+    const preferences = { ...user.defaultProviderPreferences }
+    const now = new Date().toISOString()
+
+    if (video !== undefined) {
+      preferences.video = video === null ? null : { ...video, updatedAt: now }
+    }
+    if (llm !== undefined) {
+      preferences.llm = llm === null ? null : { ...llm, updatedAt: now }
+    }
+    if (tts !== undefined) {
+      preferences.tts = tts === null ? null : { ...tts, updatedAt: now }
+    }
+    preferences.updatedAt = now
+
+    user.defaultProviderPreferences = preferences
+    user.updatedAt = now
+
+    // 持久化
+    storageService.data.users[userId] = user.toJSON ? user.toJSON() : user
+    storageService.save()
+
+    logger.info(`User ${userId} model preferences updated`)
+    return user
+  }
+
+  /**
    * 生成认证结果（用户信息 + token）
    */
   _generateAuthResult(user) {

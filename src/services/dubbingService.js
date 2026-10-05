@@ -1,4 +1,4 @@
-import { getTTSProvider } from '../providers/ttsProviderFactory.js'
+import { getTTSProvider, getTTSProviderForProject } from '../providers/ttsProviderFactory.js'
 import logger from '../utils/logger.js'
 
 /**
@@ -22,6 +22,9 @@ export class DubbingService {
   async generateDubbing({ project, language = 'zh', voiceId = 'zh_male_calm', speed = 1.0, burnSubtitles = true, dialogueAssignments = null, pauseSeconds = 0.4 }) {
     try {
       logger.info(`Generating dubbing for project ${project.id}, language=${language}`)
+
+      // Phase 1: 按 projectId 获取对应 Provider 实例
+      const ttsProvider = getTTSProviderForProject(project.id, project.userId)
 
       // 1. 从分镜提取台词（含角色归属）
       const assignments = dialogueAssignments || project.dialogueAssignments || {}
@@ -54,7 +57,7 @@ export class DubbingService {
           ? assignments[line.characterId]
           : voiceId
 
-        const audio = await this.ttsProvider.synthesize({
+        const audio = await ttsProvider.synthesize({
           text,
           language,
           voice: lineVoice,
@@ -178,9 +181,19 @@ export class DubbingService {
 
   /**
    * 预览单句配音
+   * @param {Object} params
+   * @param {string} params.text
+   * @param {string} params.language
+   * @param {string} params.voiceId
+   * @param {number} params.speed
+   * @param {string|null} params.projectId - Phase 1: 用于 Provider 选择
+   * @param {string|null} params.userId - Phase 1: 用于 Provider 回退
    */
-  async previewVoice({ text, language = 'zh', voiceId = 'zh_male_calm', speed = 1.0 }) {
-    return this.ttsProvider.synthesize({ text, language, voice: voiceId, speed })
+  async previewVoice({ text, language = 'zh', voiceId = 'zh_male_calm', speed = 1.0, projectId = null, userId = null }) {
+    const ttsProvider = projectId || userId
+      ? getTTSProviderForProject(projectId, userId)
+      : this.ttsProvider
+    return ttsProvider.synthesize({ text, language, voice: voiceId, speed })
   }
 }
 

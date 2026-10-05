@@ -219,6 +219,7 @@ export class ProjectService {
       'teamId',
       'directorMode',
       'studioId',
+      'providerPreferences',
     ]
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {

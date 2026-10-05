@@ -4,6 +4,8 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { projectService } from '../services/projectService.js'
 import { thumbnailService } from '../services/thumbnailService.js'
+import { authService } from '../services/authService.js'
+import { resolveProviderConfig } from '../providers/providerResolver.js'
 import logger from '../utils/logger.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -485,6 +487,114 @@ router.put('/:id/shots/:shotId/duration', async (req, res) => {
     }
     const shot = await projectService.updateShotDuration(req.params.id, req.params.shotId, duration)
     res.json({ success: true, shot: shot.toJSON ? shot.toJSON() : shot })
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
+})
+
+// ========== Phase 1: 项目级 Provider 配置 ==========
+
+/**
+ * 获取项目模型配置
+ * GET /api/projects/:projectId/model-config
+ */
+router.get('/:projectId/model-config', async (req, res) => {
+  try {
+    const project = await projectService.getProject(req.params.projectId)
+    const userId = getUserId(req)
+
+    const resolved = {
+      video: resolveProviderConfig('video', project.id, project.userId),
+      llm: resolveProviderConfig('llm', project.id, project.userId),
+      tts: resolveProviderConfig('tts', project.id, project.userId),
+    }
+
+    res.json({
+      projectId: project.id,
+      preferences: project.providerPreferences,
+      resolved: {
+        video: {
+          provider: resolved.video.provider,
+          model: resolved.video.model,
+          source: resolved.video.source,
+        },
+        llm: {
+          provider: resolved.llm.provider,
+          model: resolved.llm.model,
+          source: resolved.llm.source,
+        },
+        tts: {
+          provider: resolved.tts.provider,
+          model: resolved.tts.model,
+          source: resolved.tts.source,
+        },
+      },
+    })
+  } catch (error) {
+    res.status(404).json({ error: error.message })
+  }
+})
+
+/**
+ * 更新项目模型配置
+ * PUT /api/projects/:projectId/model-config
+ * Body: { video?: { provider, model, config }, llm?: { provider, model, config }, tts?: { provider, model, config } }
+ */
+router.put('/:projectId/model-config', async (req, res) => {
+  try {
+    const { video, llm, tts } = req.body
+    const project = await projectService.getProject(req.params.projectId)
+    const userId = getUserId(req)
+
+    // 权限检查：只有项目所有者或管理员可以修改
+    if (project.userId !== userId) {
+      return res.status(403).json({ error: '无权修改该项目的模型配置' })
+    }
+
+    const preferences = { ...project.providerPreferences }
+    const now = new Date().toISOString()
+
+    if (video !== undefined) {
+      preferences.video = video === null ? null : { ...video, updatedAt: now }
+    }
+    if (llm !== undefined) {
+      preferences.llm = llm === null ? null : { ...llm, updatedAt: now }
+    }
+    if (tts !== undefined) {
+      preferences.tts = tts === null ? null : { ...tts, updatedAt: now }
+    }
+    preferences.updatedAt = now
+
+    await projectService.updateProject(project.id, { providerPreferences: preferences })
+
+    // 返回更新后的 resolved 配置
+    const resolved = {
+      video: resolveProviderConfig('video', project.id, project.userId),
+      llm: resolveProviderConfig('llm', project.id, project.userId),
+      tts: resolveProviderConfig('tts', project.id, project.userId),
+    }
+
+    res.json({
+      projectId: project.id,
+      preferences,
+      resolved: {
+        video: {
+          provider: resolved.video.provider,
+          model: resolved.video.model,
+          source: resolved.video.source,
+        },
+        llm: {
+          provider: resolved.llm.provider,
+          model: resolved.llm.model,
+          source: resolved.llm.source,
+        },
+        tts: {
+          provider: resolved.tts.provider,
+          model: resolved.tts.model,
+          source: resolved.tts.source,
+        },
+      },
+    })
   } catch (error) {
     res.status(400).json({ error: error.message })
   }
