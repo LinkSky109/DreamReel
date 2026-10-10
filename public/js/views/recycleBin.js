@@ -3,7 +3,7 @@ import { showToast } from '../app.js'
 
 export async function renderRecycleBin(container) {
   try {
-    const [data, stats] = await Promise.all([
+    const [data] = await Promise.all([
       api.getRecycleBin({ limit: 50 }),
       api.getRecycleBinStats(),
     ])

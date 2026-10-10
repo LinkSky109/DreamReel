@@ -1,7 +1,7 @@
 import { storageService } from './storageService.js'
 import { projectService } from './projectService.js'
 import logger from '../utils/logger.js'
-import crypto from 'crypto'
+import { generateId } from '../utils/idGenerator.js'
 
 const MAX_VERSIONS_PER_PROJECT = 50
 
@@ -25,7 +25,7 @@ export class VersionService {
       const projectData = project.toJSON()
 
       const version = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         projectId,
         versionNumber: this._getNextVersionNumber(projectId),
         label: label || `版本 ${this._getNextVersionNumber(projectId)}`,

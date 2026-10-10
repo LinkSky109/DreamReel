@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid'
+import { generateId } from '../utils/idGenerator.js'
 
 /**
  * R32：图片生成资产
@@ -26,7 +26,7 @@ export class ImageAsset {
     createdAt,
     completedAt,
   } = {}) {
-    this.id = id || `img_${Date.now()}_${uuidv4().slice(0, 8)}`
+    this.id = id || `img_${Date.now()}_${generateId().slice(0, 8)}`
     this.projectId = projectId || null
     this.userId = userId || 'default'
     this.prompt = prompt || ''

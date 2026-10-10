@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid'
+import { generateId } from '../utils/idGenerator.js'
 
 /**
  * 分镜（镜头）模型
@@ -37,7 +37,7 @@ export class Shot {
     createdAt,
     updatedAt,
   }) {
-    this.id = id || uuidv4()
+    this.id = id || generateId()
     this.projectId = projectId
     this.index = index ?? 0
     this.shotType = shotType || 'medium' // close-up / medium / wide / extreme-wide

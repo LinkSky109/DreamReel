@@ -4,7 +4,7 @@ import crypto from 'crypto'
  * 用户模型
  */
 export class User {
-  constructor({ id, username, email, passwordHash, salt, defaultProviderPreferences, createdAt, updatedAt }) {
+  constructor({ id, username, email, passwordHash, salt, defaultProviderPreferences, preferenceTags, scoreStyle, createdAt, updatedAt }) {
     this.id = id
     this.username = username
     this.email = email
@@ -17,6 +17,9 @@ export class User {
       tts: null,
       updatedAt: null,
     }
+    // C02: 社区推荐偏好
+    this.preferenceTags = preferenceTags || []
+    this.scoreStyle = scoreStyle || { story: 5, visual: 5, performance: 5, soundtrack: 5 }
     this.createdAt = createdAt || new Date().toISOString()
     this.updatedAt = updatedAt || new Date().toISOString()
   }
@@ -38,6 +41,8 @@ export class User {
       username: this.username,
       email: this.email,
       defaultProviderPreferences: this.defaultProviderPreferences,
+      preferenceTags: this.preferenceTags,
+      scoreStyle: this.scoreStyle,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     }

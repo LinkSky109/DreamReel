@@ -1,6 +1,6 @@
 import { api } from '../api.js'
 import { showToast } from '../app.js'
-import { isLoggedIn, getCurrentUser } from './auth.js'
+import { isLoggedIn} from './auth.js'
 import { i18n } from '../i18n.js'
 
 /**
@@ -95,7 +95,7 @@ function renderPlanCard(plan, currentPlanId) {
   `
 }
 
-function bindPricingEvents(container, currentPlanId) {
+function bindPricingEvents(container, _currentPlanId) {
   // 计费周期切换
   const toggles = container.querySelectorAll('.billing-toggle')
   toggles.forEach((toggle) => {

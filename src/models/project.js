@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid'
+import { generateId } from '../utils/idGenerator.js'
 import { Shot } from './shot.js'
 
 /**
@@ -12,7 +12,7 @@ export const PROJECT_STATUS = {
 
 export class Project {
   constructor({ id, name, description, coverUrl, status, targetDuration, style, platform, script, characters, scenes, shots, tags, isFavorite, isArchived, userId, audioConfig, subtitleStyle, dialogueAssignments, visualStyle, isPublished, publishedAt, likeCount, viewCount, galleryCategory, challengeId, teamId, directorMode, studioId, providerPreferences, editPlan, createdAt, updatedAt, lastAccessedAt }) {
-    this.id = id || uuidv4()
+    this.id = id || generateId()
     this.name = name || '未命名项目'
     this.description = description || ''
     this.coverUrl = coverUrl || ''

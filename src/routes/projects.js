@@ -7,6 +7,7 @@ import { resolveProviderConfig } from '../providers/providerResolver.js'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 
+import { requireProjectOwnership } from '../middleware/projectAccess.js'
 const STORAGE_DIR = path.resolve(config.storage.path)
 const STORAGE_ROOT = STORAGE_DIR + path.sep
 
@@ -505,7 +506,9 @@ router.put('/:id/shots/:shotId/duration', async (req, res) => {
  */
 router.get('/:projectId/model-config', async (req, res) => {
   try {
-    const project = await projectService.getProject(req.params.projectId)
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
+    const project = guard.project
 
     const resolved = {
       video: resolveProviderConfig('video', project.id, project.userId),

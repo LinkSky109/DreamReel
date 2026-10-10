@@ -1,6 +1,5 @@
 import { projectService } from './projectService.js'
 import { storageService } from './storageService.js'
-import logger from '../utils/logger.js'
 
 /**
  * R11：创作者主页服务
@@ -106,7 +105,7 @@ export class CreatorService {
 function storageData(storage, uid) {
   try {
     return storage.data?.users?.[uid] || null
-  } catch (e) {
+  } catch {
     return null
   }
 }

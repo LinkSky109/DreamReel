@@ -1,6 +1,6 @@
 import { projectService } from './projectService.js'
 import logger from '../utils/logger.js'
-import { v4 as uuidv4 } from 'uuid'
+import { generateId } from '../utils/idGenerator.js'
 
 /**
  * R09：作品广场服务
@@ -133,8 +133,8 @@ export class GalleryService {
     // 2. 深拷贝剧本（重新生成 id）
     const script = source.script ? JSON.parse(JSON.stringify(source.script)) : null
     if (script) {
-      script.characters = (script.characters || []).map((c) => ({ ...c, id: uuidv4() }))
-      script.shots = (script.shots || []).map((s) => ({ ...s, id: uuidv4() }))
+      script.characters = (script.characters || []).map((c) => ({ ...c, id: generateId() }))
+      script.shots = (script.shots || []).map((s) => ({ ...s, id: generateId() }))
     }
 
     // 3. 深拷贝镜头（重置状态，清空视频文件）
@@ -142,7 +142,7 @@ export class GalleryService {
       const plain = typeof s.toJSON === 'function' ? s.toJSON() : { ...s }
       return {
         ...plain,
-        id: uuidv4(),
+        id: generateId(),
         videoUrl: null,
         status: 'pending',
         locked: false,

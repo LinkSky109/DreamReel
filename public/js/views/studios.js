@@ -12,7 +12,7 @@ import { showToast } from '../app.js'
 
 function escapeHtml(str) {
   const div = document.createElement('div')
-  div.textContent = str == null ? '' : String(str)
+  div.textContent = str === null ? '' : String(str)
   return div.innerHTML
 }
 
@@ -137,7 +137,7 @@ async function renderDetail(container, studioId) {
     try {
       const worksRes = await api.listStudioWorks(studioId)
       works = worksRes.items || worksRes.projects || worksRes || []
-    } catch (e) { works = [] }
+    } catch { works = [] }
   }
 
   container.innerHTML = `

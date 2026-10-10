@@ -77,7 +77,7 @@ export class CharacterService {
    * MVP 阶段：模拟特征提取（返回随机向量）
    * P1：接入真实人脸特征提取模型
    */
-  async extractFeatureVector(referenceImages) {
+  async extractFeatureVector(_referenceImages) {
     // MVP 模拟：生成 128 维特征向量
     // 实际实现应调用人脸检测 + 特征提取模型
     await new Promise((resolve) => setTimeout(resolve, 300))

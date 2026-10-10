@@ -6,7 +6,7 @@ import { BUILTIN_SCENES, SCENE_CATEGORIES } from '../config/sceneLibrary.js'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { v4 as uuidv4 } from 'uuid'
+import { generateId } from '../utils/idGenerator.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const STORAGE_DIR = path.resolve(__dirname, '../../storage')
@@ -71,19 +71,20 @@ export class SceneService {
   /**
    * 创建用户自定义场景
    */
-  createCustomScene({ name, description, category = 'indoor', tags = [], referenceImage = null }) {
+  createCustomScene({ name, description, category = 'indoor', tags = [], referenceImage = null, userId }) {
     if (!name) {
       throw new Error('Scene name is required')
     }
 
     const scene = {
-      id: `custom-${uuidv4()}`,
+      id: `custom-${generateId()}`,
       name,
       description: description || '',
       category,
       tags: Array.isArray(tags) ? tags : [],
       lighting: 'custom',
       referenceImage,
+      userId,
       createdAt: new Date().toISOString(),
     }
 
@@ -94,10 +95,14 @@ export class SceneService {
   /**
    * 更新用户自定义场景
    */
-  updateCustomScene(sceneId, updates) {
+  updateCustomScene(sceneId, updates, userId) {
     const scene = this.customScenes.get(sceneId)
     if (!scene) {
       throw new Error(`Custom scene not found: ${sceneId}`)
+    }
+
+    if (scene.userId !== userId) {
+      throw new Error('无权操作该场景')
     }
 
     const allowedFields = ['name', 'description', 'category', 'tags', 'referenceImage']
@@ -114,10 +119,16 @@ export class SceneService {
   /**
    * 删除用户自定义场景
    */
-  deleteCustomScene(sceneId) {
-    if (!this.customScenes.has(sceneId)) {
+  deleteCustomScene(sceneId, userId) {
+    const scene = this.customScenes.get(sceneId)
+    if (!scene) {
       throw new Error(`Custom scene not found: ${sceneId}`)
     }
+
+    if (scene.userId !== userId) {
+      throw new Error('无权操作该场景')
+    }
+
     this.customScenes.delete(sceneId)
     return true
   }

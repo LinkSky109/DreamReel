@@ -1,4 +1,4 @@
-import { Project, PROJECT_STATUS } from '../models/project.js'
+import { Project} from '../models/project.js'
 import { Character } from '../models/character.js'
 import { Scene } from '../models/scene.js'
 import { Shot } from '../models/shot.js'

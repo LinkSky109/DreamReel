@@ -1,11 +1,11 @@
-import { v4 as uuidv4 } from 'uuid'
+import { generateId } from '../utils/idGenerator.js'
 
 /**
  * 场景模型 — 用于场景一致性保持
  */
 export class Scene {
   constructor({ id, name, description, referenceImages, environmentType, projectId, createdAt, updatedAt }) {
-    this.id = id || uuidv4()
+    this.id = id || generateId()
     this.name = name
     this.description = description || ''
     this.referenceImages = referenceImages || []

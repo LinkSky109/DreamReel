@@ -5,7 +5,7 @@ import { versionService } from '../services/versionService.js'
 import { contentModerationService } from '../services/contentModerationService.js'
 import { notificationService, NOTIFICATION_TYPE } from '../services/notificationService.js'
 import { webhookService } from '../services/webhookService.js'
-import { Shot } from '../models/shot.js'
+import {} from '../models/shot.js'
 
 const router = Router()
 

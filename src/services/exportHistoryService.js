@@ -1,7 +1,7 @@
 import { storageService } from './storageService.js'
 import logger from '../utils/logger.js'
-import crypto from 'crypto'
 import fs from 'fs'
+import { generateId } from '../utils/idGenerator.js'
 
 /**
  * 导出历史服务
@@ -21,7 +21,7 @@ export class ExportHistoryService {
     }
 
     const record = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       projectId,
       outputPath,
       outputUrl,

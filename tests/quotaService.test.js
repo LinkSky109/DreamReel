@@ -31,7 +31,7 @@ test('quotaService: should block when quota exhausted', () => {
   for (let i = 0; i < 10; i++) {
     try {
       quotaService.consumeVideoQuota(TEST_USER)
-    } catch (e) {
+    } catch {
       // expected
     }
   }

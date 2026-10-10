@@ -2,6 +2,7 @@ import { storageService } from './storageService.js'
 import logger from '../utils/logger.js'
 import crypto from 'crypto'
 import { notificationService, NOTIFICATION_TYPE } from './notificationService.js'
+import { generateId } from '../utils/idGenerator.js'
 
 /**
  * 协作服务
@@ -43,7 +44,7 @@ export class CollaborationService {
     const mentions = this._extractMentions(content)
 
     const comment = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       projectId,
       shotId: shotId || null,
       parentId: parentId || null,
@@ -307,7 +308,7 @@ export class CollaborationService {
     }
 
     const activity = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       projectId,
       userId: userId || 'system',
       userName: userName || '系统',

@@ -47,7 +47,7 @@ describe('Recent Projects', () => {
   it('should get recent projects', async () => {
     const p1 = await projectService.createProject({ name: '项目1', userId: 'test-user' })
     const p2 = await projectService.createProject({ name: '项目2', userId: 'test-user' })
-    const p3 = await projectService.createProject({ name: '项目3', userId: 'test-user' })
+    await projectService.createProject({ name: '项目3', userId: 'test-user' })
 
     // 只访问 p1 和 p2
     await projectService.recordAccess(p1.id)

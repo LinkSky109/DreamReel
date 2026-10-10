@@ -189,7 +189,7 @@ export class SubscriptionService {
    * 模拟支付处理
    * 实际接入 Stripe 时替换此方法
    */
-  _processPayment({ userId, plan, billingCycle, amount, paymentInfo }) {
+  _processPayment({ _userId, _plan, _billingCycle, amount, paymentInfo }) {
     // 模拟支付延迟
     const transactionId = `txn_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
 

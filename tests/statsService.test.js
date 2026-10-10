@@ -81,7 +81,7 @@ test('statsService: getDashboard should return complete data', () => {
 })
 
 test('statsService: getPlatformDistribution should return platform counts', async () => {
-  const project = await projectService.createProject({ name: '平台测试', userId: TEST_USER, platform: 'portrait' })
+  await projectService.createProject({ name: '平台测试', userId: TEST_USER, platform: 'portrait' })
   const distribution = statsService.getPlatformDistribution(TEST_USER)
   assert.ok(Array.isArray(distribution))
   assert.ok(distribution.length > 0)

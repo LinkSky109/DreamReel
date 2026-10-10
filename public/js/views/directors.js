@@ -11,7 +11,7 @@ import { showToast } from '../app.js'
 
 function escapeHtml(str) {
   const div = document.createElement('div')
-  div.textContent = str == null ? '' : String(str)
+  div.textContent = str === null ? '' : String(str)
   return div.innerHTML
 }
 
@@ -238,9 +238,9 @@ function renderGuidance(box, guidance, projectId, disableBtn, onDisable) {
           <tbody>
             ${list.map((g) => `
               <tr style="vertical-align:top;">
-                <td style="padding:8px;border-bottom:1px solid var(--border);color:var(--primary);">${escapeHtml(g.index != null ? g.index : '—')}</td>
+                <td style="padding:8px;border-bottom:1px solid var(--border);color:var(--primary);">${escapeHtml(g.index !== null ? g.index : '—')}</td>
                 <td style="padding:8px;border-bottom:1px solid var(--border);">${escapeHtml(g.cameraMovement || '—')}</td>
-                <td style="padding:8px;border-bottom:1px solid var(--border);">${escapeHtml(g.duration != null ? g.duration + 's' : '—')}</td>
+                <td style="padding:8px;border-bottom:1px solid var(--border);">${escapeHtml(g.duration !== null ? g.duration + 's' : '—')}</td>
                 <td style="padding:8px;border-bottom:1px solid var(--border);color:var(--text-secondary);line-height:1.6;">${escapeHtml(g.directorGuidance || '—')}</td>
               </tr>
             `).join('')}

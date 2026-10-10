@@ -37,7 +37,11 @@ const result = spawnSync(
   {
     cwd: repoRoot,
     stdio: 'inherit',
-    env: { ...process.env, NODE_ENV: 'test' },
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      JWT_SECRET: 'test-jwt-secret-for-dreamreel-testing-only-32chars',
+    },
   }
 )
 

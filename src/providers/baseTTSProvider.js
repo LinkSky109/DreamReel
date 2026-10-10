@@ -16,7 +16,7 @@ export class BaseTTSProvider {
    * @param {number} params.speed - 语速（0.5-2.0）
    * @returns {Promise<{audioUrl: string, duration: number}>}
    */
-  async synthesize(params) {
+  async synthesize(_params) {
     throw new Error('synthesize not implemented')
   }
 

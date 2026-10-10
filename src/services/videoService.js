@@ -300,7 +300,7 @@ export class VideoService {
   /**
    * 用角色信息增强 prompt
    */
-  enhancePromptWithCharacters(prompt, project, referenceImages) {
+  enhancePromptWithCharacters(prompt, project, _referenceImages) {
     if (!project || !project.characters || project.characters.length === 0) {
       return prompt
     }
@@ -477,7 +477,7 @@ export class VideoService {
    * MVP 阶段：模拟评分（基于参考图数量和 provider 能力）
    * P1：接入真实人脸特征比对
    */
-  async calculateConsistencyScore(shotId, videoUrl) {
+  async calculateConsistencyScore(shotId, _videoUrl) {
     // MVP 简化：返回模拟评分
     // 实际实现应：抽帧 -> 人脸检测 -> 特征向量比对 -> 计算相似度
     const baseScore = 0.7
@@ -542,7 +542,7 @@ export class VideoService {
     let completed = 0
     let currentIndex = 0
 
-    async function worker(workerId) {
+    async function worker(_workerId) {
       while (currentIndex < shots.length) {
         const index = currentIndex++
         const shot = shots[index]

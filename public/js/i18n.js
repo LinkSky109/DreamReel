@@ -698,7 +698,7 @@ const translations = {
 let currentLang = 'zh'
 try {
   currentLang = localStorage.getItem('dreamreel-lang') || 'zh'
-} catch (e) {
+} catch {
   // localStorage 不可用时使用默认值
 }
 
@@ -707,7 +707,7 @@ function setLanguage(lang) {
     currentLang = lang
     try {
       localStorage.setItem('dreamreel-lang', lang)
-    } catch (e) {
+    } catch {
       // localStorage 不可用时跳过
     }
     if (typeof document !== 'undefined') {

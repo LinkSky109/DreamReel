@@ -21,7 +21,7 @@ describe('RecycleBin', () => {
     // 清理可能残留的项目
     try {
       await projectService.deleteProject(testProjectId)
-    } catch (e) {}
+    } catch {}
   })
 
   it('should move project to recycle bin on delete', async () => {

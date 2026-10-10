@@ -1,5 +1,5 @@
 import logger from '../utils/logger.js'
-import { v4 as uuidv4 } from 'uuid'
+import { generateId } from '../utils/idGenerator.js'
 
 /**
  * 模板服务
@@ -259,7 +259,7 @@ export class TemplateService {
         throw new Error('项目不能为空')
       }
 
-      const templateId = `user-${uuidv4().slice(0, 8)}`
+      const templateId = `user-${generateId().slice(0, 8)}`
       const template = {
         id: templateId,
         name: name || `${project.name} - 模板`,

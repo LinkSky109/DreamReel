@@ -41,7 +41,6 @@ export class PosterService {
       const pst = POSTER_STYLES.find((s) => s.id === style) || POSTER_STYLES[0]
 
       const synopsis = project.script?.synopsis || project.description || project.name
-      const shotDescriptions = (project.shots || []).map((s) => s.description).filter(Boolean)
 
       // 尝试 LLM 生成文案，失败则用模板兜底
       let copy = null

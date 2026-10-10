@@ -83,7 +83,7 @@ function renderGrid(items) {
 
   // Mock 创作者等级映射（实际应由后端提供）
   const levelMap = {}
-  items.forEach((w, i) => {
+  items.forEach((w, _i) => {
     const hash = (w.authorId || 'user').split('').reduce((a, c) => a + c.charCodeAt(0), 0)
     const levels = [null, 'pioneer', 'pro', 'honor']
     levelMap[w.authorId || 'user'] = levels[hash % 4]

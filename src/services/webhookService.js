@@ -144,7 +144,11 @@ class WebhookService {
   listWebhooks(userId) {
     return Array.from(this.webhooks.values())
       .filter((w) => !userId || w.userId === userId)
-      .map(({ secret, ...rest }) => rest) // 不返回 secret
+      .map((w) => {
+        const rest = { ...w }
+        delete rest.secret
+        return rest
+      })
   }
 
   /**
@@ -153,7 +157,8 @@ class WebhookService {
   getWebhook(webhookId) {
     const webhook = this.webhooks.get(webhookId)
     if (!webhook) return null
-    const { secret, ...rest } = webhook
+    const rest = { ...webhook }
+    delete rest.secret
     return rest
   }
 
@@ -270,7 +275,7 @@ class WebhookService {
   _generateSignature(secret, body) {
     try {
       return `sha256=${crypto.createHmac('sha256', secret).update(body).digest('hex')}`
-    } catch (error) {
+    } catch {
       return ''
     }
   }

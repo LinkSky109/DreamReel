@@ -36,7 +36,8 @@ router.post('/', (req, res) => {
     const { url, events, name, secret } = req.body
     const userId = req.user?.id || 'default'
     const webhook = webhookService.registerWebhook({ url, events, name, secret, userId })
-    const { secret: _, ...safeWebhook } = webhook
+    const safeWebhook = { ...webhook }
+    delete safeWebhook.secret
     res.status(201).json(safeWebhook)
   } catch (error) {
     res.status(400).json({ error: error.message })
@@ -64,7 +65,8 @@ router.get('/:webhookId', (req, res) => {
 router.put('/:webhookId', (req, res) => {
   try {
     const webhook = webhookService.updateWebhook(req.params.webhookId, req.body)
-    const { secret: _, ...safeWebhook } = webhook
+    const safeWebhook = { ...webhook }
+    delete safeWebhook.secret
     res.json(safeWebhook)
   } catch (error) {
     res.status(400).json({ error: error.message })

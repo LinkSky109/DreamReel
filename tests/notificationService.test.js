@@ -36,7 +36,7 @@ test('通知服务 - 获取用户通知', () => {
 test('通知服务 - 未读数量', () => {
   const userId = 'test-user-unread'
   const n1 = notificationService.create({ userId, type: NOTIFICATION_TYPE.SYSTEM, title: '未读1', message: '消息' })
-  const n2 = notificationService.create({ userId, type: NOTIFICATION_TYPE.SYSTEM, title: '未读2', message: '消息' })
+  notificationService.create({ userId, type: NOTIFICATION_TYPE.SYSTEM, title: '未读2', message: '消息' })
 
   const countBefore = notificationService.getUnreadCount(userId)
   assert.ok(countBefore >= 2)

@@ -107,7 +107,7 @@ export class TeamService {
     const team = await this.getTeam(teamId)
     const projects = []
     for (const pid of team.projectIds) {
-      try { projects.push(await projectService.getProject(pid)) } catch (_) { /* skip */ }
+      try { projects.push(await projectService.getProject(pid)) } catch { /* skip */ }
     }
     return projects
   }

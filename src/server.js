@@ -43,6 +43,7 @@ import studiosRouter from './routes/studios.js'
 import imagesRouter from './routes/images.js'
 import editPlansRouter from './routes/editPlans.js'
 import { authOptional } from './middleware/auth.js'
+import { mediaAccess } from './middleware/mediaAccess.js'
 import { performanceMonitor } from './services/performanceMonitor.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -102,7 +103,7 @@ app.use('/api/system', systemRouter)
 app.use('/api/webhooks', webhooksRouter)
 app.use('/api/ai-assistant', aiAssistantRouter)
 app.use('/api/audio', authOptional, audioRouter)
-app.use('/api/scenes', scenesRouter)
+app.use('/api/scenes', authOptional, scenesRouter)
 app.use('/api/marketing', authOptional, marketingRouter)
 app.use('/api/creators', authOptional, creatorsRouter)
 app.use('/api/gallery', authOptional, galleryRouter)
@@ -119,10 +120,26 @@ app.use('/api/images', authOptional, imagesRouter)
 app.use('/api/edit-plans', authOptional, editPlansRouter)
 
 // Static files: only expose media subdirectories, never storage/data (DB, hashes, keys)
-const PUBLIC_STORAGE_DIRS = ['videos', 'exports', 'thumbnails', 'title-sequences', 'images', 'audio', 'scenes']
-for (const dir of PUBLIC_STORAGE_DIRS) {
-  app.use(`/storage/${dir}`, express.static(path.join(STORAGE_DIR, dir)))
+// R37：公开素材库保持直接访问
+app.use('/storage/audio/bgm', express.static(path.join(STORAGE_DIR, 'audio', 'bgm')))
+app.use('/storage/audio/sfx', express.static(path.join(STORAGE_DIR, 'audio', 'sfx')))
+app.use('/storage/scenes', express.static(path.join(STORAGE_DIR, 'scenes')))
+
+// R37：用户生成媒体目录需经访问控制中间件
+const PROTECTED_STORAGE_DIRS = [
+  'videos',
+  'exports',
+  'images',
+  'audio/previews',
+  'audio/voices',
+  'thumbnails',
+  'title-sequences',
+]
+for (const dir of PROTECTED_STORAGE_DIRS) {
+  app.use(`/storage/${dir}`, mediaAccess, express.static(path.join(STORAGE_DIR, dir)))
 }
+
+// 兜底：/storage 下其他路径返回 404
 app.use('/storage', (_req, res) => {
   res.status(404).json({ error: 'Not found' })
 })
@@ -140,7 +157,7 @@ app.get('/docs', (_req, res) => {
 })
 
 // SPA fallback — 非 API 请求返回 index.html
-app.use((req, res, next) => {
+app.use((req, res, _next) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'Not found' })
   }

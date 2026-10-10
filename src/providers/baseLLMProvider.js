@@ -15,7 +15,7 @@ export class BaseLLMProvider {
    * @param {Object} params.options - 额外选项（temperature, maxTokens 等）
    * @returns {Promise<{content: string, usage?: Object}>}
    */
-  async generate(params) {
+  async generate(_params) {
     throw new Error('generate not implemented')
   }
 

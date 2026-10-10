@@ -59,7 +59,7 @@ export async function renderProjectList(container, options = {}) {
     try {
       const recentResult = await api.getRecentProjects(5)
       recentProjects = recentResult.projects || []
-    } catch (e) {
+    } catch {
       recentProjects = []
     }
 
@@ -67,7 +67,7 @@ export async function renderProjectList(container, options = {}) {
     try {
       const tagsResult = await api.getAllTags()
       allTags = tagsResult.tags || []
-    } catch (e) {
+    } catch {
       allTags = []
     }
 
@@ -785,7 +785,7 @@ function projectCardHtml(project) {
 /**
  * 模板创建弹窗
  */
-function showTemplateModal(templateId, templates, container) {
+function showTemplateModal(templateId, templates, _container) {
   const template = templates.find((t) => t.id === templateId)
   if (!template) return
 
@@ -802,7 +802,7 @@ function showTemplateModal(templateId, templates, container) {
       <div class="form-group">
         <label class="form-label">创作想法（可修改）</label>
         <select class="form-select" id="templateIdeaSelect">
-          ${template.sampleIdeas.map((idea, i) => `<option value="${escapeHtml(idea)}">${escapeHtml(idea)}</option>`).join('')}
+          ${template.sampleIdeas.map((idea, _i) => `<option value="${escapeHtml(idea)}">${escapeHtml(idea)}</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
@@ -878,7 +878,7 @@ function showTemplateModal(templateId, templates, container) {
 /**
  * 空白项目创建弹窗
  */
-function showCreateModal(container) {
+function showCreateModal(_container) {
   const modal = document.createElement('div')
   modal.className = 'modal-overlay'
   modal.innerHTML = `

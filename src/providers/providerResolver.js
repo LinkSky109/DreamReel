@@ -89,7 +89,7 @@ export function resolveProviderConfig(stage, projectId = null, userId = null) {
         }
         logger.warn(`Project ${projectId} configured provider ${pref.provider} for ${stage} is not available (missing API key), falling back`)
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
@@ -110,7 +110,7 @@ export function resolveProviderConfig(stage, projectId = null, userId = null) {
         }
         logger.warn(`User ${userId} default provider ${pref.provider} for ${stage} is not available (missing API key), falling back`)
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   }

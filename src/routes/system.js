@@ -27,11 +27,11 @@ router.get('/info', (req, res) => {
           const stats = fs.statSync(file)
           storageUsed += stats.size
           storageFiles++
-        } catch (e) {
+        } catch {
           // 忽略无法访问的文件
         }
       }
-    } catch (e) {
+    } catch {
       // 存储目录可能不存在
     }
 

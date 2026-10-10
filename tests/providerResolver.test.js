@@ -14,7 +14,7 @@ import {
   buildMergedConfig,
 } from '../src/providers/providerResolver.js'
 import { projectService } from '../src/services/projectService.js'
-import { authService } from '../src/services/authService.js'
+import {} from '../src/services/authService.js'
 import { storageService } from '../src/services/storageService.js'
 import { Project } from '../src/models/project.js'
 

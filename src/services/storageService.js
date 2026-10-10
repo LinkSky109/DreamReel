@@ -104,6 +104,25 @@ class StorageService {
       logger.error('Failed to flush storage:', error.message)
     }
   }
+  /**
+   * Clear all data (for testing).
+   */
+  clearAll() {
+    this.data = {
+      projects: {},
+      users: {},
+      usage: {},
+      teams: {},
+      studios: {},
+      imageAssets: {},
+      reviews: {},
+      comments: {},
+      notifications: {},
+      reports: {},
+      meta: { version: 1, createdAt: new Date().toISOString() },
+    }
+    this.save()
+  }
 
   // ============ Generic collections ============
 
@@ -206,6 +225,70 @@ class StorageService {
       }
     }
     this.save()
+  }
+
+  // ============ Users (explicit CRUD for community features) ============
+
+  createUser(user) {
+    this.data.users[user.id] = user
+    this.save()
+    return user
+  }
+
+  getUserById(userId) {
+    return this.data.users[userId] || null
+  }
+
+  // ============ Reviews ============
+
+  createReview(review) {
+    if (!this.data.reviews) this.data.reviews = {}
+    this.data.reviews[review.id] = review
+    this.save()
+    return review
+  }
+
+  getReviewById(reviewId) {
+    if (!this.data.reviews) return null
+    return this.data.reviews[reviewId] || null
+  }
+
+  getAllReviews() {
+    if (!this.data.reviews) return []
+    return Object.values(this.data.reviews)
+  }
+
+  updateReview(review) {
+    if (!this.data.reviews) this.data.reviews = {}
+    this.data.reviews[review.id] = review
+    this.save()
+    return review
+  }
+
+  // ============ Reports ============
+
+  createReport(report) {
+    if (!this.data.reports) this.data.reports = {}
+    this.data.reports[report.id] = report
+    this.save()
+    return report
+  }
+
+  getReportById(reportId) {
+    if (!this.data.reports) return null
+    return this.data.reports[reportId] || null
+  }
+
+  getReportsByStatus(status) {
+    if (!this.data.reports) return []
+    return Object.values(this.data.reports).filter((r) => r.status === status)
+  }
+
+  updateReport(report) {
+    if (!this.data.reports) this.data.reports = {}
+    this.data.reports[report.id] = report
+    this.save()
+    return report
   }
 }
 

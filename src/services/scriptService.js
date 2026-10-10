@@ -1,6 +1,6 @@
 import { getLLMProvider, getLLMProviderForProject } from '../providers/llmProviderFactory.js'
 import { Character } from '../models/character.js'
-import { v4 as uuidv4 } from 'uuid'
+import { generateId } from '../utils/idGenerator.js'
 import logger from '../utils/logger.js'
 
 const SYSTEM_PROMPT = `你是一位专业的电影编剧和分镜师。根据用户的一句话想法，生成完整的分镜脚本。
@@ -203,7 +203,7 @@ ${sourceText.slice(0, 4000)}
   /**
    * 校验和规范化 LLM 输出
    */
-  validateAndNormalize(data, expectedShotCount) {
+  validateAndNormalize(data, _expectedShotCount) {
     const script = {
       synopsis: data.synopsis || '',
       characters: Array.isArray(data.characters) ? data.characters : [],
@@ -212,7 +212,7 @@ ${sourceText.slice(0, 4000)}
 
     // 规范化每个分镜（补充唯一 id）
     script.shots = script.shots.map((shot, index) => ({
-      id: shot.id || uuidv4(),
+      id: shot.id || generateId(),
       index: shot.index ?? index,
       shotType: shot.shotType || 'medium',
       description: shot.description || '',
@@ -231,7 +231,7 @@ ${sourceText.slice(0, 4000)}
 
     // 规范化角色
     script.characters = script.characters.map((c, index) => ({
-      id: c.id || uuidv4(),
+      id: c.id || generateId(),
       name: c.name || `角色${index + 1}`,
       description: c.description || '',
       personality: c.personality || '',

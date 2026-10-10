@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid'
+import { generateId } from '../utils/idGenerator.js'
 
 /**
  * 角色模型 — 用于角色一致性保持
@@ -11,7 +11,7 @@ export class Character {
     wardrobe, makeup, styling,
     createdAt, updatedAt,
   }) {
-    this.id = id || uuidv4()
+    this.id = id || generateId()
     this.name = name
     this.description = description || ''
     this.referenceImages = referenceImages || []

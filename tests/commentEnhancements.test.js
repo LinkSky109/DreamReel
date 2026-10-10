@@ -167,7 +167,7 @@ describe('CommentEnhancements', () => {
       userName: 'Alice',
       content: 'Comment 1 @bob',
     })
-    const c2 = collaborationService.addComment(TEST_PROJECT, {
+    collaborationService.addComment(TEST_PROJECT, {
       userId: 'user2',
       userName: 'Bob',
       content: 'Comment 2',

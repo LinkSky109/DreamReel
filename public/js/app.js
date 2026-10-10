@@ -5,7 +5,7 @@
 
 import { renderProjectList } from './views/projectList.js'
 import { renderEditor } from './views/editor.js'
-import { renderAuthPage, getCurrentUser, isLoggedIn, logout } from './views/auth.js'
+import { renderAuthPage, getCurrentUser, logout } from './views/auth.js'
 import { renderPricingPage } from './views/pricing.js'
 import { renderStatsPage } from './views/stats.js'
 import { renderSettingsPage } from './views/settings.js'
@@ -50,7 +50,7 @@ export async function refreshQuota() {
       badge.classList.toggle('low', remaining <= 1)
       badge.title = `今日剩余视频生成 ${remaining} 次，每日重置`
     }
-  } catch (e) {
+  } catch {
     // 静默失败
   }
 }
@@ -153,7 +153,7 @@ function router() {
 function updateSidebarActive() {
   const rawHash = location.hash.slice(1).replace(/^\//, '')
   const [hashPath] = rawHash.split('?')
-  const [path] = hashPath.split('/')
+
 
   document.querySelectorAll('.sidebar-link').forEach((link) => {
     const route = link.dataset.route || ''
@@ -231,7 +231,7 @@ export async function refreshNotifications() {
             const type = item.dataset.type
             try {
               await api.markNotificationRead(id)
-            } catch (e) {}
+            } catch {}
             if (projectId) {
               location.hash = `#/editor/${projectId}`
               // 根据通知类型切换到对应标签页
@@ -260,7 +260,7 @@ export async function refreshNotifications() {
         })
       }
     }
-  } catch (e) {
+  } catch {
     // 静默失败
   }
 }
@@ -353,7 +353,7 @@ window.addEventListener('DOMContentLoaded', () => {
       try {
         await api.markAllNotificationsRead()
         refreshNotifications()
-      } catch (err) {}
+      } catch {}
     })
   }
 
@@ -366,7 +366,7 @@ window.addEventListener('DOMContentLoaded', () => {
         try {
           await api.clearNotifications()
           refreshNotifications()
-        } catch (err) {}
+        } catch {}
       }
     })
   }

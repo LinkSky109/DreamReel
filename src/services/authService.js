@@ -2,8 +2,16 @@ import crypto from 'crypto'
 import { storageService } from './storageService.js'
 import { User } from '../models/user.js'
 import logger from '../utils/logger.js'
+import { generateId } from '../utils/idGenerator.js'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dreamreel-dev-secret-change-in-production'
+const jwtSecretFromEnv = process.env.JWT_SECRET
+if (!jwtSecretFromEnv || jwtSecretFromEnv.length < 32) {
+  throw new Error(
+    'JWT_SECRET environment variable is required and must be at least 32 characters long. ' +
+      'Please set a strong JWT_SECRET before starting the server.'
+  )
+}
+const JWT_SECRET = jwtSecretFromEnv
 const JWT_EXPIRES_IN = 7 * 24 * 60 * 60 * 1000 // 7 天
 
 /**
@@ -43,7 +51,7 @@ export class AuthService {
     const passwordHash = crypto.scryptSync(password, salt, 64).toString('hex')
 
     const user = new User({
-      id: crypto.randomUUID(),
+      id: generateId(),
       username,
       email,
       passwordHash,

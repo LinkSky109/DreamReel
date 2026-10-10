@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid'
+import { generateId } from '../utils/idGenerator.js'
 
 /**
  * R12：团队模型
@@ -18,7 +18,7 @@ export const ROLE_PERMISSIONS = {
 
 export class Team {
   constructor({ id, name, description, ownerId, members, projectIds, createdAt, updatedAt } = {}) {
-    this.id = id || uuidv4()
+    this.id = id || generateId()
     this.name = name || '未命名团队'
     this.description = description || ''
     this.ownerId = ownerId || 'default'

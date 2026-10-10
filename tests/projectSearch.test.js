@@ -51,8 +51,8 @@ test('projectService: listProjects with platform filter', async () => {
 })
 
 test('projectService: listProjects with sort', async () => {
-  const p1 = await projectService.createProject({ name: 'AAA项目', userId: TEST_USER })
-  const p2 = await projectService.createProject({ name: 'BBB项目', userId: TEST_USER })
+  await projectService.createProject({ name: 'AAA项目', userId: TEST_USER })
+  await projectService.createProject({ name: 'BBB项目', userId: TEST_USER })
 
   // 按名称排序
   const nameSorted = await projectService.listProjects({ userId: TEST_USER, sort: 'name' })

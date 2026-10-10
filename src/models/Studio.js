@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid'
+import { generateId } from '../utils/idGenerator.js'
 
 /**
  * R30：剧场计划厂牌模型（对标 LibTV「剧场计划/TV Show」）
@@ -20,7 +20,7 @@ export class Studio {
     createdAt,
     updatedAt,
   } = {}) {
-    this.id = id || uuidv4()
+    this.id = id || generateId()
     this.name = name || '未命名厂牌'
     this.description = description || ''
     this.logo = logo || '🎬'

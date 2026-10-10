@@ -212,7 +212,6 @@ router.post('/generate-all/:projectId', async (req, res) => {
         logger.info(`Batch generation complete: ${successCount}/${results.length} succeeded for project ${project.id}`)
 
         // 记录生成历史
-        const generationStartTime = Date.now() - 5000 // 估算开始时间（实际应在启动时记录）
         for (const result of results) {
           const shot = shotsToGenerate.find((s) => s.id === result.shotId)
           generationHistoryService.recordGeneration({

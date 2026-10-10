@@ -335,7 +335,7 @@ export async function renderSettingsPage(container) {
     if (prefsContainer) {
       const selector = new ProviderSelector(prefsContainer, {
         mode: 'user',
-        onChange: (stage, value) => {
+        onChange: (_stage, _value) => {
           // 实时变更，不自动保存，等用户点击保存按钮
         },
       })

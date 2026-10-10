@@ -18,7 +18,7 @@ export class BaseVideoProvider {
    * @param {string} params.aspectRatio - 宽高比（16:9 / 9:16）
    * @returns {Promise<{taskId: string, status: string}>}
    */
-  async generateVideo(params) {
+  async generateVideo(_params) {
     throw new Error('generateVideo not implemented')
   }
 
@@ -27,7 +27,7 @@ export class BaseVideoProvider {
    * @param {string} taskId
    * @returns {Promise<{status: string, videoUrl?: string, error?: string}>}
    */
-  async getTaskStatus(taskId) {
+  async getTaskStatus(_taskId) {
     throw new Error('getTaskStatus not implemented')
   }
 
@@ -41,7 +41,7 @@ export class BaseVideoProvider {
   /**
    * 取消生成任务
    */
-  async cancelTask(taskId) {
+  async cancelTask(_taskId) {
     throw new Error('cancelTask not implemented')
   }
 }

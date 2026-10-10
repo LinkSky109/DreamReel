@@ -1,17 +1,46 @@
 import { Router } from 'express'
 import { characterService } from '../services/characterService.js'
 import { projectService } from '../services/projectService.js'
+import { authRequired } from '../middleware/auth.js'
 
 const router = Router()
 
+/**
+ * 校验角色操作的项目所有权
+ * @returns {Promise<object|null>} 项目对象或 null（已发送响应）
+ */
+async function assertCharacterProjectOwnership(req, res) {
+  const { projectId } = req.body
+  if (!projectId) {
+    res.status(400).json({ error: 'projectId is required' })
+    return null
+  }
+  const userId = req.user?.id || 'default'
+  let project
+  try {
+    project = await projectService.getProject(projectId)
+  } catch (error) {
+    res.status(404).json({ error: error.message })
+    return null
+  }
+  if (project.userId !== userId) {
+    res.status(403).json({ error: '无权操作该项目' })
+    return null
+  }
+  return project
+}
+
 // 创建角色
-router.post('/', async (req, res) => {
+router.post('/', authRequired, async (req, res) => {
   try {
     const { name, description, referenceImages, projectId } = req.body
 
     if (!name || !projectId) {
       return res.status(400).json({ error: 'name and projectId are required' })
     }
+
+    const project = await assertCharacterProjectOwnership(req, res)
+    if (!project) return
 
     const character = await characterService.createCharacter({
       name,
@@ -22,9 +51,8 @@ router.post('/', async (req, res) => {
 
     // 添加到项目
     try {
-      const project = await projectService.getProject(projectId)
       project.addCharacter(character)
-    } catch (e) {
+    } catch {
       // 项目不存在时仍返回角色
     }
 
@@ -35,16 +63,17 @@ router.post('/', async (req, res) => {
 })
 
 // 锁定角色（添加参考图）
-router.post('/:characterId/lock', async (req, res) => {
+router.post('/:characterId/lock', authRequired, async (req, res) => {
   try {
-    const { referenceImages, projectId } = req.body
+    const { referenceImages } = req.body
 
     if (!referenceImages || referenceImages.length === 0) {
       return res.status(400).json({ error: 'At least one reference image is required' })
     }
 
-    // 从项目中查找角色
-    const project = await projectService.getProject(projectId)
+    const project = await assertCharacterProjectOwnership(req, res)
+    if (!project) return
+
     const character = project.getCharacter(req.params.characterId)
 
     if (!character) {
@@ -59,10 +88,13 @@ router.post('/:characterId/lock', async (req, res) => {
 })
 
 // 评估角色一致性
-router.post('/:characterId/evaluate', async (req, res) => {
+router.post('/:characterId/evaluate', authRequired, async (req, res) => {
   try {
-    const { videoUrl, projectId } = req.body
-    const project = await projectService.getProject(projectId)
+    const { videoUrl } = req.body
+
+    const project = await assertCharacterProjectOwnership(req, res)
+    if (!project) return
+
     const character = project.getCharacter(req.params.characterId)
 
     if (!character) {
@@ -94,13 +126,16 @@ router.get('/', async (req, res) => {
 })
 
 // R23: 更新角色造型（服装/妆容/整体风格）
-router.patch('/:characterId/styling', async (req, res) => {
+router.patch('/:characterId/styling', authRequired, async (req, res) => {
   try {
     const { projectId, wardrobe, makeup, styling } = req.body
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' })
     }
-    const project = await projectService.getProject(projectId)
+
+    const project = await assertCharacterProjectOwnership(req, res)
+    if (!project) return
+
     const character = project.getCharacter(req.params.characterId)
     if (!character) {
       return res.status(404).json({ error: 'Character not found' })

@@ -31,7 +31,7 @@ export const ffmpeg = {
    * @param {string} params.resolution - 分辨率（720p / 1080p）
    * @param {string} params.aspectRatio - 宽高比（16:9 / 9:16）
    */
-  async generatePlaceholder({ outputPath, duration = 5, text = 'DreamReel', resolution = '720p', aspectRatio = '16:9' }) {
+  async generatePlaceholder({ outputPath, duration = 5, _text = 'DreamReel', resolution = '720p', aspectRatio = '16:9' }) {
     const size = resolution === '1080p' ? '1920x1080' : '1280x720'
     const [w, h] = aspectRatio === '9:16' ? ['720', '1280'] : size.split('x')
 
