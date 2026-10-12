@@ -1,0 +1,125 @@
+task_id: "TASK-20261010-018"
+task_name: "DreamReel Sprint 18: FNV 稳定 ID + 影评社区（Wave 2）"
+create_time: "2026-10-10T16:08:08+08:00"
+record_origin: "RECONSTRUCTED：由编排者于 2026-10-12 依据提交 cdd9c08 补记，并在补记时执行了独立复测，发现未关闭的 P0 缺陷。原始子代理记录缺失，未杜撰。"
+current_global_state: "GLOBAL_DONE"
+state_note: "原始提交以完成态合入 main；补记时独立复测发现 P0 缺陷并回退为 IN_CONSISTENCY；2026-10-12 修复 FNV 回绕后复测 523/523/0，状态置回 DONE。src/app.js 的孤立/import 失败（P2）仍待决策。"
+
+reference:
+  source_commit: "cdd9c08 Merge Sprint 16/17/18 patches"
+  commit_message_section: "Sprint 18 - FNV Hash & Community"
+  prev_sprint_context: ".workflow/context-sprint17.yaml"
+  delivery_report: "docs/sprint18-delivery-report.md"
+
+baseline:
+  repo_root: "/Users/link/work/DreamReel"
+  git_repo: true
+  git_branch: "main"
+  test_command: "node scripts/run-tests.js"
+  test_total_after: 523
+  test_pass_after: 522
+  test_fail_after: 1
+  test_fail_case: "tests/templateMarket.test.js :: should list user templates by user（期望 1 实际 0）"
+  lint_command: "npm run lint"
+  lint_errors_after: 0
+  lint_warnings_after: 1
+
+scope:
+  - id: "T18-001"
+    name: "FNV-1a 64-bit 稳定 ID 生成"
+    owner: "backend"
+    priority: "P0"
+    status: "DEV_DONE"
+    features:
+      - "新增 src/utils/hash.js：fnv1a64 / fnv1a64Hex"
+      - "新增 src/utils/idGenerator.js：generateId()（返回 16 位 hex）"
+      - "project/shot/scene/character/Studio/Team/ImageAsset 等模型与服务由 uuid 切换到 generateId()"
+    fixed_defect:
+      severity: "P0（已修复 2026-10-12）"
+      summary: "FNV-1a 用 BigInt 计算但未做 mod 2^64 回绕，乘积无界增长；高位字节不受低位输入影响，且 .toString(16).padStart(16) 失效"
+      observed_before_fix:
+        - "generateId() 实测返回长度 426（非 16），如 'cbf29d1c04c1830a...'"
+        - "连续 6 次 generateId().slice(0,8) 全为 'cbf29d1c'（唯一值 1）"
+      impact:
+        - "src/services/templateService.js 的 `user-${generateId().slice(0,8)}` 恒定 → 用户模板 ID 碰撞 → 用例失败"
+        - "src/models/ImageAsset.js 的 `img_${Date.now()}_${generateId().slice(0,8)}` 在同毫秒内碰撞"
+        - "project.id / shot.id / scene.id 等为非预期的 426 字符长串（影响 URL、文件名、索引、可读性）"
+      fix: "src/utils/hash.js 增加 FNV_64_MASK=0xffffffffffffffffn，乘法改为 (hash ^ byte) * PRIME & MASK"
+      verified_after_fix:
+        - "generateId() 长度 16；连续 6 次 slice(0,8) 唯一值 6"
+        - "fnv1a64Hex('hello') = a430d84680aabd0b（标准 FNV-1a 64 值）"
+
+  - id: "Wave2-F1"
+    name: "热评榜单 rankingService"
+    owner: "backend"
+    priority: "P1"
+    status: "DEV_DONE"
+    features:
+      - "heat = overallScore*10 + 互动数*1，再乘指数时间衰减（daily/weekly/monthly 半衰期 6/24/72h）"
+      - "getLeaderboard(period, limit)：仅 published，按 created_at 窗口过滤并排序"
+    evidence: ["src/services/rankingService.js", "tests/rankingService.test.js（10 例，独立运行通过）"]
+
+  - id: "Wave2-F3"
+    name: "个性化推荐 recommendationService"
+    owner: "backend"
+    priority: "P1"
+    status: "DEV_DONE"
+    features:
+      - "标签重叠 + 四维评分余弦相似度 + 热度，加权（0.4/0.4/0.2）"
+      - "排除本人作品；用户不存在抛错"
+    evidence: ["src/services/recommendationService.js", "tests/recommendationService.test.js（13 例，独立运行通过）"]
+
+  - id: "Wave2-F4"
+    name: "内容举报与审核 moderationService"
+    owner: "backend"
+    priority: "P1"
+    status: "DEV_DONE"
+    features:
+      - "submitReport（防重复举报）/ getPendingReports / getReports / processReport（approved 时隐藏被举报影评）"
+      - "Report 模型（pending/approved/rejected + 审核人/时间）"
+    evidence: ["src/services/moderationService.js", "src/models/report.js", "tests/moderationService.test.js（12 例，独立运行通过）"]
+
+  - id: "Wave2-ENTRY"
+    name: "影评社区独立 API（src/app.js）"
+    owner: "backend"
+    priority: "P2"
+    status: "ORPHANED_BROKEN"
+    features:
+      - "基于 node:http 的独立路由：/api/leaderboard、/api/notifications*、/api/recommendations、/api/reports*"
+      - "自带 seedData（Alice/Bob/Carol + 3 条影评），独立 listen 3000"
+    defects:
+      - "import { getUserNotifications, getUnreadCount, ... } from './services/notificationService.js' —— 该服务未导出 getUserNotifications，且 getUnreadCount/markAsRead 签名不匹配"
+      - "实测 node -e import('./src/app.js') 直接报错：does not provide an export named 'getUnreadCount'"
+      - "未被 src/server.js / package.json 脚本 / 测试引用（孤立即未被启用）"
+      - "语义与本仓库（AI 短片平台）不一致（影评社区）"
+
+verification:
+  status: "PASS（修复后 2026-10-12 复测）"
+  command: "node scripts/run-tests.js"
+  result: "523 tests / 523 pass / 0 fail"
+  community_tests_isolated: "ranking/recommendation/moderation 共 35 例，独立运行 35 pass / 0 fail"
+  app_js: "import 仍失败（见 Wave2-ENTRY，P2 待决策）"
+
+known_issues:
+  - "T18-001 FNV 缺陷（P0）——已修复并复测（523/523/0）"
+  - "src/app.js 孤立且 import 失败（P2，未关闭，待产品决策：删除或接回主服务）"
+  - "review.js / report.js / comment.js / notification.js 各自实现本地 generateId，未复用 utils/idGenerator，口径不统一"
+
+out_of_scope:
+  - "影评社区前端接入与鉴权设计"
+  - "Sprint 16 / 17（同提交，见对应 context）"
+  - "修改 /Users/link/myApp/CineAI"
+
+state_log:
+  - time: "2026-10-10T16:08:08+08:00"
+    from: "N/A"
+    to: "GLOBAL_DONE"
+    note: "以 'Sprint 18 - FNV Hash & Community' 随 cdd9c08 合入 main。"
+  - time: "2026-10-12T00:00:00+08:00"
+    from: "GLOBAL_DONE"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "补记时独立复测：npm test 523/522/1，失败为 templateMarket；复现脚本证实 generateId() 长度 426 且 slice(0,8) 恒定；src/app.js import 报错。状态回退，记录 P0/P2 未关闭缺陷。"
+  - time: "2026-10-12T00:10:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_DONE"
+    note: "修复 src/utils/hash.js：加入 FNV_64_MASK 回绕。复测 generateId() 长度 16、slice(0,8) 唯一，fnv1a64Hex('hello')=a430d84680aabd0b；全量测试 523/523/0，templateMarket 恢复。P0 关闭；P2（src/app.js）仍待决策。"

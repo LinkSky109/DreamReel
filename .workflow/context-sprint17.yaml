@@ -1,0 +1,83 @@
+task_id: "TASK-20261010-017"
+task_name: "DreamReel Sprint 17: 功能与工程改进（影评/评论模型基线 + lint 收口）"
+create_time: "2026-10-10T16:08:08+08:00"
+record_origin: "RECONSTRUCTED：由编排者于 2026-10-12 依据提交 cdd9c08（Merge Sprint 16/17/18 patches）补记。原始子代理记录缺失，未杜撰。"
+current_global_state: "GLOBAL_DONE"
+
+reference:
+  source_commit: "cdd9c08 Merge Sprint 16/17/18 patches"
+  commit_message_section: "Sprint 17 - Features & Improvements"
+  prev_sprint_context: ".workflow/context-sprint16.yaml"
+  delivery_report: "docs/sprint17-delivery-report.md"
+
+baseline:
+  repo_root: "/Users/link/work/DreamReel"
+  test_command: "node scripts/run-tests.js"
+  test_total_after: 523
+  test_pass_after: 522
+  test_fail_after: 1
+  note: "Sprint 17 与 16/18 同属一个提交，无法还原独立基线"
+
+scope:
+  - id: "T17-006"
+    name: "影评四维评分与评论模型基线"
+    owner: "backend"
+    priority: "P1"
+    status: "DEV_DONE"
+    features:
+      - "src/models/review.js：Review 模型，story/visual/performance/soundtrack 四维评分（0-10 clamp）+ overallScore = 四维均值；含 like/comment/favorite 计数与状态（published/hidden/deleted）"
+      - "src/models/comment.js：Comment 模型，支持 parentId 层级评论、点赞数与状态"
+      - "两者均标注 'T17-006 baseline model'，本地生成 rev_/cmt_ 前缀 ID"
+    deliverable_type: "模型基线（未附带路由/服务/前端与专用测试）"
+    caveat: "提交信息声称的 '风格迁移工坊 / AI 影评增强 / 回收站与统计 / 项目检索 / 配额改进' 在源码 diff 中未见对应实现，仅见相应测试文件的 lint 级微调，存在提交信息夸大"
+
+  - id: "ENG-LINT"
+    name: "工程与前端 lint 收口（跨模块）"
+    owner: "frontend+backend"
+    priority: "P1"
+    status: "DEV_DONE"
+    features:
+      - "新增 .eslintrc.json"
+      - "package.json lint 覆盖 public/js"
+      - "src 与 public/js 大量 catch (e)/(err)/(_) 收敛为 catch {}"
+    defect: "public/js/views/editor.js 出现 45 处（42 引用 err + 3 引用 e）`catch {}` 内仍引用 err/e（如 showToast(err.message)），运行到该分支会抛 ReferenceError，属功能性回归；已于 2026-10-12 修复"
+
+  - id: "ENG-TESTHYGIENE"
+    name: "测试卫生"
+    owner: "backend"
+    status: "DEV_DONE"
+    features:
+      - "8 个既有测试文件 catch 绑定清理（catch (e) → catch {}）与未用变量移除"
+    evidence:
+      - "tests/commentEnhancements、notificationService、projectSearch、providerResolver、quotaService、recentProjects、recycleBin、statsService"
+
+verification:
+  status: "PASS（2026-10-12 修复后复测）"
+  automated_tests: "T17-006 模型无专用测试；editor.js catch 缺陷原无覆盖，修复后由 espree 静态校验 + node --check + 全量测试回归"
+  reproduction_after_fix:
+    - "espree AST 扫描：editor.js 51 个无参 catch 中 42 引用 err / 3 引用 e / 6 未引用（6 个保持 catch {}）"
+    - "rg -U -c --pcre2 \"catch\\s*\\{\\s*\\n\\s*[^\\n}]*(?:\\\\berr\\\\b|\\\\be\\\\b)\\.\" public/js → 0 命中"
+  lint: "npm run lint → 0 error / 1 warning（warning 位于 src/app.js 的孤立代码）"
+  test: "node scripts/run-tests.js → 523 tests / 523 pass / 0 fail"
+
+known_issues:
+  - "editor.js catch 引用缺陷已修复（2026-10-12）；src/app.js 孤立且 import 失败问题仍待决策（Sprint 18）"
+  - "T17-006 仅模型基线，四维评分尚未接入 filmAnalysisService / 路由 / 前端"
+
+out_of_scope:
+  - "Sprint 16 安全加固 / Sprint 18 FNV 与社区（同提交，见对应 context）"
+  - "修改 /Users/link/myApp/CineAI"
+
+state_log:
+  - time: "2026-10-10T16:08:08+08:00"
+    from: "N/A"
+    to: "GLOBAL_DONE"
+    note: "以 'Sprint 17 - Features & Improvements' 随 cdd9c08 合入 main。"
+  - time: "2026-10-12T00:00:00+08:00"
+    from: "GLOBAL_DONE"
+    to: "GLOBAL_DONE"
+    note: "编排者补记本文件：核对后判定 Sprint 17 实际为模型基线 + lint 收口；发现 editor.js 45 处 catch 引用缺陷，标记 verification=PARTIAL。"
+  - time: "2026-10-12T00:10:00+08:00"
+    from: "GLOBAL_DONE"
+    to: "GLOBAL_DONE"
+    note: "修复 editor.js 45 处 catch 绑定（42 err + 3 e，espree AST 定位后还原绑定）；node --check 通过、残留检测 0 命中；全量测试 523/523/0。verification 置 PASS。"

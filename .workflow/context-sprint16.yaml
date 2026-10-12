@@ -1,0 +1,91 @@
+task_id: "TASK-20261010-016"
+task_name: "DreamReel Sprint 16: 安全加固（R36 项目所有权校验 + R37 媒体访问控制）"
+create_time: "2026-10-10T16:08:08+08:00"
+record_origin: "RECONSTRUCTED：由编排者于 2026-10-12 依据提交 cdd9c08（Merge Sprint 16/17/18 patches）的代码差异补记。原始 sprint 的子代理/端口/时间记录缺失，未杜撰。"
+current_global_state: "GLOBAL_DONE"
+
+reference:
+  source_commit: "cdd9c08 Merge Sprint 16/17/18 patches"
+  commit_message_section: "Sprint 16 - Security Hardening"
+  prev_sprint_context: ".workflow/context-sprint15.yaml"
+  prev_delivery_report: "docs/sprint15-delivery-report.md"
+  delivery_report: "docs/sprint16-delivery-report.md"
+
+baseline:
+  repo_root: "/Users/link/work/DreamReel"
+  git_repo: true
+  git_branch: "main"
+  git_head: "d3bdbb2（Sprint 16 变更前的 main 合并点）"
+  test_command: "node scripts/run-tests.js"
+  test_total_after: 523
+  test_pass_after: 522
+  test_fail_after: 1
+  test_fail_note: "唯一失败为 tests/templateMarket.test.js「should list user templates by user」，由 Sprint 18 的 FNV 缺陷引发，非 Sprint 16 引入"
+  lint_command: "npm run lint"
+  lint_errors_after: 0
+  lint_warnings_after: 1
+  baseline_caveat: "Sprint 16/17/18 同属一个提交 cdd9c08，无法从历史中还原 Sprint 16 之前的独立测试基线"
+
+scope:
+  - id: "R36"
+    name: "项目所有权校验（= T16-001）"
+    owner: "backend"
+    priority: "P0"
+    status: "DEV_DONE"
+    features:
+      - "新增 src/middleware/projectAccess.js：requireProjectOwnership(req,res,{projectIdParam}) 与 requireRecycleBinOwnership"
+      - "匿名请求固定视为 default 用户，只能操作 default 用户的项目；跨用户 403，项目不存在 404"
+      - "明确作为 R37 媒体访问控制的归属判定基础"
+    acceptance:
+      - "跨用户访问项目资源返回 403，不泄露他人数据"
+      - "项目不存在返回 404"
+    evidence:
+      - "src/middleware/projectAccess.js（新增，62 行）"
+      - "src/routes/projects.js：GET /:projectId/model-config 改用 requireProjectOwnership 先行校验"
+  - id: "R37"
+    name: "媒体文件访问控制加固"
+    owner: "backend"
+    priority: "P0"
+    status: "DEV_DONE"
+    features:
+      - "新增 src/middleware/mediaAccess.js：/storage 受保护目录需要身份认证 + 项目归属校验"
+      - "公开目录 /storage/audio/bgm、/storage/audio/sfx、/storage/scenes 直接放行"
+      - "受保护目录 videos/exports/images/audio/previews/audio/voices/thumbnails/title-sequences"
+      - "身份识别顺序：Authorization Bearer → Cookie token → URL query share token"
+      - "反查媒体 URL 所属项目：shot.videoUrl、shot.versions、project.coverUrl、导出历史、imageAssets、文件名含 projectId"
+      - "src/server.js：受保护目录挂载 mediaAccess，public 目录不带校验，/storage 兜底 404"
+      - "src/routes/scenes.js：写操作加 authRequired，越权错误码 400→403"
+    acceptance:
+      - "无凭证访问受保护媒体返回 401；携带无效 share token 返回 403"
+      - "跨用户访问他人媒体返回 403；公开素材库不受影响"
+    evidence:
+      - "src/middleware/mediaAccess.js（新增，202 行）"
+      - "src/server.js（挂载点重构）"
+      - "src/routes/scenes.js（authRequired + 403 语义）"
+
+verification:
+  status: "PARTIAL"
+  automated_tests: "无 R36/R37 专用自动化测试；tests/ 内无 projectAccess / mediaAccess 引用"
+  whole_suite: "npm test 全量加载该中间件无崩溃（523 用例，仅 1 例与本项无关的失败）"
+  manual: "not recorded"
+  gap: "缺所有权/媒体访问的专项回归测试，边界（403/401/share token 放行）未被自动化覆盖"
+
+known_issues:
+  - "mediaAccess：已登录用户访问无法反查归属的媒体（如未持久化的临时预览）会放行（project 为 null → next()），存在潜在越权面"
+  - "share token 校验依赖 collaborationService.getProjectByShareToken 的实际返回结构"
+  - "通用项目 PUT/DELETE 授权缺口为 Sprint 15 遗留，未在本轮修复"
+
+out_of_scope:
+  - "通用项目 PUT/DELETE 授权缺口（既有残留）"
+  - "Sprint 17 / Sprint 18 功能（同一提交一并合入，见 context-sprint17/18.yaml）"
+  - "修改 /Users/link/myApp/CineAI"
+
+state_log:
+  - time: "2026-10-10T16:08:08+08:00"
+    from: "N/A"
+    to: "GLOBAL_DONE"
+    note: "安全加固以 'Sprint 16 - Security Hardening' 随 cdd9c08 合入 main；R36 项目所有权校验 + R37 媒体访问控制生效。"
+  - time: "2026-10-12T00:00:00+08:00"
+    from: "GLOBAL_DONE"
+    to: "GLOBAL_DONE"
+    note: "编排者补记工作流上下文（本文件）：核对代码接入、lint 0 error、全量测试仅 1 例与本项无关的失败；标记 verification=PARTIAL（缺专项测试）。"
