@@ -437,6 +437,31 @@ export const api = {
   deleteWebhook: (id) => request(`/webhooks/${id}`, { method: 'DELETE' }),
   testWebhook: (id) => request(`/webhooks/${id}/test`, { method: 'POST' }),
   getWebhookDeliveries: (id) => request(`/webhooks/${id}/deliveries`),
+
+  // Community（影评社区，/api/community）
+  getCommunityLeaderboard: (period = 'weekly', limit = 20) =>
+    request(`/community/leaderboard${buildQueryString({ period, limit })}`),
+  getCommunityRecommendations: (userId, limit = 10) =>
+    request(`/community/recommendations${buildQueryString({ userId, limit })}`),
+  listCommunityReviews: (params = {}) =>
+    request(`/community/reviews${buildQueryString(params)}`),
+  createCommunityReview: (data) => request('/community/reviews', { method: 'POST', body: data }),
+  getCommunityReview: (id) => request(`/community/reviews/${id}`),
+  likeCommunityReview: (id, userId) =>
+    request(`/community/reviews/${id}/like`, { method: 'POST', body: { userId } }),
+  createCommunityReport: (data) => request('/community/reports', { method: 'POST', body: data }),
+  listCommunityReports: (status) => request(`/community/reports${buildQueryString({ status })}`),
+  listPendingCommunityReports: () => request('/community/reports/pending'),
+  processCommunityReport: (id, data) =>
+    request(`/community/reports/${id}/process`, { method: 'POST', body: data }),
+  listCommunityNotifications: (userId, params = {}) =>
+    request(`/community/notifications${buildQueryString({ userId, ...params })}`),
+  getCommunityUnreadCount: (userId) =>
+    request(`/community/notifications/unread-count${buildQueryString({ userId })}`),
+  markCommunityNotificationRead: (id) =>
+    request(`/community/notifications/${id}/read`, { method: 'POST', body: {} }),
+  markAllCommunityNotificationsRead: (userId) =>
+    request('/community/notifications/read-all', { method: 'POST', body: { userId } }),
 }
 
 export default api

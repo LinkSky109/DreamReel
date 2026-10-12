@@ -21,6 +21,7 @@ import { renderEnterprise } from './views/enterprise.js'
 import { renderTitleSequencesPage } from './views/titleSequences.js'
 import { renderDirectorsPage } from './views/directors.js'
 import { renderStudiosPage } from './views/studios.js'
+import { renderCommunityPage } from './views/community.js'
 import { initKeyboardShortcuts, toggleHelpModal } from './keyboard.js'
 import { initTheme, toggleTheme, getCurrentTheme, getThemeIcon } from './theme.js'
 import { i18n } from './i18n.js'
@@ -133,6 +134,8 @@ function router() {
     renderDirectorsPage(app)
   } else if (path === 'studios') {
     renderStudiosPage(app)
+  } else if (path === 'community') {
+    renderCommunityPage(app)
   } else if (path === 'studio' && param) {
     renderStudiosPage(app, param)
   } else if (path === 'project' && param) {
