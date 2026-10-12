@@ -1,0 +1,60 @@
+task_id: "TASK-20261012-020"
+task_name: "Sprint 20: LLM 接入（Vercel AI SDK / OpenCode）+ 风格确定 + 角色成长状态"
+create_time: "2026-10-12T17:20:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+reference:
+  plan: "docs/novel-series-plan.md（§4.1 LLM 策略 / §6 Sprint 20）"
+  prev_sprint_context: ".workflow/context-sprint19.yaml"
+  delivery_report: "docs/sprint20-delivery-report.md"
+  git_branch: "main"
+  git_head_at_start: "7e4d4fd docs: Sprint 19 ..."
+
+scope:
+  - id: "S20-1"
+    name: "LLM 接入：AI SDK + OpenCode provider（多供应商 key 切换口子）"
+    features:
+      - "新增 src/providers/opencodeLLMProvider.js（BaseLLMProvider 子类，基于 ai + ai-sdk-provider-opencode-sdk）"
+      - "llmProviderFactory 注册 'opencode'；config/ providerResolver 支持 LLM_PROVIDER=opencode"
+      - "服务发现（本地 OpenCode 2.x 服务 service.json）或 baseUrl+password 覆盖"
+      - "多供应商切换口子：provider/model 可配；后续可替换/新增 provider"
+    acceptance:
+      - "真实调用 OpenCode 服务返回文本（不 mock）"
+      - "角色抽取走 provider:'llm' 且结果优于启发式（复核修订率）"
+  - id: "S20-2"
+    name: "风格确定（全书统一）"
+    features:
+      - "novelStyleService：LLM 产出全书风格（视觉/色调/叙事基调）或启发式默认；写入 NovelProject.style"
+      - "PUT /api/novels/:id/style 支持自动生成"
+  - id: "S20-3"
+    name: "角色成长状态（CharacterState）"
+    features:
+      - "按章节/集记录外貌/关系/能力演进（增量条目）"
+      - "API：读取/追加成长状态"
+
+out_of_scope:
+  - "形象图/音色样本的真实生成（本轮仅接口/占位预留）"
+  - "分季分集与剧本（Sprint 21）"
+  - "修改 /Users/link/myApp/CineAI"
+
+constraints:
+  - "开发期最小成本；LLM 走本机 OpenCode 2.x 服务（OPENCODE_BASE_URL/OPENCODE_PASSWORD 或服务发现）"
+  - "OpenCode v2 无服务端结构化输出：JSON 靠 prompt 约束 + 客户端校验/重试"
+
+risks:
+  - "OpenCode 服务需在跑；版本需 2.x（provider 5.x）"
+  - "模型 id 需来自服务端 catalog"
+
+state_log:
+  - time: "2026-10-12T17:20:00+08:00"
+    from: "N/A"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 20 启动；基线：Sprint 19 后 549/549/0；安装 ai@7 + ai-sdk-provider-opencode-sdk@5 + zod@4。本机 OpenCode 2.0.26 服务在 127.0.0.1:49374。"
+  - time: "2026-10-12T17:50:00+08:00"
+    from: "GLOBAL_IN_DEV"
+    to: "GLOBAL_DONE"
+    note: "S20-1 LLM 接入完成：opencodeLLMProvider（AI SDK + opencode-sdk），工厂/resolver/config 注册；真实调用验证（opencode/big-pickle → 连接成功）。S20-2 风格确定（真实 LLM 产出全书风格）与 S20-3 成长状态骨架完成。加超时+失败回退。全量 550/550/0，lint 0。"
+  - time: "2026-10-12T17:52:00+08:00"
+    from: "GLOBAL_DONE"
+    to: "GLOBAL_DONE"
+    note: "待办（后续）：全书 LLM 分片聚合抽取；修订率正式人工复核；形象图/音色样本；Sprint 21 分季分集+剧本。"

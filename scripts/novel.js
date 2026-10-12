@@ -49,6 +49,7 @@ async function main() {
     chunk: await import('../src/services/novelChunkService.js'),
     extract: await import('../src/services/characterExtractionService.js'),
     card: await import('../src/services/characterCardService.js'),
+    style: await import('../src/services/novelStyleService.js'),
   }
 
   const [cmd, ...rest] = process.argv.slice(2)
@@ -99,6 +100,7 @@ async function main() {
       const result = await services.extract.extractCharacters(id, {
         provider: flags.provider,
         maxChapters: flags['max-chapters'] ? Number(flags['max-chapters']) : undefined,
+        maxChars: flags['max-chars'] ? Number(flags['max-chars']) : undefined,
         minFreq: flags['min-freq'] ? Number(flags['min-freq']) : undefined,
       })
       services.card.ensureCards(id)
@@ -133,6 +135,14 @@ async function main() {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
       print(services.card.reviewStats(id))
+      break
+    }
+
+    case 'style': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      const project = await services.style.generateStyle(id)
+      print(project.style)
       break
     }
 

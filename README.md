@@ -291,8 +291,11 @@ docker-compose down
 | PATCH | `/api/novels/:id/characters/:cid` | 修订角色（记录 `reviewEdits`；`approve:true` 直接通过） |
 | POST | `/api/novels/:id/characters/:cid/approve` | 通过角色 |
 | GET | `/api/novels/:id/review-stats` | 审核统计（`revisionRate` = 修订字段数 ÷ 字段总数） |
+| POST | `/api/novels/:id/style/generate` | 自动生成全书风格（LLM 优先，启发式回退），返回 `style` |
+| GET | `/api/novels/:id/characters/:cid/states` | 角色成长状态列表 |
+| POST | `/api/novels/:id/characters/:cid/states` | 追加成长状态（章节/集锚点 + 外貌/关系/能力增量），成功 201 |
 
-> CLI：`npm run novel -- <create|ingest|extract|list|show|characters|stats>`。来源首选站点 **TXT 下载**（两跳 Cookie + GB18030 解码）；**不绕过**登录/验证码/加密。抽取默认走**离线启发式**（低精度基线），配置真实 LLM 后走 `provider:'llm'` 路径。产出落 `storage/novels/<id>/`。
+> CLI：`npm run novel -- <create|ingest|extract|list|show|characters|stats|style>`。来源首选站点 **TXT 下载**（两跳 Cookie + GB18030 解码）；**不绕过**登录/验证码/加密。抽取默认**离线启发式**（低精度基线）；**配置 `LLM_PROVIDER=opencode` 后走真实 LLM**（Vercel AI SDK + `ai-sdk-provider-opencode-sdk`，本机 OpenCode 2.x 服务；或 `OPENCODE_BASE_URL`+`OPENCODE_PASSWORD`）。产出落 `storage/novels/<id>/`。
 
 ### 配音字幕
 

@@ -29,6 +29,10 @@ const config = {
     apiKey: process.env.OPENAI_API_KEY || '',
     model: process.env.LLM_MODEL || 'gpt-4o-mini',
     baseUrl: process.env.OPENAI_BASE_URL || '',
+    // OpenCode（开发阶段 LLM 来源）：本地 OpenCode 2.x 服务
+    opencodeModel: process.env.OPENCODE_MODEL || 'opencode/big-pickle',
+    opencodeBaseUrl: process.env.OPENCODE_BASE_URL || '',
+    opencodePassword: process.env.OPENCODE_PASSWORD || '',
   },
 
   tts: {

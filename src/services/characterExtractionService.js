@@ -129,11 +129,18 @@ export async function extractCharacters(novelId, opts = {}) {
   let provider
   if (useLLM) {
     provider = 'llm'
-    const sample = buildSampleText(useChunks, opts.maxChars || 60000)
-    const llm = getLLMProvider()
-    const { data } = await llm.generateJSON(buildLLMPrompt(sample))
-    characters = normalizeCharacters(data && data.characters)
-    logger.info(`LLM 抽取角色 ${characters.length} 个（provider=${llm.name}）`)
+    try {
+      const sample = buildSampleText(useChunks, opts.maxChars || 60000)
+      const llm = getLLMProvider()
+      const { data } = await llm.generateJSON(buildLLMPrompt(sample))
+      characters = normalizeCharacters(data && data.characters)
+      logger.info(`LLM 抽取角色 ${characters.length} 个（provider=${llm.name}）`)
+    } catch (error) {
+      // LLM 失败（超时/解析/网络）→ 回退启发式，如实标注
+      logger.warn(`LLM 抽取失败，回退启发式：${error.message}`)
+      provider = 'heuristic-fallback'
+      characters = normalizeCharacters(heuristicExtract(useChunks, { minFreq: opts.minFreq }))
+    }
   } else {
     provider = 'heuristic'
     characters = normalizeCharacters(heuristicExtract(useChunks, { minFreq: opts.minFreq }))

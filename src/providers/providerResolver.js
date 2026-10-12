@@ -39,6 +39,9 @@ export function isProviderConfigured(stage, providerName) {
     switch (providerName) {
       case 'openai':
         return !!config.llm.apiKey
+      case 'opencode':
+        // 本地 OpenCode 2.x 服务（服务发现或 baseUrl）；无需外部 key
+        return true
       default:
         return false
     }

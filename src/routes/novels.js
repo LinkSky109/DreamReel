@@ -8,6 +8,8 @@ import {
 import { ingestNovel, listChunks } from '../services/novelChunkService.js'
 import { extractCharacters, listCharacters } from '../services/characterExtractionService.js'
 import { ensureCards, applyEdits, reviewStats } from '../services/characterCardService.js'
+import { generateStyle } from '../services/novelStyleService.js'
+import { addState, listStates } from '../services/characterGrowthService.js'
 
 /**
  * 小说 → 剧集 路由（Sprint 19），挂载 /api/novels
@@ -133,6 +135,36 @@ router.get('/:id/review-stats', (req, res) => {
   try {
     getNovelProject(req.params.id)
     res.json({ success: true, data: reviewStats(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 自动生成全书风格
+router.post('/:id/style/generate', async (req, res) => {
+  try {
+    const project = await generateStyle(req.params.id)
+    res.json({ success: true, data: project.style })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 角色成长状态：列表
+router.get('/:id/characters/:cid/states', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: listStates(req.params.id, req.params.cid) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 角色成长状态：追加
+router.post('/:id/characters/:cid/states', (req, res) => {
+  try {
+    const state = addState(req.params.id, req.params.cid, req.body || {})
+    res.status(201).json({ success: true, data: state })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

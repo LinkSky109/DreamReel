@@ -86,6 +86,31 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.ok(res.body.data.revisionRate > 0)
   })
 
+  it('HTTP: 风格生成 + 角色成长状态', async () => {
+    let res = await request(app).post('/api/novels').send({ title: '风格与成长测试' })
+    const id = res.body.data.id
+    created.push(id)
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+
+    res = await request(app).post(`/api/novels/${id}/style/generate`)
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.scope, 'book')
+    assert.ok(['llm', 'heuristic'].includes(res.body.data.provider))
+
+    res = await request(app).post(`/api/novels/${id}/extract`).send({ provider: 'heuristic', minFreq: 1 })
+    const cid = res.body.data.characters[0].id
+
+    res = await request(app)
+      .post(`/api/novels/${id}/characters/${cid}/states`)
+      .send({ chapterIndex: 1, chapterTitle: '第1章', abilities: '觉醒异能' })
+    assert.equal(res.status, 201)
+
+    res = await request(app).get(`/api/novels/${id}/characters/${cid}/states`)
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.length, 1)
+    assert.equal(res.body.data[0].abilities, '觉醒异能')
+  })
+
   it('HTTP: 400 / 404 语义', async () => {
     let res = await request(app).get('/api/novels/does-not-exist')
     assert.equal(res.status, 404)

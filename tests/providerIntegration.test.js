@@ -59,7 +59,7 @@ describe('REAL-06: Provider 切换一致性', () => {
   describe('LLM Provider 工厂', () => {
     it('应返回所有可用的 llm provider 名称', () => {
       const providers = getLLMProviders()
-      assert.deepStrictEqual(providers.sort(), ['mock', 'openai'].sort())
+      assert.deepStrictEqual(providers.sort(), ['mock', 'openai', 'opencode'].sort())
     })
   })
 

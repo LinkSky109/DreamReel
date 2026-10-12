@@ -27,10 +27,13 @@
   "author": "DreamReel Team",
   "license": "MIT",
   "dependencies": {
+    "ai": "^7.0.137",
+    "ai-sdk-provider-opencode-sdk": "^5.0.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "eslint": "^9.10.0",

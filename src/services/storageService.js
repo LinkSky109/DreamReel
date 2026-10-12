@@ -122,6 +122,7 @@ class StorageService {
       novelProjects: {},
       novelChunks: {},
       novelCharacters: {},
+      novelCharacterStates: {},
       meta: { version: 1, createdAt: new Date().toISOString() },
     }
     this.save()
@@ -390,6 +391,20 @@ class StorageService {
     this.data.novelCharacters[character.id] = character
     this.save()
     return character
+  }
+
+  createNovelCharacterState(state) {
+    if (!this.data.novelCharacterStates) this.data.novelCharacterStates = {}
+    this.data.novelCharacterStates[state.id] = state
+    this.save()
+    return state
+  }
+
+  listNovelCharacterStates(novelId, characterId) {
+    if (!this.data.novelCharacterStates) return []
+    return Object.values(this.data.novelCharacterStates).filter(
+      (s) => s.novelId === novelId && (!characterId || s.characterId === characterId)
+    )
   }
 }
 
