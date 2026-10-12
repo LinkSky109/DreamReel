@@ -13,6 +13,7 @@
     "test": "node scripts/run-tests.js",
     "lint": "eslint src/ tests/ public/js/",
     "seed:audio": "node scripts/seed_audio_pack.js",
+    "seed:community": "node scripts/seed-community.js",
     "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\""
   },
   "keywords": [

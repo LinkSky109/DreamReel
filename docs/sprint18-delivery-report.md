@@ -18,7 +18,7 @@
 | Wave 2 F1 | 热评榜单 `rankingService` | ✅ |
 | Wave 2 F3 | 个性化推荐 `recommendationService` | ✅ |
 | Wave 2 F4 | 内容举报与审核 `moderationService` | ✅ |
-| Wave 2 ENTRY | 影评社区独立 API `src/app.js` | ❌ 孤立且 import 失败 |
+| Wave 2 ENTRY | 影评社区 API 接入主服务（原 `src/app.js`） | ✅ 已接入 `/api/community` |
 
 ---
 
@@ -74,18 +74,34 @@ hash = (hash * FNV_64_PRIME) & FNV_64_MASK   // mod 2^64
 
 ---
 
-## 四、❌ Wave 2 ENTRY：`src/app.js` 孤立且不可运行
+## 四、✅ Wave 2 ENTRY：影评社区已接入主服务（`/api/community`）
 
-- 是一个基于 `node:http` 的独立「Movie Review Community API」，自带 `seedData()` 与 `server.listen(3000)`。
-- **import 即失败**：`import { getUserNotifications, getUnreadCount, markAsRead, markAllAsRead } from './services/notificationService.js'` —— 实测 `notificationService.js` 未导出 `getUserNotifications`/`getUnreadCount`，`markAsRead` 签名也不匹配。
+原 `src/app.js` 是一个基于 `node:http` 的孤立服务（`server.listen(3000)`），且 import 一个不存在的命名导出（`does not provide an export named 'getUnreadCount'`），不可运行、无人引用。按决策「接回主服务」完成改造：
 
-  ```
-  node -e "import('./src/app.js')"
-  → does not provide an export named 'getUnreadCount'
-  ```
+**做法**
 
-- **未被任何入口引用**：`src/server.js`、`package.json` 脚本、`tests/` 均无引用（死代码）。
-- **语义不一致**：影评社区与 DreamReel（AI 短片平台）领域不符。
+- 新增 `src/routes/community.js`（标准 Express 路由），复用 `rankingService` / `recommendationService` / `moderationService`，统一响应信封。
+- `src/server.js` 挂载：`app.use('/api/community', authOptional, communityRouter)`。
+- **命名空间选择 `/api/community`**：主服务已存在 `/api/notifications`（平台通知，Sprint 1 体系）与 `/api/moderation`（文本内容审核），同名会冲突，故社区独立前缀。
+- 存储层补 `storageService.getAllReports()`；`moderationService.getReports(status)` 支持不传 status 返回全部。
+- 演示数据迁至 `scripts/seed-community.js`（幂等 upsert，**不再 `clearAll`**，避免清空开发库），新增 `npm run seed:community`。
+- 移除失效的独立服务文件 `src/app.js`。
+
+**接口**
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/community/leaderboard?period=&limit=` | 热评榜单（daily/weekly/monthly） |
+| GET | `/api/community/recommendations?userId=&limit=` | 个性化推荐（排除本人） |
+| POST | `/api/community/reports` | 举报影评（201；重复 409；影评不存在 404） |
+| GET | `/api/community/reports?status=` | 举报列表（不传返回全部） |
+| GET | `/api/community/reports/pending` | 待处理举报 |
+| GET | `/api/community/reports/:id` | 举报详情（不存在 404） |
+| POST | `/api/community/reports/:id/process` | 处理举报（approved 隐藏被举报影评） |
+
+**验证（真实 HTTP，隔离 STORAGE_PATH + JWT_SECRET）**：健康 200；榜单 3 条；推荐 200；举报 201；待处理 1；平台 `/api/notifications` 仍 200（无冲突）；未知子路径 404。`tests/communityRoutes.test.js` 新增 10 例。
+
+**边界（未做）**：社区通知未单独接入路由（并入平台通知体系，避免第二套通知）；举报处理未做管理员鉴权（沿用原语义）；无前端页面。
 
 ---
 
@@ -94,32 +110,38 @@ hash = (hash * FNV_64_PRIME) & FNV_64_MASK   // mod 2^64
 | 项 | 结果 |
 |---|---|
 | `npm test`（合入 main 时） | **523 tests / 522 pass / 1 fail**（`templateMarket`，T18-001 引发） |
-| `npm test`（2026-10-12 修复后） | **523 tests / 523 pass / 0 fail** |
+| `npm test`（2026-10-12 修复 FNV 后） | **523 tests / 523 pass / 0 fail** |
+| `npm test`（2026-10-12 接入社区后） | **533 tests / 533 pass / 0 fail** |
 | 社区测试（隔离） | 35 / 35 pass |
-| `npm run lint` | 0 error / 1 warning（warning 在 `src/app.js`） |
-| 相对 Sprint 15 | 488 → 523（+35，主要是社区 3 个测试文件） |
+| 新增社区路由测试 | 10 例（`tests/communityRoutes.test.js`） |
+| `npm run lint` | 0 error / 0 warning |
+| 相对 Sprint 15 | 488 → 533（+45） |
 
 ---
 
 ## 六、新增 / 修改文件
 
-**新增**：`src/utils/hash.js`、`src/utils/idGenerator.js`、`src/services/rankingService.js`、`src/services/recommendationService.js`、`src/services/moderationService.js`、`src/models/review.js`、`src/models/comment.js`、`src/models/notification.js`、`src/models/report.js`、`src/app.js`、`tests/rankingService.test.js`、`tests/recommendationService.test.js`、`tests/moderationService.test.js`
+**新增**：`src/utils/hash.js`、`src/utils/idGenerator.js`、`src/services/rankingService.js`、`src/services/recommendationService.js`、`src/services/moderationService.js`、`src/models/review.js`、`src/models/comment.js`、`src/models/notification.js`、`src/models/report.js`、`tests/rankingService.test.js`、`tests/recommendationService.test.js`、`tests/moderationService.test.js`
 
-**修改（主要）**：`src/models/{project,shot,scene,character,Studio,Team,ImageAsset,user}.js`（id 生成 / 社区偏好字段）、`src/services/{templateService,authService,collaborationService,exportHistoryService,galleryService,sceneService,scriptService,versionService,projectService,storageService,…}.js`（uuid→generateId 或 lint）、`src/providers/*`（catch 收敛）
+**2026-10-12 接入新增**：`src/routes/community.js`、`scripts/seed-community.js`、`tests/communityRoutes.test.js`
+
+**2026-10-12 接入移除**：`src/app.js`（独立 http 服务，功能并入主服务）
+
+**修改（主要）**：`src/models/{project,shot,scene,character,Studio,Team,ImageAsset,user}.js`（id 生成 / 社区偏好字段）、`src/services/{templateService,authService,collaborationService,exportHistoryService,galleryService,sceneService,scriptService,versionService,projectService,storageService,…}.js`（uuid→generateId 或 lint）、`src/server.js`（挂载 /api/community）、`src/services/{storageService,moderationService}.js`（getAllReports）、`package.json`（seed:community）、`src/providers/*`（catch 收敛）
 
 ---
 
 ## 七、已知限制与风险
 
-1. **T18-001 FNV 缺陷（P0）**：已于 2026-10-12 修复并复测（523/523/0）。
-2. **`src/app.js` 孤立且 import 失败（P2，未关闭）**：死代码，且与仓库领域不符，待产品决策（删除或接回主服务）。
+1. **T18-001 FNV 缺陷（P0）**：已于 2026-10-12 修复并复测。
+2. **影评社区已接入主服务（`/api/community`）**：原 `src/app.js` 孤立问题（P2）已关闭。
 3. ID 生成口径不统一：4 个新模型各自实现本地 `generateId`，未复用 `utils/idGenerator`。
-4. 社区功能无路由接入主服务（`src/app.js` 未启用），实际不可达。
+4. 社区通知未单独接入（并入平台 `/api/notifications`）；举报处理未做管理员鉴权；无前端页面（均属后续）。
 
 ---
 
 ## 八、结论
 
-Sprint 18 引入了 FNV 稳定 ID 与影评社区服务。社区服务（榜单/推荐/举报审核）测试充分且通过；其依赖的 FNV ID 生成实现曾存在 P0 缺陷（ID 长度 426 + `slice(0,8)` 恒定碰撞，导致 1 例测试失败），**已于 2026-10-12 修复并复测全绿（523/523/0）**。`src/app.js`（P2）孤立且 import 失败，仍待产品决策。
+Sprint 18 引入了 FNV 稳定 ID 与影评社区服务。其 FNV ID 生成实现曾存在 P0 缺陷（ID 长度 426 + `slice(0,8)` 恒定碰撞，导致 1 例测试失败），**已于 2026-10-12 修复并复测**；随后将原孤立的影评社区（`src/app.js`）**接入主服务**（`/api/community`，Express 路由），演示数据迁至种子脚本，废弃文件已移除。最终 **533 tests / 533 pass / 0 fail**，真实 HTTP 冒烟全过。
 
-**最终状态：`GLOBAL_DONE`（P0 已修复）。**
+**最终状态：`GLOBAL_DONE`（P0 已修复，P2 已接入）。**

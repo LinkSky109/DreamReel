@@ -42,6 +42,7 @@ DreamReel 让每个人都能像做梦一样拍电影。覆盖剧本、分镜、�
 | 素材商城 | **风格/模板/音效素材包浏览与分类筛选，免费领取或付费购买（模拟支付），我的素材资产与订单记录** |
 | 企业版与私有化 | **企业管理概览（团队/成员/项目归集）、SSO(SAML/OIDC)与安全策略（IP白名单/水印/禁止公开分享/数据驻留）、审计日志查询、私有化部署信息** |
 | 移动端与 PWA | **响应式适配（小屏紧凑导航/单列/横向滚动标签）、触屏优化（≥40px 触控目标、底部导航栏）、PWA 可安装到主屏幕、Service Worker 离线应用外壳** |
+| 影评社区 | **热评榜单（daily/weekly/monthly，含指数时间衰减）、个性化推荐（标签重叠 + 四维评分余弦相似度 + 热度）、内容举报与审核（`approved` 自动隐藏被举报影评）**（`/api/community`，演示数据 `npm run seed:community`） |
 
 ### 账户与商业化
 
@@ -247,6 +248,22 @@ docker-compose down
 | DELETE | `/api/edit-plans/:projectId` | 清除剪辑方案，不修改原镜头 |
 | POST | `/api/edit-plans/:projectId/render` | 渲染剪辑成片，返回 MP4 URL、转场应用结果与 `hasAudio` |
 | GET | `/api/edit-plans/:projectId/transition-support` | 探测 xfade 转场能力 |
+
+### 影评社区（`/api/community`）
+
+影评社区（Wave 2：热评榜单 / 个性化推荐 / 内容举报审核）。数据来自社区用户命名空间（`storageService.users`），演示数据用 `npm run seed:community` 幂等写入。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/community/leaderboard?period=&limit=` | 热评榜单，`period` = daily/weekly/monthly（默认 weekly，非法值 → 400），热度含时间衰减 |
+| GET | `/api/community/recommendations?userId=&limit=` | 个性化推荐（标签重叠 + 四维评分余弦相似度 + 热度，排除本人作品）；缺 userId → 400，用户不存在 → 404 |
+| POST | `/api/community/reports` | 举报影评，body `{ reviewId, reporterId, reason }`；缺字段 → 400，影评不存在 → 404，同一用户重复举报 → 409，成功 201 |
+| GET | `/api/community/reports?status=` | 举报列表（`pending\|approved\|rejected`；不传返回全部） |
+| GET | `/api/community/reports/pending` | 待处理举报 |
+| GET | `/api/community/reports/:id` | 举报详情（不存在 → 404） |
+| POST | `/api/community/reports/:id/process` | 处理举报，body `{ decision: approved\|rejected, adminId, adminNote }`；`approved` 会隐藏被举报影评 |
+
+> 说明：平台已有的 `/api/notifications`（用户通知）与 `/api/moderation`（文本内容审核）与社区模块相互独立；社区通知暂并入平台通知体系，未单独建路由。
 
 ### 配音字幕
 

@@ -42,6 +42,7 @@ import directorsRouter from './routes/directors.js'
 import studiosRouter from './routes/studios.js'
 import imagesRouter from './routes/images.js'
 import editPlansRouter from './routes/editPlans.js'
+import communityRouter from './routes/community.js'
 import { authOptional } from './middleware/auth.js'
 import { mediaAccess } from './middleware/mediaAccess.js'
 import { performanceMonitor } from './services/performanceMonitor.js'
@@ -118,6 +119,7 @@ app.use('/api/directors', directorsRouter)
 app.use('/api/studios', studiosRouter)
 app.use('/api/images', authOptional, imagesRouter)
 app.use('/api/edit-plans', authOptional, editPlansRouter)
+app.use('/api/community', authOptional, communityRouter)
 
 // Static files: only expose media subdirectories, never storage/data (DB, hashes, keys)
 // R37：公开素材库保持直接访问

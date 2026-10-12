@@ -51,6 +51,7 @@ export async function getPendingReports() {
  * @returns {Promise<Array<Report>>}
  */
 export async function getReports(status) {
+  if (!status) return storageService.getAllReports()
   return storageService.getReportsByStatus(status)
 }
 

@@ -3,7 +3,7 @@ task_name: "DreamReel Sprint 18: FNV 稳定 ID + 影评社区（Wave 2）"
 create_time: "2026-10-10T16:08:08+08:00"
 record_origin: "RECONSTRUCTED：由编排者于 2026-10-12 依据提交 cdd9c08 补记，并在补记时执行了独立复测，发现未关闭的 P0 缺陷。原始子代理记录缺失，未杜撰。"
 current_global_state: "GLOBAL_DONE"
-state_note: "原始提交以完成态合入 main；补记时独立复测发现 P0 缺陷并回退为 IN_CONSISTENCY；2026-10-12 修复 FNV 回绕后复测 523/523/0，状态置回 DONE。src/app.js 的孤立/import 失败（P2）仍待决策。"
+state_note: "原始提交以完成态合入 main；补记时独立复测发现 P0 缺陷并回退为 IN_CONSISTENCY；2026-10-12 修复 FNV 回绕并复测全绿，随后将影评社区接入主服务（/api/community），P0/P2 均关闭。"
 
 reference:
   source_commit: "cdd9c08 Merge Sprint 16/17/18 patches"
@@ -80,29 +80,37 @@ scope:
     evidence: ["src/services/moderationService.js", "src/models/report.js", "tests/moderationService.test.js（12 例，独立运行通过）"]
 
   - id: "Wave2-ENTRY"
-    name: "影评社区独立 API（src/app.js）"
+    name: "影评社区 API 接入主服务（原 src/app.js）"
     owner: "backend"
     priority: "P2"
-    status: "ORPHANED_BROKEN"
-    features:
-      - "基于 node:http 的独立路由：/api/leaderboard、/api/notifications*、/api/recommendations、/api/reports*"
-      - "自带 seedData（Alice/Bob/Carol + 3 条影评），独立 listen 3000"
-    defects:
-      - "import { getUserNotifications, getUnreadCount, ... } from './services/notificationService.js' —— 该服务未导出 getUserNotifications，且 getUnreadCount/markAsRead 签名不匹配"
-      - "实测 node -e import('./src/app.js') 直接报错：does not provide an export named 'getUnreadCount'"
-      - "未被 src/server.js / package.json 脚本 / 测试引用（孤立即未被启用）"
-      - "语义与本仓库（AI 短片平台）不一致（影评社区）"
+    status: "WIRED（2026-10-12）"
+    resolution: "按产品决策『接回主服务』完成：影评社区以标准 Express 路由并入主服务，挂载 /api/community"
+    changes:
+      - "新增 src/routes/community.js：GET /leaderboard、GET /recommendations、POST/GET /reports、GET /reports/pending、GET /reports/:id、POST /reports/:id/process"
+      - "src/server.js 挂载 app.use('/api/community', authOptional, communityRouter)"
+      - "命名空间 /api/community：规避既有 /api/notifications（平台通知）与 /api/moderation（文本审核）冲突"
+      - "存储层补 storageService.getAllReports()；moderationService.getReports 支持无过滤返回全部"
+      - "演示数据迁至 scripts/seed-community.js（幂等 upsert，不再 clearAll），新增 npm run seed:community"
+      - "移除失效的独立 node:http 服务文件 src/app.js"
+    notes:
+      - "社区通知（models/notification.js）暂未单独接入：主服务已有 /api/notifications 平台通知体系，避免重复构建第二套通知；模型复用留待后续"
+      - "身份沿用社区用户命名空间（storageService.users）+ authOptional；req.user.id 优先，否则回退 query/body userId"
+    acceptance:
+      - "真实 HTTP：leaderboard/推荐/举报/待处理/处理 全部可达；平台 /api/notifications 不受影响；未知子路径 404"
 
 verification:
-  status: "PASS（修复后 2026-10-12 复测）"
+  status: "PASS（2026-10-12 复测，含社区接入主服务）"
   command: "node scripts/run-tests.js"
-  result: "523 tests / 523 pass / 0 fail"
-  community_tests_isolated: "ranking/recommendation/moderation 共 35 例，独立运行 35 pass / 0 fail"
-  app_js: "import 仍失败（见 Wave2-ENTRY，P2 待决策）"
+  result: "533 tests / 533 pass / 0 fail"
+  community_services_isolated: "ranking/recommendation/moderation 共 35 例，独立运行 35 pass / 0 fail"
+  community_routes: "tests/communityRoutes.test.js 新增 10 例；真实 HTTP 冒烟：leaderboard=3、推荐 200、举报 201、待处理 1、平台 /api/notifications 200、未知路径 404"
+  lint: "npm run lint → 0 error / 0 warning"
+  app_js: "已接入主服务（/api/community，见 Wave2-ENTRY）"
 
 known_issues:
   - "T18-001 FNV 缺陷（P0）——已修复并复测（523/523/0）"
-  - "src/app.js 孤立且 import 失败（P2，未关闭，待产品决策：删除或接回主服务）"
+  - "src/app.js 孤立/import 失败（P2）——已按决策接入主服务，P2 关闭"
+  - "社区通知（models/notification.js）未单独接入路由，暂并入平台 /api/notifications"
   - "review.js / report.js / comment.js / notification.js 各自实现本地 generateId，未复用 utils/idGenerator，口径不统一"
 
 out_of_scope:
@@ -123,3 +131,7 @@ state_log:
     from: "GLOBAL_IN_CONSISTENCY"
     to: "GLOBAL_DONE"
     note: "修复 src/utils/hash.js：加入 FNV_64_MASK 回绕。复测 generateId() 长度 16、slice(0,8) 唯一，fnv1a64Hex('hello')=a430d84680aabd0b；全量测试 523/523/0，templateMarket 恢复。P0 关闭；P2（src/app.js）仍待决策。"
+  - time: "2026-10-12T00:30:00+08:00"
+    from: "GLOBAL_DONE"
+    to: "GLOBAL_DONE"
+    note: "影评社区接入主服务：新增 src/routes/community.js 挂载 /api/community；存储层补 getAllReports；演示数据迁 scripts/seed-community.js（幂等、不 clearAll）；移除失效的独立服务 src/app.js。全量测试 533/533/0；真实 HTTP 冒烟全过（榜单/推荐/举报/处理/平台通知无冲突/未知路径 404）。P2 关闭。"

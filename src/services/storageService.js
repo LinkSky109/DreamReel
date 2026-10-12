@@ -284,6 +284,11 @@ class StorageService {
     return Object.values(this.data.reports).filter((r) => r.status === status)
   }
 
+  getAllReports() {
+    if (!this.data.reports) return []
+    return Object.values(this.data.reports)
+  }
+
   updateReport(report) {
     if (!this.data.reports) this.data.reports = {}
     this.data.reports[report.id] = report
