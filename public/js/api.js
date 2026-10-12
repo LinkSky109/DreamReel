@@ -462,6 +462,21 @@ export const api = {
     request(`/community/notifications/${id}/read`, { method: 'POST', body: {} }),
   markAllCommunityNotificationsRead: (userId) =>
     request('/community/notifications/read-all', { method: 'POST', body: { userId } }),
+
+  // Novels（小说 → 剧集，/api/novels）
+  listNovels: () => request('/novels'),
+  createNovel: (data) => request('/novels', { method: 'POST', body: data }),
+  getNovel: (id) => request(`/novels/${id}`),
+  setNovelStyle: (id, style) => request(`/novels/${id}/style`, { method: 'PUT', body: { style } }),
+  ingestNovel: (id, data) => request(`/novels/${id}/ingest`, { method: 'POST', body: data }),
+  listNovelChunks: (id) => request(`/novels/${id}/chunks`),
+  extractNovelCharacters: (id, data = {}) => request(`/novels/${id}/extract`, { method: 'POST', body: data }),
+  listNovelCharacters: (id) => request(`/novels/${id}/characters`),
+  patchNovelCharacter: (id, cid, patch) =>
+    request(`/novels/${id}/characters/${cid}`, { method: 'PATCH', body: patch }),
+  approveNovelCharacter: (id, cid) =>
+    request(`/novels/${id}/characters/${cid}/approve`, { method: 'POST', body: {} }),
+  novelReviewStats: (id) => request(`/novels/${id}/review-stats`),
 }
 
 export default api

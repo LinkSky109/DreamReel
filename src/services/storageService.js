@@ -119,6 +119,9 @@ class StorageService {
       comments: {},
       notifications: {},
       reports: {},
+      novelProjects: {},
+      novelChunks: {},
+      novelCharacters: {},
       meta: { version: 1, createdAt: new Date().toISOString() },
     }
     this.save()
@@ -320,6 +323,73 @@ class StorageService {
     this.data.notifications[notification.id] = notification
     this.save()
     return notification
+  }
+
+  // ============ Novel series（小说→剧集） ============
+
+  createNovelProject(project) {
+    if (!this.data.novelProjects) this.data.novelProjects = {}
+    this.data.novelProjects[project.id] = project
+    this.save()
+    return project
+  }
+
+  getNovelProject(id) {
+    if (!this.data.novelProjects) return null
+    return this.data.novelProjects[id] || null
+  }
+
+  listNovelProjects() {
+    if (!this.data.novelProjects) return []
+    return Object.values(this.data.novelProjects)
+  }
+
+  updateNovelProject(project) {
+    if (!this.data.novelProjects) this.data.novelProjects = {}
+    this.data.novelProjects[project.id] = project
+    this.save()
+    return project
+  }
+
+  createNovelChunk(chunk) {
+    if (!this.data.novelChunks) this.data.novelChunks = {}
+    this.data.novelChunks[chunk.id] = chunk
+    this.save()
+    return chunk
+  }
+
+  getNovelChunk(id) {
+    if (!this.data.novelChunks) return null
+    return this.data.novelChunks[id] || null
+  }
+
+  listNovelChunks(novelId) {
+    if (!this.data.novelChunks) return []
+    return Object.values(this.data.novelChunks).filter((c) => c.novelId === novelId)
+  }
+
+  createNovelCharacter(character) {
+    if (!this.data.novelCharacters) this.data.novelCharacters = {}
+    this.data.novelCharacters[character.id] = character
+    this.save()
+    return character
+  }
+
+  getNovelCharacter(id) {
+    if (!this.data.novelCharacters) return null
+    return this.data.novelCharacters[id] || null
+  }
+
+  listNovelCharacters(novelId) {
+    if (!this.data.novelCharacters) return []
+    return Object.values(this.data.novelCharacters).filter((c) => c.novelId === novelId)
+  }
+
+  updateNovelCharacter(character) {
+    if (!this.data.novelCharacters) this.data.novelCharacters = {}
+    this.data.novelCharacters[character.id] = character
+    this.save()
+    return character
   }
 }
 

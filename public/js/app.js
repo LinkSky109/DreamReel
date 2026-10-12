@@ -22,6 +22,7 @@ import { renderTitleSequencesPage } from './views/titleSequences.js'
 import { renderDirectorsPage } from './views/directors.js'
 import { renderStudiosPage } from './views/studios.js'
 import { renderCommunityPage } from './views/community.js'
+import { renderNovelsPage } from './views/novels.js'
 import { initKeyboardShortcuts, toggleHelpModal } from './keyboard.js'
 import { initTheme, toggleTheme, getCurrentTheme, getThemeIcon } from './theme.js'
 import { i18n } from './i18n.js'
@@ -136,6 +137,10 @@ function router() {
     renderStudiosPage(app)
   } else if (path === 'community') {
     renderCommunityPage(app)
+  } else if (path === 'novels') {
+    renderNovelsPage(app)
+  } else if (path === 'novel' && param) {
+    renderNovelsPage(app, param)
   } else if (path === 'studio' && param) {
     renderStudiosPage(app, param)
   } else if (path === 'project' && param) {

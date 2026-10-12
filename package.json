@@ -14,6 +14,7 @@
     "lint": "eslint src/ tests/ public/js/",
     "seed:audio": "node scripts/seed_audio_pack.js",
     "seed:community": "node scripts/seed-community.js",
+    "novel": "node scripts/novel.js",
     "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\""
   },
   "keywords": [
