@@ -42,7 +42,7 @@ DreamReel 让每个人都能像做梦一样拍电影。覆盖剧本、分镜、�
 | 素材商城 | **风格/模板/音效素材包浏览与分类筛选，免费领取或付费购买（模拟支付），我的素材资产与订单记录** |
 | 企业版与私有化 | **企业管理概览（团队/成员/项目归集）、SSO(SAML/OIDC)与安全策略（IP白名单/水印/禁止公开分享/数据驻留）、审计日志查询、私有化部署信息** |
 | 移动端与 PWA | **响应式适配（小屏紧凑导航/单列/横向滚动标签）、触屏优化（≥40px 触控目标、底部导航栏）、PWA 可安装到主屏幕、Service Worker 离线应用外壳** |
-| 影评社区 | **热评榜单（daily/weekly/monthly，含指数时间衰减）、个性化推荐（标签重叠 + 四维评分余弦相似度 + 热度）、内容举报与审核（`approved` 自动隐藏被举报影评）**（`/api/community`，演示数据 `npm run seed:community`） |
+| 影评社区 | **影评发布（四维评分 + 影片标签）、热评榜单（daily/weekly/monthly，含指数时间衰减）、个性化推荐（标签重叠 + 四维评分余弦相似度 + 热度）、内容举报与审核（`approved` 自动隐藏被举报影评）、社区通知（他人点赞自动通知作者、未读数/已读）**（侧边栏「🗣️ 影评社区」`#/community`；`/api/community`，演示数据 `npm run seed:community`） |
 
 ### 账户与商业化
 
@@ -251,10 +251,14 @@ docker-compose down
 
 ### 影评社区（`/api/community`）
 
-影评社区（Wave 2：热评榜单 / 个性化推荐 / 内容举报审核）。数据来自社区用户命名空间（`storageService.users`），演示数据用 `npm run seed:community` 幂等写入。
+影评社区（Wave 2：影评发布 / 热评榜单 / 个性化推荐 / 内容举报审核）。数据来自社区用户命名空间（`storageService.users`），演示数据用 `npm run seed:community` 幂等写入。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| POST | `/api/community/reviews` | 发布影评，body `{ userId, title, movieId?, content?, storyScore?, visualScore?, performanceScore?, soundtrackScore?, movieTags? }`；缺 `userId`/`title` → 400，成功 201（`overallScore` = 四维均值） |
+| GET | `/api/community/reviews?userId=&movieId=&status=&limit=` | 影评列表（默认 `status=published`，按创建时间倒序） |
+| GET | `/api/community/reviews/:id` | 影评详情（不存在 → 404） |
+| POST | `/api/community/reviews/:id/like` | 点赞影评（`likeCount` +1） |
 | GET | `/api/community/leaderboard?period=&limit=` | 热评榜单，`period` = daily/weekly/monthly（默认 weekly，非法值 → 400），热度含时间衰减 |
 | GET | `/api/community/recommendations?userId=&limit=` | 个性化推荐（标签重叠 + 四维评分余弦相似度 + 热度，排除本人作品）；缺 userId → 400，用户不存在 → 404 |
 | POST | `/api/community/reports` | 举报影评，body `{ reviewId, reporterId, reason }`；缺字段 → 400，影评不存在 → 404，同一用户重复举报 → 409，成功 201 |
@@ -262,8 +266,12 @@ docker-compose down
 | GET | `/api/community/reports/pending` | 待处理举报 |
 | GET | `/api/community/reports/:id` | 举报详情（不存在 → 404） |
 | POST | `/api/community/reports/:id/process` | 处理举报，body `{ decision: approved\|rejected, adminId, adminNote }`；`approved` 会隐藏被举报影评 |
+| GET | `/api/community/notifications?userId=&unreadOnly=&limit=` | 社区通知列表（返回 `items` 与 `unreadCount`） |
+| GET | `/api/community/notifications/unread-count?userId=` | 社区通知未读数 |
+| POST | `/api/community/notifications/:id/read` | 单条标记已读（不存在 → 404） |
+| POST | `/api/community/notifications/read-all` | 全部标记已读，body `{ userId }` |
 
-> 说明：平台已有的 `/api/notifications`（用户通知）与 `/api/moderation`（文本内容审核）与社区模块相互独立；社区通知暂并入平台通知体系，未单独建路由。
+> 说明：社区通知（互动型：like/reply…）与平台 `/api/notifications`（系统通知）相互独立、各自独立路由；他人点赞影评会自动给作者生成一条 `like` 通知。前端入口：侧边栏「🗣️ 影评社区」（`#/community`），支持发布影评、查看榜单/推荐、点赞/举报、处理举报、查看与已读通知。
 
 ### 配音字幕
 

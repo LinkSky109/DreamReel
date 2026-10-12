@@ -91,6 +91,10 @@ hash = (hash * FNV_64_PRIME) & FNV_64_MASK   // mod 2^64
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
+| POST | `/api/community/reviews` | 发布影评（四维评分 + movieTags；缺 userId/title → 400，201；`overallScore` = 四维均值） |
+| GET | `/api/community/reviews?userId=&movieId=&status=&limit=` | 影评列表（默认 published，按时间倒序） |
+| GET | `/api/community/reviews/:id` | 影评详情（不存在 404） |
+| POST | `/api/community/reviews/:id/like` | 点赞影评（`likeCount` +1） |
 | GET | `/api/community/leaderboard?period=&limit=` | 热评榜单（daily/weekly/monthly） |
 | GET | `/api/community/recommendations?userId=&limit=` | 个性化推荐（排除本人） |
 | POST | `/api/community/reports` | 举报影评（201；重复 409；影评不存在 404） |
@@ -98,10 +102,18 @@ hash = (hash * FNV_64_PRIME) & FNV_64_MASK   // mod 2^64
 | GET | `/api/community/reports/pending` | 待处理举报 |
 | GET | `/api/community/reports/:id` | 举报详情（不存在 404） |
 | POST | `/api/community/reports/:id/process` | 处理举报（approved 隐藏被举报影评） |
+| GET | `/api/community/notifications?userId=&unreadOnly=&limit=` | 社区通知列表（含 `unreadCount`） |
+| GET | `/api/community/notifications/unread-count?userId=` | 社区通知未读数 |
+| POST | `/api/community/notifications/:id/read` | 单条标记已读（不存在 404） |
+| POST | `/api/community/notifications/read-all` | 全部标记已读 |
 
-**验证（真实 HTTP，隔离 STORAGE_PATH + JWT_SECRET）**：健康 200；榜单 3 条；推荐 200；举报 201；待处理 1；平台 `/api/notifications` 仍 200（无冲突）；未知子路径 404。`tests/communityRoutes.test.js` 新增 10 例。
+**前端**：新增 `public/js/views/community.js` 并接入 SPA —— 侧边栏「🗣️ 影评社区」（`#/community`）、`app.js` 路由、`api.js` 方法；页面含发布影评、热评榜单、推荐、影评列表（点赞/举报）、举报处理、社区通知。
 
-**边界（未做）**：社区通知未单独接入路由（并入平台通知体系，避免第二套通知）；举报处理未做管理员鉴权（沿用原语义）；无前端页面。
+**验证（真实 HTTP，隔离 STORAGE_PATH + JWT_SECRET）**：发影评 201；列表/详情 200；点赞 +1；缺字段 400；不存在 404；新影评进榜单；榜单 3 条；推荐 200；举报 201；待处理 1；**通知链路：他人点赞 → 作者未读 1 → 标记已读 → 0**；平台 `/api/notifications` 仍 200（无冲突）；未知子路径 404。前端静态：`community.js` 200、`index.html` 含 `#/community` 导航、`api.js` 提供方法。测试：`communityRoutes` 10 + `communityReviews` 6 + `communityNotifications` 5 例。
+
+**连带修复**：`src/models/review.js` 此前未保存 `movieTags` 字段，导致个性化推荐的标签重叠分恒为 0 —— 已修复并加断言。另修复既有偶发失败测试 `rankingService.test.js`（`computeTimeDecay` 严格断言 ===1，改为容差）。
+
+**边界（未做）**：举报处理未做管理员鉴权（B，暂缓：当前无 role/admin 体系）；社区前端未做真实浏览器 E2E（环境无 Playwright）。
 
 ---
 
@@ -112,10 +124,12 @@ hash = (hash * FNV_64_PRIME) & FNV_64_MASK   // mod 2^64
 | `npm test`（合入 main 时） | **523 tests / 522 pass / 1 fail**（`templateMarket`，T18-001 引发） |
 | `npm test`（2026-10-12 修复 FNV 后） | **523 tests / 523 pass / 0 fail** |
 | `npm test`（2026-10-12 接入社区后） | **533 tests / 533 pass / 0 fail** |
-| 社区测试（隔离） | 35 / 35 pass |
-| 新增社区路由测试 | 10 例（`tests/communityRoutes.test.js`） |
+| `npm test`（2026-10-12 补齐影评写入后） | **539 tests / 539 pass / 0 fail** |
+| `npm test`（2026-10-12 通知+前端后） | **544 tests / 544 pass / 0 fail**（连续 4 轮稳定） |
+| 社区服务测试（隔离） | 35 / 35 pass |
+| 新增社区测试 | 21 例（communityRoutes 10 + communityReviews 6 + communityNotifications 5） |
 | `npm run lint` | 0 error / 0 warning |
-| 相对 Sprint 15 | 488 → 533（+45） |
+| 相对 Sprint 15 | 488 → 544（+56） |
 
 ---
 
@@ -123,25 +137,26 @@ hash = (hash * FNV_64_PRIME) & FNV_64_MASK   // mod 2^64
 
 **新增**：`src/utils/hash.js`、`src/utils/idGenerator.js`、`src/services/rankingService.js`、`src/services/recommendationService.js`、`src/services/moderationService.js`、`src/models/review.js`、`src/models/comment.js`、`src/models/notification.js`、`src/models/report.js`、`tests/rankingService.test.js`、`tests/recommendationService.test.js`、`tests/moderationService.test.js`
 
-**2026-10-12 接入新增**：`src/routes/community.js`、`scripts/seed-community.js`、`tests/communityRoutes.test.js`
+**2026-10-12 接入新增**：`src/routes/community.js`、`src/services/reviewService.js`、`src/services/communityNotificationService.js`、`public/js/views/community.js`、`scripts/seed-community.js`、`tests/communityRoutes.test.js`、`tests/communityReviews.test.js`、`tests/communityNotifications.test.js`
 
 **2026-10-12 接入移除**：`src/app.js`（独立 http 服务，功能并入主服务）
 
-**修改（主要）**：`src/models/{project,shot,scene,character,Studio,Team,ImageAsset,user}.js`（id 生成 / 社区偏好字段）、`src/services/{templateService,authService,collaborationService,exportHistoryService,galleryService,sceneService,scriptService,versionService,projectService,storageService,…}.js`（uuid→generateId 或 lint）、`src/server.js`（挂载 /api/community）、`src/services/{storageService,moderationService}.js`（getAllReports）、`package.json`（seed:community）、`src/providers/*`（catch 收敛）
+**修改（主要）**：`src/models/{project,shot,scene,character,Studio,Team,ImageAsset,user,review}.js`（id 生成 / 社区偏好 / movieTags）、`src/services/{templateService,authService,collaborationService,exportHistoryService,galleryService,sceneService,scriptService,versionService,projectService,storageService,…}.js`（uuid→generateId 或 lint）、`src/server.js`（挂载 /api/community）、`src/services/{storageService,moderationService}.js`（getAllReports / 社区通知方法）、`public/js/app.js`、`public/js/api.js`、`public/index.html`（社区页接线）、`tests/rankingService.test.js`（去偶发）、`package.json`（seed:community）、`src/providers/*`（catch 收敛）
 
 ---
 
 ## 七、已知限制与风险
 
 1. **T18-001 FNV 缺陷（P0）**：已于 2026-10-12 修复并复测。
-2. **影评社区已接入主服务（`/api/community`）**：原 `src/app.js` 孤立问题（P2）已关闭。
+2. **影评社区已接入主服务（`/api/community`）+ 前端页**：原 `src/app.js` 孤立问题（P2）已关闭。
 3. ID 生成口径不统一：4 个新模型各自实现本地 `generateId`，未复用 `utils/idGenerator`。
-4. 社区通知未单独接入（并入平台 `/api/notifications`）；举报处理未做管理员鉴权；无前端页面（均属后续）。
+4. **举报处理未做管理员鉴权（B，暂缓）**：需先引入 role/admin 体系（设计变更）。
+5. **社区前端未做真实浏览器 E2E**：环境无 Playwright，仅做了静态与 API 契约验证。
 
 ---
 
 ## 八、结论
 
-Sprint 18 引入了 FNV 稳定 ID 与影评社区服务。其 FNV ID 生成实现曾存在 P0 缺陷（ID 长度 426 + `slice(0,8)` 恒定碰撞，导致 1 例测试失败），**已于 2026-10-12 修复并复测**；随后将原孤立的影评社区（`src/app.js`）**接入主服务**（`/api/community`，Express 路由），演示数据迁至种子脚本，废弃文件已移除。最终 **533 tests / 533 pass / 0 fail**，真实 HTTP 冒烟全过。
+Sprint 18 引入了 FNV 稳定 ID 与影评社区服务。其 FNV ID 生成实现曾存在 P0 缺陷（ID 长度 426 + `slice(0,8)` 恒定碰撞，导致 1 例测试失败），**已于 2026-10-12 修复并复测**；随后将原孤立的影评社区（`src/app.js`）**接入主服务**（`/api/community`），**补齐影评写入闭环**（发布/列表/详情/点赞）、**社区通知**（点赞自动通知作者 + 已读管理）与**前端页面**（`#/community`），并修复 `movieTags` 字段缺陷与一处既有偶发失败测试。最终 **544 tests / 544 pass / 0 fail（连续 4 轮稳定）**，真实 HTTP 冒烟全过。
 
-**最终状态：`GLOBAL_DONE`（P0 已修复，P2 已接入）。**
+**最终状态：`GLOBAL_DONE`（P0 已修复，P2 已接入，社区写入/通知/前端闭环完成）。**
