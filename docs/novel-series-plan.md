@@ -9,14 +9,16 @@
 
 | # | 决策项 | 你的选择 |
 |---|---|---|
-| 1 | 小说来源 | `qishuxia.com`（奇书网）；**首选站点 TXT 下载**（GBK，实测可用），逐章抓取为兜底；**先忽略版权合规**（记为"用户明确接受的合规风险"） |
+| 1 | 小说来源 | `qishuxia.com`（奇书网）；**首选站点 TXT 下载**（GBK，实测可用）→ **只下载一次**并缓存；**以清理后文本为准**；逐章抓取为兜底；**先忽略版权合规**（记为"用户明确接受的合规风险"） |
 | 2 | 最终产出 | **成片视频**（末段目标） |
 | 3 | 开发成本 | **最小成本**（开发期走 mock/廉价 provider） |
 | 4 | 存储 | 本地项目目录（MVP 落盘） + **夸克网盘**同步（参考 `ai-manga-factory/docs/夸克网盘业务产物同步.md`）；NAS 适配器保留 |
 | 5 | MVP-1 范围 | 原文切片入库 + 角色抽取&别名归一 + 角色卡（外形/性格/声线）+ 人工确认界面/CLI；**验收：中篇产出完整角色表，人工修订率 < 30%** |
-| 5a | MVP-1 样本 | 《殖装》**前 100 章**（TXT 下载后取前 100 章） |
+| 5a | 角色表范围 | **全书**（整本小说，不限章数） |
 | 5b | 角色卡字段 | `name/aliases/appearance/personality/voice` **+ `catchphrase 口头禅 / relations 关系网 / abilities 能力 / growth 成长轨迹`**（要） |
 | 5c | 风格粒度 | **全书统一** |
+| 5d | 剧本/分集规则 | **1 章 ≥ 1 集**；**每集时长 ≥ 90s，误差 ±5s（85–95s，以成片秒数为准）**；**季按大事件/总结划分**；**每季 ≥ 200 集**；**以季为单元生成剧本** |
+| 5e | LLM 供应商 | **开发阶段用 opencode-go 订阅**；**留多供应商 key 切换口子**；后续按开源参考接入其它供应商（记入 Sprint 20+） |
 | 6 | 交互 | **Web UI**（接入 DreamReel SPA） |
 | 7 | 规模 | 单人、暂不考虑商业化 |
 | 边界 | 抓取 | **不绕过**登录/验证码/加密接口；能直取则直取，否则落入粘贴/上传 |
@@ -46,8 +48,9 @@
 
 - 书籍页有 **TXT 下载**按钮：`/modules/article/txtarticle.php?id=<bookId>`。
 - 实测：`id=34639` → **200**，`content-disposition: attachment; filename=殖装.txt`，**6.97 MB**，内容 `text/plain`，**GBK**（首字节 `【殖装】`）。
-- 结论：**优先走 TXT 整本下载 → GBK 解码 → 本地分章**，比逐章抓取简单得多、也无逐章限速压力；逐章抓取仅作 TXT 不可用时的兜底。
-- 注意：TXT 含站点水印/公告行，分章时需过滤；编码统一按 GBK 处理。
+- 结论：**优先走 TXT 整本下载 → GB18030 解码 → 清理 → 本地分章**。**只下载一次**（`source/raw.txt` 落地后复用）；**以清理后文本（`source/cleaned.txt`）为准**进行切分与后续生成。
+- 清理规则：去站点水印/广告/导航/求票、**重复标题变体**（如「第一节废墟中的男子()」）、纯标点行、折叠空行。
+- 逐章抓取仅作 TXT 不可用时的兜底。
 
 `<!-- TODO：若你要加其它站点，在此追加站点结构说明 -->`
 
@@ -113,21 +116,36 @@ LLM/剧本 `scriptService`·`llmProviderFactory`；风格 `styleService`·`direc
 
 ## 4. 最小成本策略
 
-- 开发期走 mock provider 打通链路；**角色抽取/剧本**这类需要语义的任务接**可配置的廉价真实 LLM**（mock 只能冒烟，不能达标，会如实标注）。
+- 开发期走 mock provider 打通链路；**角色抽取/剧本**这类需要语义的任务接**可配置的真实 LLM**（mock 只能冒烟，不能达标，会如实标注）。
 - 不引入新运行时依赖；抓取用内置 fetch，不用无头浏览器。
 - 抓取**限速 + 超时 + 失败如实报错**，无后台常驻爬虫。
+
+### 4.1 LLM Provider 策略：采用 Vercel AI SDK（多供应商统一层）
+
+参考文档：https://ai-sdk.dev/docs/introduction
+
+- **为什么**：AI SDK 用**统一接口**屏蔽各供应商差异；`generateText` + `Output.object({ schema })`（Zod）做**结构化输出**，正好用于角色抽取与剧本 JSON（自带校验，替代手写 JSON 解析）。
+- **开发阶段**：用 **opencode-go 订阅**作为 LLM 来源。AI SDK 生态里有 **OpenCode Provider**（社区包 `ai-sdk-provider-opencode-sdk`）与 **OpenAI 兼容 Provider**（`@ai-sdk/openai-compatible`），二者都可指向 opencode-go（具体接入方式待你确认）。
+- **留口子（多供应商 key 切换）**：新增 `ai-sdk` LLM provider 适配，包在现有 `llmProviderFactory` 接口内；供应商 = 配置（`provider` + `model` + `apiKey`/`baseURL`），可逐个切换，支持官方 provider（OpenAI/Anthropic/Google/DeepSeek/Groq/…）与 OpenAI 兼容/自建。
+- **依赖影响**：会新增运行时依赖（`ai` + 所选 provider 包 + `zod`），与"最小依赖"取舍——**你点名此方案，视为接受**。
+- **落地**：Sprint 20（见 §6）。
+- 参考链接：
+  - 简介：https://ai-sdk.dev/docs/introduction
+  - 供应商与模型（含 OpenCode Provider / OpenAI 兼容）：https://ai-sdk.dev/docs/foundations/providers-and-models
+  - 结构化输出：https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data
+- **接入方式（已定）**：开发阶段 LLM 来源使用社区包 **`ai-sdk-provider-opencode-sdk`**（AI SDK 的 OpenCode Provider）。落地见 Sprint 20。
 
 ---
 
 ## 5. Sprint 19（MVP-1）范围与验收
 
-**范围**：NovelProject + 目录 + LocalBackend 接口；来源（**TXT 下载首选** / text / 逐章兜底）→ 章节切分 → **切片入库**；**角色抽取 + 别名归一**；**角色卡**（外形/性格/声线 + 口头禅/关系网/能力/成长轨迹）；**Web 审核页 + CLI 审核**。
+**范围**：NovelProject + 目录 + LocalBackend 接口；来源（**TXT 下载只下一次 + 清理后为准** / text / 逐章兜底）→ 章节切分 → **切片入库**；**角色抽取 + 别名归一**；**角色卡**（外形/性格/声线 + 口头禅/关系网/能力/成长轨迹）；**Web 审核页 + CLI 审核**。
 
 **验收**：
-1. 样本 = 《殖装》**前 100 章** → 产出**完整角色表**（主要角色齐全、别名归一到唯一实体）。
+1. 范围 = **全书**（整本小说）→ 产出**完整角色表**（主要角色齐全、别名归一到唯一实体）。
 2. 每个角色含 `name / aliases / appearance / personality / voice / catchphrase / relations / abilities / growth`。
 3. **人工修订率 < 30%** = 人工修订字段数 ÷ 自动产出字段总数（审核页记录每次编辑，可统计）。
-4. 原文 + 切片 + 角色卡**落盘、重启不丢**。
+4. 原文 + **清理后文本** + 切片 + 角色卡**落盘、重启不丢**；TXT **只下载一次**。
 5. 抓取不绕过反爬；TXT 与逐章都取不到时走粘贴/上传，如实失败。
 
 ---
@@ -136,14 +154,17 @@ LLM/剧本 `scriptService`·`llmProviderFactory`；风格 `styleService`·`direc
 
 ### Sprint 20 — 风格确定 + 角色资产 + 成长状态
 - 风格确定：复用 `styleService`（导演风格/色调）产出全局风格 + 角色造型基调。
+- **LLM 接入（Vercel AI SDK）与多供应商 key 切换**：新增 `ai-sdk` provider 适配（包 `llmProviderFactory`），用 `generateText`+`Output.object`(Zod)；开发用 opencode-go；供应商/model/key 可切换（官方 provider + OpenAI 兼容）。参考 `docs/novel-series-plan.md` §4.1。
 - 角色**形象图**（`imageService`，先 mock）、**音色样本**（TTS，先 mock/占位）。
 - **角色成长状态**：按章节/集记录外貌/关系/能力演进（`CharacterState`）。
-- 验收：每角色出形象+音色+可查询成长轨迹；风格全局可锁定。
+- 验收：每角色出形象+音色+可查询成长轨迹；风格全局可锁定；LLM 路径跑通（opencode-go）。
 
 ### Sprint 21 — 分季分集 + 剧本
-- 按小说内容**分块** → 生成**季/集大纲**与**分集剧本**（复用 `scriptService`）。
-- 角色一致性校验（跨集角色/设定一致）。
-- 验收：一本小说 → 确定分季分集结构 + 分集剧本；一致性检查通过。
+- **分季**：按**大事件/剧情总结**划分季；**每季 ≥ 200 集**。
+- **分集**：**1 章 ≥ 1 集**（1 章可拆多集）；**每集（成片）时长 ≥ 90s，误差 ±5s（85–95s）**。
+- **以季为单元生成剧本**（复用 `scriptService`）；跨集角色/设定一致性校验。
+- 验收：一本小说 → 季/集结构与分集剧本；满足 ≥200 集/季、1 章≥1 集、每集 85–95s。
+- 时长口径：**以成片秒数为准**（85–95s）；剧本阶段按预估"每秒台词/分镜"换算到分镜数。
 
 ### Sprint 22 — 内容生成（图/音/视频）
 - 分集生成：分镜/图片/配音/字幕/（可选）视频片段，复用 `videoService`/`editPlanService`。

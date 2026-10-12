@@ -43,6 +43,7 @@ DreamReel 让每个人都能像做梦一样拍电影。覆盖剧本、分镜、�
 | 企业版与私有化 | **企业管理概览（团队/成员/项目归集）、SSO(SAML/OIDC)与安全策略（IP白名单/水印/禁止公开分享/数据驻留）、审计日志查询、私有化部署信息** |
 | 移动端与 PWA | **响应式适配（小屏紧凑导航/单列/横向滚动标签）、触屏优化（≥40px 触控目标、底部导航栏）、PWA 可安装到主屏幕、Service Worker 离线应用外壳** |
 | 影评社区 | **影评发布（四维评分 + 影片标签）、热评榜单（daily/weekly/monthly，含指数时间衰减）、个性化推荐（标签重叠 + 四维评分余弦相似度 + 热度）、内容举报与审核（`approved` 自动隐藏被举报影评）、社区通知（他人点赞自动通知作者、未读数/已读）**（侧边栏「🗣️ 影评社区」`#/community`；`/api/community`，演示数据 `npm run seed:community`） |
+| 小说剧场（Sprint 19） | **书名/链接 → 站点 TXT 下载（GB18030 解码）→ 分章切片入库 → 角色抽取（别名归一；离线启发式基线 + LLM 路径）→ 角色卡（外形/性格/声线/口头禅/关系网/能力/成长）→ 人工审核（Web + `npm run novel` CLI），含修订率统计**（侧边栏「📚 小说剧场」`#/novels`；`/api/novels`） |
 
 ### 账户与商业化
 
@@ -272,6 +273,26 @@ docker-compose down
 | POST | `/api/community/notifications/read-all` | 全部标记已读，body `{ userId }` |
 
 > 说明：社区通知（互动型：like/reply…）与平台 `/api/notifications`（系统通知）相互独立、各自独立路由；他人点赞影评会自动给作者生成一条 `like` 通知。前端入口：侧边栏「🗣️ 影评社区」（`#/community`），支持发布影评、查看榜单/推荐、点赞/举报、处理举报、查看与已读通知。
+
+### 小说剧场（`/api/novels`，Sprint 19）
+
+书名/链接 → 站点 TXT 下载 → 分章切片 → 角色抽取 → 角色卡 → 人工审核。验证样例：《殖装》（`https://www.qishuxia.com/book/34639/`），取前 100 章。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/novels` | 创建小说项目，body `{ title, author?, category?, sourceType?, sourceRef? }`；缺 title → 400，成功 201 |
+| GET | `/api/novels` | 项目列表 |
+| GET | `/api/novels/:id` | 项目详情（含 `reviewStats`） |
+| PUT | `/api/novels/:id/style` | 设置全书风格（MVP：全书统一） |
+| POST | `/api/novels/:id/ingest` | 摄取，body `{ sourceType: 'qishuxia-txt'\|'text', url?, text?, maxChapters? }` |
+| GET | `/api/novels/:id/chunks` | 切片列表 |
+| POST | `/api/novels/:id/extract` | 角色抽取，body `{ provider?: 'heuristic'\|'llm', maxChapters?, minFreq? }` |
+| GET | `/api/novels/:id/characters` | 角色列表 |
+| PATCH | `/api/novels/:id/characters/:cid` | 修订角色（记录 `reviewEdits`；`approve:true` 直接通过） |
+| POST | `/api/novels/:id/characters/:cid/approve` | 通过角色 |
+| GET | `/api/novels/:id/review-stats` | 审核统计（`revisionRate` = 修订字段数 ÷ 字段总数） |
+
+> CLI：`npm run novel -- <create|ingest|extract|list|show|characters|stats>`。来源首选站点 **TXT 下载**（两跳 Cookie + GB18030 解码）；**不绕过**登录/验证码/加密。抽取默认走**离线启发式**（低精度基线），配置真实 LLM 后走 `provider:'llm'` 路径。产出落 `storage/novels/<id>/`。
 
 ### 配音字幕
 

@@ -1,0 +1,92 @@
+task_id: "TASK-20261012-019"
+task_name: "Sprint 19: 小说 → 角色抽取流水线（MVP-1）"
+create_time: "2026-10-12T15:40:00+08:00"
+current_global_state: "GLOBAL_IN_CONSISTENCY"
+
+reference:
+  plan: "docs/novel-series-plan.md（§3 架构 / §5 Sprint 19）"
+  prev_sprint_context: ".workflow/context-sprint18.yaml"
+  delivery_report: "docs/sprint19-delivery-report.md"
+  repo_root: "/Users/link/myApp/DreamReel"
+  git_branch: "main"
+  git_head_at_start: "c177f65 docs: 新增小说→剧集生产流水线方案与排期"
+
+goal:
+  summary: "把一部小说（TXT 首选）落成可审核的角色表：来源→GBK解码→分章→切片入库→角色抽取+别名归一→角色卡→人工审核"
+  sample: "《殖装》前 100 章（站点 TXT 下载）"
+
+scope:
+  - id: "S19-1"
+    name: "NovelProject + 本地目录 + 存储适配器接口"
+    features:
+      - "storageService 扩展 novelProjects / novelChunks / novelCharacters"
+      - "项目目录 storage/novels/<id>/（source|chunks|characters|assets）"
+      - "storageBackend 接口（LocalBackend；Cloud(夸克)/Nas 预留）"
+  - id: "S19-2"
+    name: "来源接入（TXT 首选）"
+    features:
+      - "novelSourceService：qishuxia-txt（两跳 Cookie 下载 + GBK 解码）"
+      - "text（粘贴/上传）；逐章抓取为兜底（本轮未实现，明确报错）"
+  - id: "S19-3"
+    name: "章节切分 + 切片入库"
+    features:
+      - "novelChunkService：按『第…章/节』标题分章，过滤站点水印/空行"
+      - "chunks 落盘（json）并入库"
+  - id: "S19-4"
+    name: "角色抽取 + 别名归一"
+    features:
+      - "characterExtractionService：LLM 路径（generateJSON）+ 离线启发式路径"
+      - "别名归一：同一实体的多个称呼合并到 aliases"
+      - "provider 如实标注（llm / heuristic）"
+  - id: "S19-5"
+    name: "角色卡"
+    features:
+      - "characterCardService：appearance / personality / voice / catchphrase / relations / abilities / growth"
+  - id: "S19-6"
+    name: "人工审核（API + CLI + Web）"
+    features:
+      - "PATCH 角色（记录 reviewEdits）；approve；revision-stats"
+      - "CLI scripts/novel.js；Web 页 #/novels、#/novel/:id"
+
+acceptance:
+  - "《殖装》前 100 章 → 产出完整角色表（主要角色齐全、别名归一到唯一实体）"
+  - "每角色含 name/aliases/appearance/personality/voice/catchphrase/relations/abilities/growth"
+  - "人工修订率 = 修订字段数 ÷ 自动产出字段总数（目标 < 30%，LLM 路径）"
+  - "原文 + 切片 + 角色卡落盘、重启不丢；测试隔离"
+  - "抓取不绕过反爬；TXT/逐章取不到走粘贴/上传，如实失败"
+
+constraints:
+  - "开发期最小成本；不引入新运行时依赖（用内置 fetch + 现有 provider）"
+  - "LLM 质量需真实 key；mock 下走启发式并如实标注，不夸大达标"
+  - "不绕过登录/验证码/加密；限速抓取"
+
+risks:
+  - "启发式无 LLM 时达不到修订率<30%（如实标注）"
+  - "站点改版失效；TXT 水印与编码需处理"
+  - "版权合规：用户明确接受（记为接受的合规风险）"
+
+state_log:
+  - time: "2026-10-12T15:40:00+08:00"
+    from: "N/A"
+    to: "GLOBAL_IN_DEV"
+    note: "Sprint 19 启动；基线 544/544/0；以当前克隆目录 /Users/link/myApp/DreamReel 为准。"
+  - time: "2026-10-12T16:10:00+08:00"
+    from: "GLOBAL_IN_DEV"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "后端管线 + CLI + Web 页完成；真实 E2E：殖装前100章入库（0 空切片，首章3838字），启发式抽取 24 角色、落盘 3 文件；新增 tests/novelSeries.test.js（5 例），全量 549/549/0，lint 0，前端可达。"
+  - time: "2026-10-12T16:12:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "验收核对：管线/落盘/审核闭环 PASS；但『人工修订率<30%』未达成——启发式精度不足，LLM 路径已接线但本机无 key 未验证。状态保留 IN_CONSISTENCY，待真实 LLM 复测。"
+  - time: "2026-10-12T16:30:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "并入补充需求：①TXT 清理非原文内容并以 cleaned.txt 为准 + 只下载一次（实测二次 downloaded:false）；②角色表范围改为全书（实测 1206 章 / 40 角色）；③剧本分集规则（1章≥1集、每集85–95s、季按大事件划分、每季≥200集、以季为单元）记入 plan §6（Sprint 21）。全量 549/549/0。"
+  - time: "2026-10-12T16:45:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "决策更新：①LLM 供应商——开发阶段用 opencode-go 订阅，留多供应商 key 切换口子（llmProviderFactory/providerResolver，OpenAI 兼容 baseUrl+key），后续按开源参考接入，记入 Sprint 20；②确认每集时长以成片秒数为准（85–95s）。均写入 docs/novel-series-plan.md。"
+  - time: "2026-10-12T17:00:00+08:00"
+    from: "GLOBAL_IN_CONSISTENCY"
+    to: "GLOBAL_IN_CONSISTENCY"
+    note: "LLM 方案定为 **Vercel AI SDK**（https://ai-sdk.dev/docs/introduction）：统一多供应商接口 + `generateText`/`Output.object`(Zod) 结构化输出；开发用 opencode-go。接入方式已定：社区包 **`ai-sdk-provider-opencode-sdk`**。已写入 plan §4.1 与 Sprint 20。"
