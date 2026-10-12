@@ -62,7 +62,7 @@ export async function renderEditor(container, projectId) {
     }
 
     renderEditorLayout(container, project)
-  } catch {
+  } catch (err) {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">⚠️</div>
@@ -210,7 +210,7 @@ function renderEditorLayout(container, project) {
       await api.publishToGallery(project.id, project.galleryCategory || 'short')
       showToast('已发布到作品广场')
       btn.textContent = '✅ 已发布'
-    } catch {
+    } catch (e) {
       showToast(e.message, 'error')
     } finally {
       btn.disabled = false
@@ -357,7 +357,7 @@ function initAIAssistant(project) {
           </div>
         `
         showToast('对话已清空', 'success')
-      } catch {
+      } catch (err) {
         showToast(`清空失败: ${err.message}`, 'error')
       }
     }
@@ -429,7 +429,7 @@ async function loadAIQuickActions(projectId, container) {
         try {
           const response = await api.runAIQuickAction(projectId, actionId)
           addAIMessage('assistant', response.content)
-        } catch {
+        } catch (err) {
           addAIMessage('assistant', `抱歉，操作失败: ${err.message}`)
         } finally {
           btn.disabled = false
@@ -438,7 +438,7 @@ async function loadAIQuickActions(projectId, container) {
         }
       })
     })
-  } catch {
+  } catch (err) {
     console.warn('Failed to load AI quick actions:', err)
   }
 }
@@ -455,7 +455,7 @@ async function loadAIConversationHistory(projectId) {
       })
       scrollAIMessages()
     }
-  } catch {
+  } catch (err) {
     console.warn('Failed to load AI conversation history:', err)
   }
 }
@@ -471,7 +471,7 @@ async function sendAIMessage(projectId, text) {
     const response = await api.sendAIMessage(projectId, text)
     removeAIMessage(loadingId)
     addAIMessage('assistant', response.content)
-  } catch {
+  } catch (err) {
     removeAIMessage(loadingId)
     addAIMessage('assistant', `抱歉，出错了: ${err.message}`)
   } finally {
@@ -794,7 +794,7 @@ function renderScriptTab(project) {
 
       document.getElementById('scriptContent').innerHTML = renderScriptContent(script)
       showToast(`剧本生成完成：${script.shots.length} 个分镜，${script.characters.length} 个角色`)
-    } catch {
+    } catch (err) {
       showToast(err.message, 'error')
     } finally {
       btn.disabled = false
@@ -948,7 +948,7 @@ function renderCharactersTab(project) {
         const updated = await api.getProject(pid)
         Object.assign(state.currentProject, updated)
         renderCharactersTab(state.currentProject)
-      } catch {
+      } catch (err) {
         showToast(err.message || '保存失败', 'error')
         btn.disabled = false
         btn.textContent = originalText
@@ -1052,7 +1052,7 @@ function showCharacterModal(projectId) {
       const updated = await api.getProject(projectId)
       Object.assign(state.currentProject, updated)
       renderCharactersTab(state.currentProject)
-    } catch {
+    } catch (err) {
       showToast(err.message, 'error')
     }
   })
@@ -1100,7 +1100,7 @@ function showLockModal(characterId, projectId) {
       const updated = await api.getProject(projectId)
       Object.assign(state.currentProject, updated)
       renderCharactersTab(state.currentProject)
-    } catch {
+    } catch (err) {
       showToast(err.message, 'error')
     }
   })
@@ -1192,7 +1192,7 @@ function renderShotsTab(project) {
         project.style = styleId
         showStylePreview(styleId)
         showToast(`风格已切换为 ${styleSelect.options[styleSelect.selectedIndex].text}`)
-      } catch {
+      } catch (err) {
         showToast(err.message, 'error')
       }
     })
@@ -1259,7 +1259,7 @@ function renderShotsTab(project) {
           const updated = await api.getProject(project.id)
           Object.assign(state.currentProject, updated)
           renderShotsTab(state.currentProject)
-        } catch {
+        } catch (err) {
           showToast(err.message, 'error')
         }
       })
@@ -1281,7 +1281,7 @@ function renderShotsTab(project) {
           Object.assign(state.currentProject, updated)
           renderShotsTab(state.currentProject)
         }, 3000)
-      } catch {
+      } catch (err) {
         showToast(err.message, 'error')
       } finally {
         generateAllBtn.disabled = false
@@ -1331,7 +1331,7 @@ function renderShotsTab(project) {
           Object.assign(state.currentProject, updated)
           renderShotsTab(state.currentProject)
         }, 2500)
-      } catch {
+      } catch (err) {
         showToast(err.message, 'error')
         btn.disabled = false
         btn.innerHTML = shot.status === 'completed' ? '🔄 重新生成' : '🎬 生成'
@@ -1367,7 +1367,7 @@ function renderShotsTab(project) {
           Object.assign(state.currentProject, updated)
           renderShotsTab(state.currentProject)
         }, 3000)
-      } catch {
+      } catch (err) {
         showToast(err.message, 'error')
         btn.disabled = false
         btn.innerHTML = '🎲 候选(3)'
@@ -1386,7 +1386,7 @@ function renderShotsTab(project) {
         if (shot) shot.locked = !isLocked
         showToast(isLocked ? '镜头已解锁' : '镜头已锁定，批量生成时将跳过')
         renderShotsTab(state.currentProject)
-      } catch {
+      } catch (err) {
         showToast(err.message, 'error')
       }
     })
@@ -1403,7 +1403,7 @@ function renderShotsTab(project) {
         const updated = await api.getProject(project.id)
         Object.assign(state.currentProject, updated)
         renderShotsTab(state.currentProject)
-      } catch {
+      } catch (err) {
         showToast(err.message, 'error')
       }
     })
@@ -1517,7 +1517,7 @@ function renderShotsTab(project) {
           shot.characterActions = newCharacterActions
           showToast('镜头高级设置已保存')
           panel.style.display = 'none'
-        } catch {
+        } catch (err) {
           showToast(err.message, 'error')
         }
       })
@@ -1625,7 +1625,7 @@ function renderAnalysisTab(project) {
         Object.assign(state.currentProject, { lastAnalysis: analysis })
         renderAnalysisTab(project)
         showToast('分析完成！')
-      } catch {
+      } catch (err) {
         showToast(err.message, 'error')
         analyzeBtn.disabled = false
         analyzeBtn.innerHTML = '🔍 开始分析'
@@ -1855,7 +1855,7 @@ async function renderCollabTab(project) {
 
     // 绑定事件
     bindCollabEvents(project)
-  } catch {
+  } catch (err) {
     panel.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">⚠️</div>
@@ -1980,7 +1980,7 @@ function bindCollabEvents(project) {
         })
         showToast('评论已发表')
         renderCollabTab(project)
-      } catch {
+      } catch (err) {
         showToast(err.message, 'error')
       }
     })
@@ -1994,7 +1994,7 @@ function bindCollabEvents(project) {
       try {
         await api.resolveComment(project.id, commentId, !isResolved)
         renderCollabTab(project)
-      } catch {
+      } catch (err) {
         showToast(err.message, 'error')
       }
     })
@@ -2009,7 +2009,7 @@ function bindCollabEvents(project) {
           await api.deleteComment(project.id, commentId)
           showToast('评论已删除')
           renderCollabTab(project)
-        } catch {
+        } catch (err) {
           showToast(err.message, 'error')
         }
       }
@@ -2029,7 +2029,7 @@ function bindCollabEvents(project) {
           await api.likeComment(project.id, commentId, userId)
         }
         renderCollabTab(project)
-      } catch {
+      } catch (err) {
         if (err.message !== 'Already liked' && err.message !== 'Not liked') {
           showToast(err.message, 'error')
         }
@@ -2077,7 +2077,7 @@ function bindCollabEvents(project) {
         })
         showToast('回复已发送')
         renderCollabTab(project)
-      } catch {
+      } catch (err) {
         showToast(err.message, 'error')
       }
     })
@@ -2102,7 +2102,7 @@ function bindCollabEvents(project) {
         await api.updateShareSettings(project.id, { isPublic: shareToggle.checked })
         showToast(shareToggle.checked ? '项目已设为公开' : '项目已设为私有')
         renderCollabTab(project)
-      } catch {
+      } catch (err) {
         showToast(err.message, 'error')
       }
     })
@@ -2176,7 +2176,7 @@ async function renderVersionsTab(project) {
           await api.saveVersion(project.id, { label: label || '手动保存', description: '' })
           showToast('版本已保存')
           renderVersionsTab(project)
-        } catch {
+        } catch (err) {
           showToast(err.message, 'error')
         }
       })
@@ -2199,7 +2199,7 @@ async function renderVersionsTab(project) {
             if (currentTab === 'script') renderScriptTab(updated)
             if (currentTab === 'shots') renderShotsTab(updated)
             if (currentTab === 'characters') renderCharactersTab(updated)
-          } catch {
+          } catch (err) {
             showToast(err.message, 'error')
           }
         }
@@ -2215,13 +2215,13 @@ async function renderVersionsTab(project) {
             await api.deleteVersion(project.id, versionId)
             showToast('版本已删除')
             renderVersionsTab(project)
-          } catch {
+          } catch (err) {
             showToast(err.message, 'error')
           }
         }
       })
     })
-  } catch {
+  } catch (err) {
     panel.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">⚠️</div>
@@ -2607,7 +2607,7 @@ async function renderDubbingTab(project) {
           </div>
         `
       }
-    } catch {
+    } catch (err) {
       showToast(err.message, 'error')
     } finally {
       btn.disabled = false
@@ -2695,7 +2695,7 @@ async function renderDubbingTab(project) {
           }
         })
       })
-    } catch {
+    } catch (err) {
       console.error('Load BGM failed:', err)
     }
   }
@@ -2745,7 +2745,7 @@ async function renderDubbingTab(project) {
         })
       })
       document.getElementById('sfxCount').textContent = `已选 ${selectedSfx.length} 个`
-    } catch {
+    } catch (err) {
       console.error('Load SFX failed:', err)
     }
   }
@@ -2772,7 +2772,7 @@ async function renderDubbingTab(project) {
         document.querySelectorAll('#bgmList .tag-btn-active').forEach((b) => b.classList.remove('tag-btn-active'))
         firstBtn.classList.add('tag-btn-active')
       }
-    } catch {
+    } catch (err) {
       showToast(err.message, 'error')
     }
   })
@@ -2800,7 +2800,7 @@ async function renderDubbingTab(project) {
       await api.updateProject(project.id, { audioConfig: newAudioConfig })
       state.currentProject.audioConfig = newAudioConfig
       showToast('音频配置已保存')
-    } catch {
+    } catch (err) {
       showToast(err.message, 'error')
     } finally {
       btn.disabled = false
@@ -2938,7 +2938,7 @@ async function renderDubbingTab(project) {
       await api.updateProject(project.id, { subtitleStyle: newStyle })
       state.currentProject.subtitleStyle = newStyle
       showToast('字幕样式已保存')
-    } catch {
+    } catch (err) {
       showToast(err.message, 'error')
     } finally {
       btn.disabled = false
@@ -2983,7 +2983,7 @@ async function renderDubbingTab(project) {
       state.currentProject.dialogueAssignments = assignments
       state.currentProject.dialoguePause = parseFloat(pauseInput.value)
       showToast('角色音色已保存')
-    } catch {
+    } catch (err) {
       showToast(err.message, 'error')
     } finally {
       btn.disabled = false
@@ -3005,7 +3005,7 @@ async function renderDubbingTab(project) {
           voiceId,
         })
         showToast(`已生成试听（${r.duration.toFixed(1)}s）`)
-      } catch {
+      } catch (err) {
         showToast(err.message, 'error')
       }
     })
@@ -3038,7 +3038,7 @@ async function renderDubbingTab(project) {
       await api.updateProject(project.id, { visualStyle: newVs })
       state.currentProject.visualStyle = newVs
       showToast('视觉风格已保存')
-    } catch {
+    } catch (err) {
       showToast(err.message, 'error')
     } finally {
       btn.disabled = false
@@ -3063,7 +3063,7 @@ async function renderDubbingTab(project) {
             ${w.level === 'warning' ? '⚠️' : 'ℹ️'} ${w.message}
           </div>`).join('')
       }
-    } catch {
+    } catch (err) {
       showToast(err.message, 'error')
     } finally {
       btn.disabled = false
@@ -3230,7 +3230,7 @@ function showSaveAsTemplateModal(project) {
       await api.createTemplateFromProject({ projectId: project.id, name, description, category, icon })
       showToast('模板保存成功！可在模板市场中查看', 'success')
       modal.remove()
-    } catch {
+    } catch (err) {
       showToast(`保存失败: ${err.message}`, 'error')
     }
   })
@@ -3399,7 +3399,7 @@ function showExportModal(project) {
 
         showToast('成片导出成功')
         confirmBtn.style.display = 'none'
-      } catch {
+      } catch (err) {
         progressDiv.style.display = 'none'
         showToast(err.message, 'error')
         confirmBtn.disabled = false
@@ -3452,7 +3452,7 @@ async function showPosterModal(project) {
         style: modal.querySelector('#pmStyle').value,
       })
       renderPosterResult(modal.querySelector('#pmResult'), r.poster)
-    } catch {
+    } catch (e) {
       showToast(e.message, 'error')
     } finally {
       btn.disabled = false
@@ -3520,7 +3520,7 @@ async function showTrailerModal(project) {
       })
       if (!r.success) { showToast(r.message, 'error'); return }
       renderTrailerResult(modal.querySelector('#trResult'), r)
-    } catch {
+    } catch (e) {
       showToast(e.message, 'error')
     } finally {
       btn.disabled = false

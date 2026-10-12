@@ -5,6 +5,10 @@
 
 const FNV_64_OFFSET_BASIS = 14695981039346656037n
 const FNV_64_PRIME = 1099511628211n
+// FNV-1a is defined modulo 2^64; BigInt arithmetic does not wrap on its own,
+// so every multiply must be masked or the value grows unbounded (and the
+// high-order hex digits stop depending on the input).
+const FNV_64_MASK = 0xffffffffffffffffn
 
 /**
  * Compute FNV-1a 64-bit hash of input.
@@ -16,7 +20,7 @@ export function fnv1a64(input) {
   const data = typeof input === 'string' ? Buffer.from(input, 'utf8') : input
   for (const byte of data) {
     hash = hash ^ BigInt(byte)
-    hash = hash * FNV_64_PRIME
+    hash = (hash * FNV_64_PRIME) & FNV_64_MASK
   }
   return hash
 }
