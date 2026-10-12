@@ -10,9 +10,11 @@ describe('Ranking Service', () => {
   })
 
   describe('computeTimeDecay', () => {
-    it('returns 1 for fresh content', () => {
+    it('returns ~1 for fresh content', () => {
       const now = new Date().toISOString()
-      assert.equal(computeTimeDecay(now, 'daily'), 1)
+      const decay = computeTimeDecay(now, 'daily')
+      // 从生成时间戳到断言执行会流逝数毫秒，decay = exp(-ε) ≈ 1，不能严格断言等于 1（否则偶发失败）
+      assert.ok(decay > 0.999 && decay <= 1, `expected ~1, got ${decay}`)
     })
 
     it('decays older content', () => {

@@ -295,6 +295,32 @@ class StorageService {
     this.save()
     return report
   }
+
+  // ============ Community notifications ============
+
+  createNotification(notification) {
+    if (!this.data.notifications) this.data.notifications = {}
+    this.data.notifications[notification.id] = notification
+    this.save()
+    return notification
+  }
+
+  getNotificationById(id) {
+    if (!this.data.notifications) return null
+    return this.data.notifications[id] || null
+  }
+
+  getNotificationsByUser(userId) {
+    if (!this.data.notifications) return []
+    return Object.values(this.data.notifications).filter((n) => n.userId === userId)
+  }
+
+  updateNotification(notification) {
+    if (!this.data.notifications) this.data.notifications = {}
+    this.data.notifications[notification.id] = notification
+    this.save()
+    return notification
+  }
 }
 
 export const storageService = new StorageService()

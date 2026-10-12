@@ -10,6 +10,9 @@ export class Review {
     this.title = data.title || ''
     this.content = data.content || ''
 
+    // Movie tags — 供个性化推荐做标签重叠计算（此前被构造函数丢弃，导致推荐标签分恒为 0）
+    this.movieTags = Array.isArray(data.movieTags) ? data.movieTags : []
+
     // Four-dimension scoring (T17-006 baseline)
     this.storyScore = clampScore(data.storyScore)
     this.visualScore = clampScore(data.visualScore)

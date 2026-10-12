@@ -8,6 +8,14 @@ import {
   processReport,
   getReport,
 } from '../services/moderationService.js'
+import { createReview, listReviews, getReview, likeReview } from '../services/reviewService.js'
+import {
+  createNotification,
+  listNotifications,
+  getUnreadCount as getCommunityUnreadCount,
+  markAsRead as markCommunityNotificationRead,
+  markAllAsRead as markAllCommunityRead,
+} from '../services/communityNotificationService.js'
 
 /**
  * 影评社区（Wave 2）路由，挂载于 /api/community。
@@ -54,6 +62,120 @@ router.get('/recommendations', async (req, res) => {
   } catch (error) {
     const status = /not found/i.test(error.message) ? 404 : 400
     res.status(status).json({ success: false, error: error.message })
+  }
+})
+
+// 发布影评
+router.post('/reviews', async (req, res) => {
+  try {
+    const body = req.body || {}
+    const userId = req.user?.id || body.userId
+    if (!body.title || !userId) {
+      return res.status(400).json({ success: false, error: 'userId and title required' })
+    }
+    const review = createReview({ ...body, userId })
+    res.status(201).json({ success: true, data: review })
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+// 影评列表（可按 userId / movieId 过滤）
+router.get('/reviews', async (req, res) => {
+  try {
+    const limit = Math.min(200, parseInt(req.query.limit, 10) || 50)
+    const data = listReviews({
+      userId: req.query.userId,
+      movieId: req.query.movieId,
+      status: req.query.status || 'published',
+      limit,
+    })
+    res.json({ success: true, data })
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+// 影评详情
+router.get('/reviews/:id', async (req, res) => {
+  try {
+    const review = getReview(req.params.id)
+    if (!review) {
+      return res.status(404).json({ success: false, error: 'Review not found' })
+    }
+    res.json({ success: true, data: review })
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+// 点赞影评（非本人点赞时通知作者）
+router.post('/reviews/:id/like', async (req, res) => {
+  try {
+    const review = likeReview(req.params.id)
+    const actor = req.user?.id || req.body?.userId
+    if (actor && review.userId && actor !== review.userId) {
+      createNotification({
+        userId: review.userId,
+        type: 'like',
+        sourceId: review.id,
+        sourceType: 'review',
+        message: `你的影评《${review.title}》收到一个赞`,
+      })
+    }
+    res.json({ success: true, data: review })
+  } catch (error) {
+    const status = /not found/i.test(error.message) ? 404 : 400
+    res.status(status).json({ success: false, error: error.message })
+  }
+})
+
+// ===== 社区通知（与平台 /api/notifications 相互独立） =====
+
+// 通知列表
+router.get('/notifications', async (req, res) => {
+  try {
+    const userId = resolveUserId(req)
+    if (!userId) return res.status(400).json({ success: false, error: 'userId required' })
+    const unreadOnly = req.query.unreadOnly === 'true'
+    const limit = Math.min(100, parseInt(req.query.limit, 10) || 50)
+    const items = listNotifications(userId, { unreadOnly, limit })
+    res.json({ success: true, data: { items, unreadCount: getCommunityUnreadCount(userId) } })
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+// 未读数量
+router.get('/notifications/unread-count', async (req, res) => {
+  try {
+    const userId = resolveUserId(req)
+    if (!userId) return res.status(400).json({ success: false, error: 'userId required' })
+    res.json({ success: true, data: { count: getCommunityUnreadCount(userId) } })
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+// 全部已读
+router.post('/notifications/read-all', async (req, res) => {
+  try {
+    const userId = req.user?.id || req.body?.userId
+    if (!userId) return res.status(400).json({ success: false, error: 'userId required' })
+    res.json({ success: true, data: markAllCommunityRead(userId) })
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+// 单条已读
+router.post('/notifications/:id/read', async (req, res) => {
+  try {
+    const result = markCommunityNotificationRead(req.params.id)
+    if (!result) return res.status(404).json({ success: false, error: 'Notification not found' })
+    res.json({ success: true, data: result })
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message })
   }
 })
 
