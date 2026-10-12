@@ -10,6 +10,13 @@ import { extractCharacters, listCharacters } from '../services/characterExtracti
 import { ensureCards, applyEdits, reviewStats } from '../services/characterCardService.js'
 import { generateStyle } from '../services/novelStyleService.js'
 import { addState, listStates } from '../services/characterGrowthService.js'
+import {
+  planSeries,
+  listSeasons,
+  listEpisodes,
+  checkConsistency,
+} from '../services/seriesPlannerService.js'
+import { generateEpisodeScript, getEpisodeScript } from '../services/episodeScriptService.js'
 
 /**
  * 小说 → 剧集 路由（Sprint 19），挂载 /api/novels
@@ -165,6 +172,70 @@ router.post('/:id/characters/:cid/states', (req, res) => {
   try {
     const state = addState(req.params.id, req.params.cid, req.body || {})
     res.status(201).json({ success: true, data: state })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// ===== 分季分集 + 剧本（Sprint 21） =====
+
+// 规划：章节 → 集 → 季
+router.post('/:id/series/plan', (req, res) => {
+  try {
+    const { episodeSeconds, episodesPerSeason, charsPerSecond, maxChapters } = req.body || {}
+    const result = planSeries(req.params.id, { episodeSeconds, episodesPerSeason, charsPerSecond, maxChapters })
+    res.json({ success: true, data: result })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 季列表
+router.get('/:id/seasons', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: listSeasons(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 集列表（可按 seasonId 过滤）
+router.get('/:id/episodes', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: listEpisodes(req.params.id, req.query.seasonId) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 生成单集剧本
+router.post('/:id/episodes/:eid/script', async (req, res) => {
+  try {
+    const episode = await generateEpisodeScript(req.params.id, req.params.eid, req.body || {})
+    res.json({ success: true, data: episode })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 读取单集剧本
+router.get('/:id/episodes/:eid/script', (req, res) => {
+  try {
+    const screenplay = getEpisodeScript(req.params.id, req.params.eid)
+    if (!screenplay) return res.status(404).json({ success: false, error: 'script not generated' })
+    res.json({ success: true, data: screenplay })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 一致性校验
+router.get('/:id/consistency', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: checkConsistency(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

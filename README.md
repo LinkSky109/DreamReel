@@ -294,8 +294,14 @@ docker-compose down
 | POST | `/api/novels/:id/style/generate` | 自动生成全书风格（LLM 优先，启发式回退），返回 `style` |
 | GET | `/api/novels/:id/characters/:cid/states` | 角色成长状态列表 |
 | POST | `/api/novels/:id/characters/:cid/states` | 追加成长状态（章节/集锚点 + 外貌/关系/能力增量），成功 201 |
+| POST | `/api/novels/:id/series/plan` | 分季分集规划，body `{ episodeSeconds?, episodesPerSeason?, charsPerSecond?, maxChapters? }`；**1 章 ≥ 1 集、每季 ≥ 200 集** |
+| GET | `/api/novels/:id/seasons` | 季列表 |
+| GET | `/api/novels/:id/episodes?seasonId=` | 集列表（可按季过滤） |
+| POST | `/api/novels/:id/episodes/:eid/script` | 生成单集分镜剧本，body `{ provider?: 'heuristic'\|'llm' }`；**总时长归一化到 90s（∈[85,95]）** |
+| GET | `/api/novels/:id/episodes/:eid/script` | 读取单集剧本 |
+| GET | `/api/novels/:id/consistency` | 基础一致性校验（集内出现的全书角色覆盖） |
 
-> CLI：`npm run novel -- <create|ingest|extract|list|show|characters|stats|style>`。来源首选站点 **TXT 下载**（两跳 Cookie + GB18030 解码）；**不绕过**登录/验证码/加密。抽取默认**离线启发式**（低精度基线）；**配置 `LLM_PROVIDER=opencode` 后走真实 LLM**（Vercel AI SDK + `ai-sdk-provider-opencode-sdk`，本机 OpenCode 2.x 服务；或 `OPENCODE_BASE_URL`+`OPENCODE_PASSWORD`）。产出落 `storage/novels/<id>/`。
+> CLI：`npm run novel -- <create|ingest|extract|list|show|characters|stats|style|plan|seasons|episodes|script>`。来源首选站点 **TXT 下载**（两跳 Cookie + GB18030 解码）；**不绕过**登录/验证码/加密。抽取默认**离线启发式**（低精度基线）；**配置 `LLM_PROVIDER=opencode` 后走真实 LLM**（Vercel AI SDK + `ai-sdk-provider-opencode-sdk`，本机 OpenCode 2.x 服务；或 `OPENCODE_BASE_URL`+`OPENCODE_PASSWORD`）。分季分集为**规则驱动**（确定性）；单集剧本启发式必落 85–95s，LLM 可选。产出落 `storage/novels/<id>/`。
 
 ### 配音字幕
 

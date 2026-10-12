@@ -123,6 +123,8 @@ class StorageService {
       novelChunks: {},
       novelCharacters: {},
       novelCharacterStates: {},
+      seriesSeasons: {},
+      seriesEpisodes: {},
       meta: { version: 1, createdAt: new Date().toISOString() },
     }
     this.save()
@@ -405,6 +407,51 @@ class StorageService {
     return Object.values(this.data.novelCharacterStates).filter(
       (s) => s.novelId === novelId && (!characterId || s.characterId === characterId)
     )
+  }
+
+  // ============ Seasons / Episodes（分季分集） ============
+
+  createSeason(season) {
+    if (!this.data.seriesSeasons) this.data.seriesSeasons = {}
+    this.data.seriesSeasons[season.id] = season
+    this.save()
+    return season
+  }
+
+  listSeasons(novelId) {
+    if (!this.data.seriesSeasons) return []
+    return Object.values(this.data.seriesSeasons).filter((s) => s.novelId === novelId)
+  }
+
+  getSeason(id) {
+    if (!this.data.seriesSeasons) return null
+    return this.data.seriesSeasons[id] || null
+  }
+
+  createEpisode(episode) {
+    if (!this.data.seriesEpisodes) this.data.seriesEpisodes = {}
+    this.data.seriesEpisodes[episode.id] = episode
+    this.save()
+    return episode
+  }
+
+  listEpisodes(novelId, seasonId) {
+    if (!this.data.seriesEpisodes) return []
+    return Object.values(this.data.seriesEpisodes).filter(
+      (e) => e.novelId === novelId && (!seasonId || e.seasonId === seasonId)
+    )
+  }
+
+  getEpisode(id) {
+    if (!this.data.seriesEpisodes) return null
+    return this.data.seriesEpisodes[id] || null
+  }
+
+  updateEpisode(episode) {
+    if (!this.data.seriesEpisodes) this.data.seriesEpisodes = {}
+    this.data.seriesEpisodes[episode.id] = episode
+    this.save()
+    return episode
   }
 }
 

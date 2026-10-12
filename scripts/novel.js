@@ -50,6 +50,8 @@ async function main() {
     extract: await import('../src/services/characterExtractionService.js'),
     card: await import('../src/services/characterCardService.js'),
     style: await import('../src/services/novelStyleService.js'),
+    series: await import('../src/services/seriesPlannerService.js'),
+    epScript: await import('../src/services/episodeScriptService.js'),
   }
 
   const [cmd, ...rest] = process.argv.slice(2)
@@ -146,8 +148,62 @@ async function main() {
       break
     }
 
+    case 'plan': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      const result = services.series.planSeries(id, {
+        episodeSeconds: flags['episode-seconds'] ? Number(flags['episode-seconds']) : undefined,
+        episodesPerSeason: flags['episodes-per-season'] ? Number(flags['episodes-per-season']) : undefined,
+        charsPerSecond: flags['chars-per-second'] ? Number(flags['chars-per-second']) : undefined,
+        maxChapters: flags['max-chapters'] ? Number(flags['max-chapters']) : undefined,
+      })
+      print(result)
+      break
+    }
+
+    case 'seasons': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      print(
+        services.series.listSeasons(id).map((s) => ({
+          seasonNo: s.seasonNo,
+          title: s.title,
+          episodeCount: s.episodeCount,
+          chapterRange: `${s.chapterStart}-${s.chapterEnd}`,
+        }))
+      )
+      break
+    }
+
+    case 'episodes': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      const list = services.series.listEpisodes(id, positional[1])
+      print({
+        count: list.length,
+        sample: list.slice(0, 5).map((e) => ({ episodeNo: e.episodeNo, title: e.title, targetSeconds: e.targetSeconds, status: e.status })),
+      })
+      break
+    }
+
+    case 'script': {
+      const id = positional[0]
+      const eid = positional[1]
+      if (!id || !eid) throw new Error('用法：script <novelId> <episodeId> [--provider heuristic|llm]')
+      const ep = await services.epScript.generateEpisodeScript(id, eid, { provider: flags.provider })
+      print({
+        episodeId: ep.id,
+        episodeNo: ep.episodeNo,
+        title: ep.title,
+        scriptProvider: ep.scriptProvider,
+        totalSeconds: ep.screenplay.totalSeconds,
+        shots: ep.screenplay.shots.length,
+      })
+      break
+    }
+
     default:
-      print('usage: node scripts/novel.js <create|ingest|extract|list|show|characters|stats> [args]')
+      print('usage: node scripts/novel.js <create|ingest|extract|list|show|characters|stats|style|plan|seasons|episodes|script> [args]')
   }
 }
 

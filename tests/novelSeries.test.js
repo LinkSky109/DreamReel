@@ -111,6 +111,41 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.equal(res.body.data[0].abilities, '觉醒异能')
   })
 
+  it('HTTP: 分季分集 + 单集剧本 + 一致性', async () => {
+    let res = await request(app).post('/api/novels').send({ title: '分季分集测试' })
+    const id = res.body.data.id
+    created.push(id)
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+
+    // 规划：每季 1 集（便于小样本断言）
+    res = await request(app).post(`/api/novels/${id}/series/plan`).send({ episodesPerSeason: 1 })
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.episodes >= 2)
+    assert.ok(res.body.data.seasons >= 1)
+
+    res = await request(app).get(`/api/novels/${id}/seasons`)
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.length >= 1)
+
+    res = await request(app).get(`/api/novels/${id}/episodes`)
+    const episodes = res.body.data
+    assert.ok(episodes.length >= 2)
+    // 每集目标时长
+    assert.equal(episodes[0].targetSeconds, 90)
+
+    // 单集剧本（启发式）→ 时长落 85–95
+    res = await request(app).post(`/api/novels/${id}/episodes/${episodes[0].id}/script`).send({ provider: 'heuristic' })
+    assert.equal(res.status, 200)
+    const total = res.body.data.screenplay.totalSeconds
+    assert.ok(total >= 85 && total <= 95, `total=${total}`)
+    assert.ok(res.body.data.screenplay.shots.length >= 4)
+
+    // 一致性
+    res = await request(app).get(`/api/novels/${id}/consistency`)
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.episodes >= 2)
+  })
+
   it('HTTP: 400 / 404 语义', async () => {
     let res = await request(app).get('/api/novels/does-not-exist')
     assert.equal(res.status, 404)
