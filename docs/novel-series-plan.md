@@ -165,6 +165,9 @@ LLM/剧本 `scriptService`·`llmProviderFactory`；风格 `styleService`·`direc
 - **以季为单元生成剧本**（复用 `scriptService`）；跨集角色/设定一致性校验。
 - 验收：一本小说 → 季/集结构与分集剧本；满足 ≥200 集/季、1 章≥1 集、每集 85–95s。
 - 时长口径：**以成片秒数为准**（85–95s）；剧本阶段按预估"每秒台词/分镜"换算到分镜数。
+- **后续（记录）**：
+  - **语义分季（LLM 弧线识别）**：用 LLM 按"大事件/剧情弧线"划分季，替代当前"均匀分块"。
+  - **批量生成异步/配额**：全书可达 8000+ 集，逐集生成需异步任务 + 并发/配额控制。
 
 ### Sprint 22 — 内容生成（图/音/视频）
 - 分集生成：分镜/图片/配音/字幕/（可选）视频片段，复用 `videoService`/`editPlanService`。
@@ -203,6 +206,7 @@ LLM/剧本 `scriptService`·`llmProviderFactory`；风格 `styleService`·`direc
 
 仍留白（你随时改）：
 
+- [ ] **提供火山方舟 Ark key（`SEEDANCE_API_KEY`）与 `SEEDANCE_MODEL`（Doubao-Seedance-2.5 的模型/端点 ID）**，以跑通真实视频生成。
 - [ ] 其它站点适配器与结构说明。
 - [ ] NAS 是否/何时接、协议（SMB/WebDAV/NFS/SFTP）。
 - [ ] 人工审核判定口径（"修订字段数 ÷ 字段总数"）是否作为 <30% 的唯一口径。

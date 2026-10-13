@@ -1,0 +1,43 @@
+task_id: "TASK-20261012-023"
+task_name: "Sprint 23: 单集成片 + 存储同步（本地/夸克网盘）"
+create_time: "2026-10-12T19:20:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+reference:
+  plan: "docs/novel-series-plan.md（§6 Sprint 23）"
+  prev_sprint_context: ".workflow/context-sprint22.yaml"
+  delivery_report: "docs/sprint23-delivery-report.md"
+  git_branch: "main"
+  git_head_at_start: "5ec1a7c + Sprint 22"
+
+scope:
+  - id: "S23-1"
+    name: "单集成片"
+    features:
+      - "episodeComposeService：片段循环扩展到目标时长（默认 90s）+ 混音/静音轨 → mp4"
+      - "输出 storage/exports/novels/<id>/<eid>.mp4；记 episode.composition"
+  - id: "S23-2"
+    name: "剧集包清单 + 存储同步"
+    features:
+      - "novelSyncService.buildManifest：novels/<id>/** + exports/novels/<id>/**"
+      - "本地同步（真实复制）；夸克网盘 dry-run + ledger；真实上传需 QUARK_COOKIE（留口）"
+  - id: "S23-3"
+    name: "接口/CLI"
+    features:
+      - "POST /:id/episodes/:eid/compose；GET /:id/manifest；POST /:id/sync"
+      - "CLI：compose / manifest / sync"
+
+out_of_scope:
+  - "多镜交叉转场/字幕/配乐精修（后续）"
+  - "夸克网盘真实上传实现（需 cookie；参考 ai-manga-factory）"
+  - "修改 /Users/link/myApp/CineAI"
+
+acceptance:
+  - "单集产出目标时长 mp4（含视频流；有旁白则混音）"
+  - "剧集包清单 + 本地同步可复制；夸克 dry-run 可用，真实上传缺 cookie 如实报错"
+
+state_log:
+  - time: "2026-10-12T19:20:00+08:00"
+    from: "N/A"
+    to: "GLOBAL_DONE"
+    note: "Sprint 23 完成：episodeComposeService（90s 成片）+ novelSyncService（清单/本地/夸克 dry-run）。真实 E2E：成片 mp4 hasVideo=true duration=90；清单 30 文件；本地/夸克 dry-run 通过；夸克真实无 cookie 如实失败。全量 553/553/0，lint 0。"

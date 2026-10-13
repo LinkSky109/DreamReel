@@ -52,6 +52,9 @@ async function main() {
     style: await import('../src/services/novelStyleService.js'),
     series: await import('../src/services/seriesPlannerService.js'),
     epScript: await import('../src/services/episodeScriptService.js'),
+    epAsset: await import('../src/services/episodeAssetService.js'),
+    compose: await import('../src/services/episodeComposeService.js'),
+    sync: await import('../src/services/novelSyncService.js'),
   }
 
   const [cmd, ...rest] = process.argv.slice(2)
@@ -202,8 +205,47 @@ async function main() {
       break
     }
 
+    case 'assets': {
+      const id = positional[0]
+      const eid = positional[1]
+      if (!id || !eid) throw new Error('用法：assets <novelId> <episodeId>')
+      const ep = await services.epAsset.generateEpisodeAssets(id, eid, {})
+      print({ episodeId: ep.id, status: ep.status, assets: ep.assets })
+      break
+    }
+
+    case 'compose': {
+      const id = positional[0]
+      const eid = positional[1]
+      if (!id || !eid) throw new Error('用法：compose <novelId> <episodeId>')
+      print(await services.compose.composeEpisode(id, eid))
+      break
+    }
+
+    case 'manifest': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      const files = services.sync.buildManifest(id).map((f) => ({ rel: f.rel, size: f.size }))
+      print({ fileCount: files.length, files: files.slice(0, 20) })
+      break
+    }
+
+    case 'sync': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      const backend = flags.backend || 'local'
+      if (backend === 'local') {
+        print(services.sync.syncToLocal(id, flags.target, { dryRun: flags['dry-run'] === true }))
+      } else if (backend === 'quark') {
+        print(services.sync.syncToQuark(id, { dryRun: flags['dry-run'] !== false }))
+      } else {
+        throw new Error(`unknown backend: ${backend}`)
+      }
+      break
+    }
+
     default:
-      print('usage: node scripts/novel.js <create|ingest|extract|list|show|characters|stats|style|plan|seasons|episodes|script> [args]')
+      print('usage: node scripts/novel.js <create|ingest|extract|list|show|characters|stats|style|plan|seasons|episodes|script|assets> [args]')
   }
 }
 

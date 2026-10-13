@@ -17,6 +17,9 @@ import {
   checkConsistency,
 } from '../services/seriesPlannerService.js'
 import { generateEpisodeScript, getEpisodeScript } from '../services/episodeScriptService.js'
+import { generateEpisodeAssets, getEpisodeAssets } from '../services/episodeAssetService.js'
+import { composeEpisode } from '../services/episodeComposeService.js'
+import { buildManifest, syncToLocal, syncToQuark } from '../services/novelSyncService.js'
 
 /**
  * 小说 → 剧集 路由（Sprint 19），挂载 /api/novels
@@ -236,6 +239,68 @@ router.get('/:id/consistency', (req, res) => {
   try {
     getNovelProject(req.params.id)
     res.json({ success: true, data: checkConsistency(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// ===== 单集资产生成（Sprint 22：图/音/视频） =====
+
+// 生成单集资产
+router.post('/:id/episodes/:eid/assets', async (req, res) => {
+  try {
+    const episode = await generateEpisodeAssets(req.params.id, req.params.eid, req.body || {})
+    res.json({ success: true, data: { episodeId: episode.id, status: episode.status, assets: episode.assets } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 读取单集资产
+router.get('/:id/episodes/:eid/assets', (req, res) => {
+  try {
+    const assets = getEpisodeAssets(req.params.id, req.params.eid)
+    if (!assets) return res.status(404).json({ success: false, error: 'assets not generated' })
+    res.json({ success: true, data: assets })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// ===== 成片 + 存储同步（Sprint 23） =====
+
+// 单集成片（多素材 → 目标时长 mp4）
+router.post('/:id/episodes/:eid/compose', async (req, res) => {
+  try {
+    const composition = await composeEpisode(req.params.id, req.params.eid, req.body || {})
+    res.json({ success: true, data: composition })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 剧集包清单
+router.get('/:id/manifest', (req, res) => {
+  try {
+    const files = buildManifest(req.params.id).map((f) => ({ rel: f.rel, size: f.size }))
+    res.json({ success: true, data: { fileCount: files.length, files } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 存储同步（本地 / 夸克网盘）
+router.post('/:id/sync', (req, res) => {
+  try {
+    const { backend = 'local', dryRun = false, targetDir, cookie } = req.body || {}
+    if (backend === 'local') {
+      if (!targetDir) return res.status(400).json({ success: false, error: 'targetDir required for local' })
+      return res.json({ success: true, data: syncToLocal(req.params.id, targetDir, { dryRun }) })
+    }
+    if (backend === 'quark') {
+      return res.json({ success: true, data: syncToQuark(req.params.id, { dryRun, cookie }) })
+    }
+    return res.status(400).json({ success: false, error: `unknown backend: ${backend}` })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

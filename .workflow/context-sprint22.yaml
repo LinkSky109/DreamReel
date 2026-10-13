@@ -1,0 +1,40 @@
+task_id: "TASK-20261012-022"
+task_name: "Sprint 22: 单集内容生成（图/音/视频；视频=火山方舟 Doubao-Seedance-2.5）"
+create_time: "2026-10-12T18:55:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+reference:
+  plan: "docs/novel-series-plan.md（§6 Sprint 22）"
+  prev_sprint_context: ".workflow/context-sprint21.yaml"
+  delivery_report: "docs/sprint22-delivery-report.md"
+  git_branch: "main"
+  git_head_at_start: "5ec1a7c feat: Sprint 21 ..."
+
+scope:
+  - id: "S22-1"
+    name: "单集资产生成（图/音/视频）"
+    features:
+      - "episodeAssetService：按集生成 关键帧图 / 旁白音 / 代表视频片段；结果记 episode.assets + 落盘 assets/<eid>.json"
+      - "图：imageProviderFactory（mock/真实）；音：ttsProviderFactory（mock/真实）"
+      - "视频：videoProviderFactory；默认 mock；配置 VIDEO_PROVIDER=seedance 走**火山方舟 Doubao-Seedance-2.5**"
+      - "API：POST/GET /api/novels/:id/episodes/:eid/assets；CLI：assets"
+  - id: "S22-2"
+    name: "Ark Doubao-Seedance 接入确认"
+    features:
+      - "复用 src/providers/seedanceVideoProvider.js（Ark endpoint ark.cn-beijing.volces.com/api/v3/contents/generations/tasks）"
+      - "config：SEEDANCE_API_KEY / SEEDANCE_BASE_URL / SEEDANCE_MODEL"
+
+out_of_scope:
+  - "多镜拼接成片（Sprint 23）"
+  - "真实 Ark 调用（需 key；本轮未验证）"
+  - "修改 /Users/link/myApp/CineAI"
+
+acceptance:
+  - "单集可产出可预览的 图/音/视频 素材（mock 路径已验证）"
+  - "Ark 视频路径可切换且缺 key 时如实报错"
+
+state_log:
+  - time: "2026-10-12T18:55:00+08:00"
+    from: "N/A"
+    to: "GLOBAL_DONE"
+    note: "Sprint 22 完成：episodeAssetService（图/音/视频）+ API/CLI；mock E2E 产出 PNG/WAV/MP4；VIDEO_PROVIDER=seedance 无 key 时如实报错（Ark Doubao-Seedance 路径已接通）。全量 552/552/0，lint 0。"

@@ -1,6 +1,8 @@
 import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import request from 'supertest'
 import app from '../src/server.js'
 import { storageService } from '../src/services/storageService.js'
@@ -144,6 +146,63 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     res = await request(app).get(`/api/novels/${id}/consistency`)
     assert.equal(res.status, 200)
     assert.ok(res.body.data.episodes >= 2)
+  })
+
+  it('HTTP: 单集资产生成（图/音/视频，mock）', async () => {
+    let res = await request(app).post('/api/novels').send({ title: '资产生成测试' })
+    const id = res.body.data.id
+    created.push(id)
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+    await request(app).post(`/api/novels/${id}/series/plan`).send({ episodesPerSeason: 1 })
+
+    res = await request(app).get(`/api/novels/${id}/episodes`)
+    const eid = res.body.data[0].id
+
+    res = await request(app).post(`/api/novels/${id}/episodes/${eid}/assets`).send({ videoTimeoutMs: 30000 })
+    assert.equal(res.status, 200)
+    const assets = res.body.data.assets
+    assert.ok(assets.image && (assets.image.url || assets.image.filePath), 'image asset')
+    assert.ok(assets.audio && assets.audio.audioUrl, 'audio asset')
+    assert.ok(assets.video && assets.video.taskId, 'video task started')
+  })
+
+  it('HTTP: 单集成片 + 清单 + 本地/夸克同步', async () => {
+    let res = await request(app).post('/api/novels').send({ title: '成片与同步测试' })
+    const id = res.body.data.id
+    created.push(id)
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+    await request(app).post(`/api/novels/${id}/series/plan`).send({ episodesPerSeason: 1 })
+    res = await request(app).get(`/api/novels/${id}/episodes`)
+    const eid = res.body.data[0].id
+
+    // 先生成素材（mock 视频需完成）
+    await request(app).post(`/api/novels/${id}/episodes/${eid}/assets`).send({ videoTimeoutMs: 60000 })
+
+    // 成片（测试用 5s 短成片，避免 90s 编码耗时）
+    res = await request(app).post(`/api/novels/${id}/episodes/${eid}/compose`).send({ seconds: 5 })
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.url)
+    assert.equal(res.body.data.hasVideo, true)
+
+    // 清单
+    res = await request(app).get(`/api/novels/${id}/manifest`)
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.fileCount >= 1)
+
+    // 本地同步（真实复制）
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-sync-'))
+    res = await request(app).post(`/api/novels/${id}/sync`).send({ backend: 'local', targetDir: target })
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.copied >= 1)
+
+    // 夸克网盘 dry-run
+    res = await request(app).post(`/api/novels/${id}/sync`).send({ backend: 'quark', dryRun: true })
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.fileCount >= 1)
+
+    // 夸克网盘真实上传（无 cookie）→ 如实失败
+    res = await request(app).post(`/api/novels/${id}/sync`).send({ backend: 'quark', dryRun: false })
+    assert.equal(res.status, 400)
   })
 
   it('HTTP: 400 / 404 语义', async () => {
