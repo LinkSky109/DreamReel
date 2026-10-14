@@ -1,24 +1,46 @@
 /**
- * 小说 → 剧集 页（#/novels 列表、#/novel/:id 详情/审核）
- * - 列表：创建小说项目、进入详情
- * - 详情：摄取（TXT 下载/粘贴文本）→ 抽取角色 → 角色表审核（修订/通过）→ 修订率
+ * 小说剧场「制作台」（#/novels 列表、#/novel/:id 详情）
+ * 覆盖全链路：阶段进度/锁定、来源、角色（备选+选定+审核）、世界观（备选+选定）、
+ * 分季分集、单集（剧本/资产/成片/交接）、风格、清单与同步。
  */
 
 import { api } from '../api.js'
 import { showToast } from '../app.js'
 
-function escapeHtml(str) {
-  const div = document.createElement('div')
-  div.textContent = str === null || str === undefined ? '' : String(str)
-  return div.innerHTML
+const STAGES = ['source', 'characters', 'world', 'series', 'episodes', 'assets', 'compose']
+const STAGE_LABEL = {
+  source: '来源',
+  characters: '角色',
+  world: '世界观',
+  series: '分季分集',
+  episodes: '单集剧本',
+  assets: '单集资产',
+  compose: '成片',
 }
+const TYPE_LABEL = { race: '种族', faction: '势力', event: '重要事件', item: '装备', culture: '文化', location: '地点', power: '力量体系', other: '其他' }
 
+const state = { novelId: null, tab: 'stage' }
+
+function esc(s) {
+  const d = document.createElement('div')
+  d.textContent = s === null || s === undefined ? '' : String(s)
+  return d.innerHTML
+}
 function unwrap(res) {
   return res && res.data !== undefined ? res.data : res
 }
+function stageIdx(stage) {
+  return STAGES.indexOf(stage)
+}
+function locked(novel, stage) {
+  return stageIdx(novel.stage) > stageIdx(stage)
+}
 
 export async function renderNovelsPage(container, novelId) {
-  if (novelId) return renderDetail(container, novelId)
+  if (novelId) {
+    state.novelId = novelId
+    return renderDetail(container)
+  }
   return renderList(container)
 }
 
@@ -28,33 +50,31 @@ async function renderList(container) {
   try {
     novels = unwrap(await api.listNovels()) || []
   } catch (err) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-text">加载失败：${escapeHtml(err.message)}</div></div>`
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-text">加载失败：${esc(err.message)}</div></div>`
     return
   }
-
   container.innerHTML = `
-    <div style="max-width:1000px;margin:0 auto;padding:24px;">
+    <div style="max-width:1100px;margin:0 auto;padding:24px;">
       <div class="page-header" style="margin-bottom:16px;">
-        <h1 class="page-title" style="margin-bottom:6px;">📚 小说 → 剧集</h1>
-        <p style="color:var(--text-secondary);font-size:13px;margin:0;">输入书名/链接 → 抽取角色 → 审核角色表（Sprint 19）</p>
+        <h1 class="page-title" style="margin-bottom:6px;">📚 小说剧场 · 制作台</h1>
+        <p style="color:var(--text-secondary);font-size:13px;margin:0;">书名/链接 → 清洗分章 → 角色 → 世界观 → 分季分集 → 剧本 → 资产 → 成片 → 同步</p>
       </div>
       <section class="card" style="padding:16px;margin-bottom:16px;">
         <form id="novelCreate" style="display:flex;gap:8px;flex-wrap:wrap;">
           <input class="form-input" name="title" placeholder="书名 *" style="flex:1;min-width:160px;" required />
-          <input class="form-input" name="author" placeholder="作者" style="width:140px;" />
-          <input class="form-input" name="url" placeholder="书籍链接（可选，如 https://www.qishuxia.com/book/34639/）" style="flex:1;min-width:260px;" />
+          <input class="form-input" name="author" placeholder="作者" style="width:130px;" />
+          <input class="form-input" name="url" placeholder="书籍链接（如 https://www.qishuxia.com/book/34639/）" style="flex:1;min-width:260px;" />
           <button class="btn btn-primary" type="submit">创建</button>
         </form>
       </section>
       <div style="display:grid;gap:10px;">
         ${novels.length ? novels.map((n) => `
-          <a href="#/novel/${escapeHtml(n.id)}" class="card" style="padding:14px;border:1px solid var(--border-color);display:block;">
-            <div style="font-weight:600;">${escapeHtml(n.title)} <span style="font-size:12px;color:var(--text-secondary);">${escapeHtml(n.author || '')}</span></div>
-            <div style="font-size:12px;color:var(--text-secondary);">状态 ${escapeHtml(n.status)} · 章节 ${escapeHtml((n.counts && n.counts.chapters) || 0)} · 角色 ${escapeHtml((n.counts && n.counts.characters) || 0)}</div>
+          <a href="#/novel/${esc(n.id)}" class="card" style="padding:14px;border:1px solid var(--border-color);display:block;">
+            <div style="font-weight:600;">${esc(n.title)} <span style="font-size:12px;color:var(--text-secondary);">${esc(n.author || '')}</span></div>
+            <div style="font-size:12px;color:var(--text-secondary);">阶段 ${esc(STAGE_LABEL[n.stage] || n.stage)} · 章 ${esc((n.counts && n.counts.chapters) || 0)} · 角色 ${esc((n.counts && n.counts.characters) || 0)} · 集 ${esc((n.counts && n.counts.episodes) || 0)}</div>
           </a>`).join('') : '<div style="color:var(--text-secondary);">还没有小说项目</div>'}
       </div>
-    </div>
-  `
+    </div>`
 
   container.querySelector('#novelCreate')?.addEventListener('submit', async (e) => {
     e.preventDefault()
@@ -75,115 +95,360 @@ async function renderList(container) {
   })
 }
 
-async function renderDetail(container, novelId) {
+async function renderDetail(container) {
   container.innerHTML = '<div class="loading"></div>'
+  const id = state.novelId
   let novel
-  let chars = []
   try {
-    novel = unwrap(await api.getNovel(novelId))
-    chars = unwrap(await api.listNovelCharacters(novelId)) || []
+    novel = unwrap(await api.getNovel(id))
   } catch (err) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-text">加载失败：${escapeHtml(err.message)}</div><button class="btn" onclick="location.hash='#/novels'">返回</button></div>`
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-text">加载失败：${esc(err.message)}</div><button class="btn" onclick="location.hash='#/novels'">返回</button></div>`
     return
   }
-  const stats = novel.reviewStats || { revisionRate: 0, approved: 0, characters: chars.length }
+
+  const tabs = [
+    ['stage', '阶段'],
+    ['source', '来源'],
+    ['characters', '角色'],
+    ['world', '世界观'],
+    ['series', '分季分集'],
+    ['episode', '单集'],
+    ['sync', '风格/同步'],
+  ]
 
   container.innerHTML = `
-    <div style="max-width:1100px;margin:0 auto;padding:24px;">
+    <div style="max-width:1120px;margin:0 auto;padding:24px;">
       <a href="#/novels" style="font-size:13px;color:var(--text-secondary);">← 返回列表</a>
-      <h1 class="page-title" style="margin:8px 0;">📖 ${escapeHtml(novel.title)}</h1>
+      <h1 class="page-title" style="margin:8px 0 4px;">📖 ${esc(novel.title)}</h1>
       <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">
-        作者 ${escapeHtml(novel.author || '-')} · 分类 ${escapeHtml(novel.category || '-')} · 状态 ${escapeHtml(novel.status)} ·
-        章节 ${escapeHtml((novel.counts && novel.counts.chapters) || 0)} · 角色 ${escapeHtml(chars.length)} ·
-        修订率 ${(stats.revisionRate * 100).toFixed(1)}% · 已通过 ${escapeHtml(stats.approved)}
+        ${esc(novel.author || '-')} · ${esc(novel.category || '-')} · 阶段 <b>${esc(STAGE_LABEL[novel.stage] || novel.stage)}</b> ·
+        章 ${esc((novel.counts && novel.counts.chapters) || 0)} · 角色 ${esc((novel.counts && novel.counts.characters) || 0)} · 集 ${esc((novel.counts && novel.counts.episodes) || 0)}
       </div>
+      <div id="nvTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+        ${tabs.map(([k, label]) => `<button class="btn btn-sm ${state.tab === k ? 'btn-primary' : ''}" data-tab="${k}">${label}</button>`).join('')}
+      </div>
+      <div id="nvBody"></div>
+    </div>`
 
-      <section class="card" style="padding:16px;margin-bottom:16px;display:grid;gap:10px;">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <input id="novelUrl" class="form-input" style="flex:1;min-width:260px;" value="${escapeHtml(novel.sourceRef || '')}" placeholder="书籍链接（TXT 下载）" />
-          <button id="btnIngest" class="btn">摄取（TXT/文本）</button>
-          <button id="btnExtract" class="btn btn-primary">抽取角色</button>
-        </div>
-        <textarea id="novelText" class="form-input" rows="3" placeholder="或直接粘贴小说文本（前若干章）后点摄取"></textarea>
-      </section>
-
-      <section class="card" style="padding:16px;">
-        <h3 style="margin-top:0;">角色表</h3>
-        <div style="display:grid;gap:10px;">
-          ${chars.length ? chars.map((c) => renderCharacterRow(novelId, c)).join('') : '<div style="color:var(--text-secondary);font-size:13px;">暂无角色，先摄取正文再抽取</div>'}
-        </div>
-      </section>
-    </div>
-  `
-
-  container.querySelector('#btnIngest')?.addEventListener('click', async () => {
-    const url = container.querySelector('#novelUrl')?.value?.trim()
-    const text = container.querySelector('#novelText')?.value?.trim()
-    try {
-      await api.ingestNovel(novelId, url ? { sourceType: 'qishuxia-txt', url, maxChapters: 100 } : { sourceType: 'text', text })
-      showToast('摄取完成', 'success')
-      renderDetail(container, novelId)
-    } catch (err) {
-      showToast(err.message, 'error')
-    }
-  })
-
-  container.querySelector('#btnExtract')?.addEventListener('click', async () => {
-    try {
-      await api.extractNovelCharacters(novelId, { provider: 'heuristic', minFreq: 8 })
-      showToast('抽取完成（启发式，低精度基线）', 'success')
-      renderDetail(container, novelId)
-    } catch (err) {
-      showToast(err.message, 'error')
-    }
-  })
-
-  container.querySelectorAll('button[data-approve]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      try {
-        await api.approveNovelCharacter(novelId, btn.dataset.approve)
-        renderDetail(container, novelId)
-      } catch (err) {
-        showToast(err.message, 'error')
-      }
+  container.querySelectorAll('#nvTabs button[data-tab]').forEach((b) => {
+    b.addEventListener('click', () => {
+      state.tab = b.dataset.tab
+      renderDetail(container)
     })
   })
 
-  container.querySelectorAll('button[data-edit]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const cid = btn.dataset.edit
-      const key = window.prompt('要修改的字段（personality/appearance/voice/catchphrase/relations/abilities/growth）：', 'personality')
-      if (!key) return
-      const value = window.prompt(`新的 ${key}：`, '')
-      if (value === null) return
-      try {
-        await api.patchNovelCharacter(novelId, cid, { card: { [key]: value } })
-        showToast('已保存修订', 'success')
-        renderDetail(container, novelId)
-      } catch (err) {
-        showToast(err.message, 'error')
-      }
-    })
+  const body = container.querySelector('#nvBody')
+  const ctx = { container, body, id, novel, refresh: () => renderDetail(container) }
+  try {
+    if (state.tab === 'stage') await tabStage(ctx)
+    else if (state.tab === 'source') await tabSource(ctx)
+    else if (state.tab === 'characters') await tabCharacters(ctx)
+    else if (state.tab === 'world') await tabWorld(ctx)
+    else if (state.tab === 'series') await tabSeries(ctx)
+    else if (state.tab === 'episode') await tabEpisode(ctx)
+    else await tabSync(ctx)
+  } catch (err) {
+    body.innerHTML = `<div class="empty-state"><div class="empty-state-text">${esc(err.message)}</div></div>`
+  }
+}
+
+// ---------- 阶段 ----------
+async function tabStage({ body, novel, id, refresh }) {
+  const cur = stageIdx(novel.stage)
+  body.innerHTML = `
+    <section class="card" style="padding:16px;">
+      <h3 style="margin-top:0;">阶段进度</h3>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+        ${STAGES.map((s, i) => {
+          const done = i < cur
+          const active = i === cur
+          const color = active ? 'var(--accent,#4f46e5)' : done ? '#16a34a' : 'var(--border-color)'
+          return `<div style="padding:6px 10px;border-radius:999px;border:1px solid ${color};font-size:12px;${active ? 'font-weight:700;' : ''}">${i + 1}. ${esc(STAGE_LABEL[s])}${done ? ' ✓' : ''}</div>`
+        }).join('')}
+      </div>
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">进入下一阶段后，之前的阶段将<b>锁定不可修改</b>。角色设定卡 / 世界观设定集可先多次生成<b>备选</b>，选定后再推进。</p>
+      <button class="btn btn-primary" id="nvAdvance" ${cur >= STAGES.length - 1 ? 'disabled' : ''}>推进到下一阶段（${esc(STAGE_LABEL[STAGES[Math.min(cur + 1, STAGES.length - 1)]] || '完成')}）</button>
+    </section>`
+  body.querySelector('#nvAdvance')?.addEventListener('click', async () => {
+    if (!confirm('推进阶段后，之前阶段将锁定，确定继续？')) return
+    try {
+      await api.advanceNovel(id)
+      showToast('已推进阶段', 'success')
+      refresh()
+    } catch (err) {
+      showToast(err.message, 'error')
+    }
   })
 }
 
-function renderCharacterRow(novelId, c) {
-  const card = c.card || {}
-  return `
-    <div style="border:1px solid var(--border-color);border-radius:8px;padding:12px;">
-      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-        <div>
-          <div style="font-weight:600;">${escapeHtml(c.name)} ${(c.aliases || []).length ? `<span style="font-size:12px;color:var(--text-secondary);">别名 ${escapeHtml(c.aliases.join('/'))}</span>` : ''}</div>
-          <div style="font-size:12px;color:var(--text-secondary);">provider ${escapeHtml(c.provider)} · ${escapeHtml(c.status)}</div>
-        </div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-sm" data-edit="${escapeHtml(c.id)}">修订字段</button>
-          <button class="btn btn-sm" data-approve="${escapeHtml(c.id)}">通过</button>
+// ---------- 来源 ----------
+async function tabSource({ body, novel, id, refresh }) {
+  const lk = locked(novel, 'source')
+  body.innerHTML = `
+    <section class="card" style="padding:16px;">
+      <h3 style="margin-top:0;">来源 ${lk ? '<span style="font-size:12px;color:#d97706;">（已锁定）</span>' : ''}</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+        <input id="nvUrl" class="form-input" style="flex:1;min-width:260px;" value="${esc(novel.sourceRef || '')}" placeholder="书籍链接（TXT 下载，只下载一次）" ${lk ? 'disabled' : ''} />
+        <button id="nvIngest" class="btn" ${lk ? 'disabled' : ''}>摄取（TXT/文本）</button>
+      </div>
+      <textarea id="nvText" class="form-input" rows="3" placeholder="或粘贴小说文本后摄取" ${lk ? 'disabled' : ''}></textarea>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">已摄取 ${esc((novel.counts && novel.counts.chapters) || 0)} 章（清洗后文本为准，仅下载一次）</div>
+    </section>`
+  body.querySelector('#nvIngest')?.addEventListener('click', async () => {
+    const url = body.querySelector('#nvUrl')?.value?.trim()
+    const text = body.querySelector('#nvText')?.value?.trim()
+    try {
+      await api.ingestNovel(id, url ? { sourceType: 'qishuxia-txt', url } : { sourceType: 'text', text })
+      showToast('摄取完成', 'success')
+      refresh()
+    } catch (err) {
+      showToast(err.message, 'error')
+    }
+  })
+}
+
+// ---------- 角色 ----------
+async function tabCharacters({ body, novel, id, refresh }) {
+  const lk = locked(novel, 'characters')
+  const [chars, sets, stats] = await Promise.all([
+    api.listNovelCharacters(id).then(unwrap),
+    api.listNovelCharacterSets(id).then(unwrap).catch(() => []),
+    api.novelReviewStats(id).then(unwrap).catch(() => ({})),
+  ])
+  body.innerHTML = `
+    <section class="card" style="padding:16px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;">角色 ${lk ? '<span style="font-size:12px;color:#d97706;">（已锁定）</span>' : ''}</h3>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <label style="font-size:12px;color:var(--text-secondary);">引擎</label>
+          <select id="nvExtractProvider" class="form-input" style="padding:4px;" ${lk ? 'disabled' : ''}>
+            <option value="llm">LLM（真实）</option>
+            <option value="heuristic">启发式（离线）</option>
+          </select>
+          <button id="nvExtract" class="btn btn-primary btn-sm" ${lk ? 'disabled' : ''}>生成角色（新备选）</button>
         </div>
       </div>
-      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">
-        外形：${escapeHtml(card.appearance || '-')} ｜ 性格：${escapeHtml(card.personality || '-')} ｜ 声线：${escapeHtml(card.voice || '-')}
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">修订率 ${((stats.revisionRate || 0) * 100).toFixed(1)}% · 已通过 ${esc(stats.approved || 0)} / ${esc(chars.length)}</div>
+      ${sets.length ? `<div style="margin-top:10px;font-size:12px;">备选集合：${sets.map((s) => `<button class="btn btn-sm ${s.selected ? 'btn-primary' : ''}" data-cset="${esc(s.id)}" ${lk ? 'disabled' : ''}>${s.count} 个 · ${esc(s.provider)}${s.selected ? '（当前）' : ''}</button>`).join(' ')}</div>` : ''}
+    </section>
+    <div style="display:grid;gap:10px;">
+      ${chars.length ? chars.map((c) => `
+        <div class="card" style="padding:12px;border:1px solid var(--border-color);">
+          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div><b>${esc(c.name)}</b> ${(c.aliases || []).length ? `<span style="font-size:12px;color:var(--text-secondary);">别名 ${esc(c.aliases.join('/'))}</span>` : ''}
+              <span style="font-size:12px;color:var(--text-secondary);"> · ${esc(c.provider)} · ${esc(c.status)}</span></div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-sm" data-cedit="${esc(c.id)}" ${lk ? 'disabled' : ''}>修订</button>
+              <button class="btn btn-sm" data-capprove="${esc(c.id)}" ${lk ? 'disabled' : ''}>通过</button>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">外形：${esc((c.card && c.card.appearance) || '-')} ｜ 性格：${esc((c.card && c.card.personality) || '-')} ｜ 声线：${esc((c.card && c.card.voice) || '-')}</div>
+        </div>`).join('') : '<div style="color:var(--text-secondary);">暂无角色，先在「来源」摄取后点“生成角色”</div>'}
+    </div>`
+
+  body.querySelector('#nvExtract')?.addEventListener('click', async () => {
+    const provider = body.querySelector('#nvExtractProvider').value
+    try {
+      await api.extractNovelCharacters(id, { provider, minFreq: 1 })
+      showToast('已生成角色备选', 'success')
+      refresh()
+    } catch (err) {
+      showToast(err.message, 'error')
+    }
+  })
+  body.querySelectorAll('[data-cset]').forEach((b) => b.addEventListener('click', async () => {
+    try { await api.selectNovelCharacterSet(id, b.dataset.cset); refresh() } catch (err) { showToast(err.message, 'error') }
+  }))
+  body.querySelectorAll('[data-capprove]').forEach((b) => b.addEventListener('click', async () => {
+    try { await api.approveNovelCharacter(id, b.dataset.capprove); refresh() } catch (err) { showToast(err.message, 'error') }
+  }))
+  body.querySelectorAll('[data-cedit]').forEach((b) => b.addEventListener('click', async () => {
+    const key = prompt('修改字段（appearance/personality/voice/catchphrase/relations/abilities/growth/name）：', 'personality')
+    if (!key) return
+    const value = prompt(`新的 ${key}：`, '')
+    if (value === null) return
+    try {
+      await api.patchNovelCharacter(id, b.dataset.cedit, key === 'name' ? { name: value } : { card: { [key]: value } })
+      showToast('已保存', 'success')
+      refresh()
+    } catch (err) { showToast(err.message, 'error') }
+  }))
+}
+
+// ---------- 世界观 ----------
+async function tabWorld({ body, novel, id, refresh }) {
+  const lk = locked(novel, 'world')
+  const [summary, entities, relations, sets] = await Promise.all([
+    api.getNovelWorld(id).then(unwrap).catch(() => ({})),
+    api.listNovelWorldEntities(id).then(unwrap).catch(() => []),
+    api.listNovelWorldRelations(id).then(unwrap).catch(() => []),
+    api.listNovelWorldSets(id).then(unwrap).catch(() => []),
+  ])
+  const byType = summary.byType || {}
+  body.innerHTML = `
+    <section class="card" style="padding:16px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;">世界观 ${lk ? '<span style="font-size:12px;color:#d97706;">（已锁定）</span>' : ''}</h3>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <label style="font-size:12px;color:var(--text-secondary);">引擎</label>
+          <select id="nvWorldProvider" class="form-input" style="padding:4px;" ${lk ? 'disabled' : ''}>
+            <option value="llm">LLM（真实）</option>
+            <option value="heuristic">启发式（离线）</option>
+          </select>
+          <button id="nvWorld" class="btn btn-primary btn-sm" ${lk ? 'disabled' : ''}>生成世界观（新备选）</button>
+        </div>
       </div>
-    </div>
-  `
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">
+        实体 ${esc(summary.total || 0)} · 关系 ${esc(summary.relations || 0)} ·
+        ${Object.entries(TYPE_LABEL).map(([k, l]) => `${l} ${esc(byType[k] || 0)}`).join(' · ')}
+      </div>
+      ${(summary.missingCoreTypes || []).length ? `<div style="font-size:12px;color:#d97706;margin-top:4px;">缺失核心类型：${esc(summary.missingCoreTypes.join('、'))}（可换引擎或增大章节范围）</div>` : ''}
+      ${sets.length ? `<div style="margin-top:10px;font-size:12px;">备选集合：${sets.map((s) => `<button class="btn btn-sm ${s.selected ? 'btn-primary' : ''}" data-wset="${esc(s.id)}" ${lk ? 'disabled' : ''}>${s.count} 实体 · ${esc(s.provider)}${s.selected ? '（当前）' : ''}</button>`).join(' ')}</div>` : ''}
+    </section>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <section class="card" style="padding:14px;">
+        <h4 style="margin-top:0;">实体</h4>
+        <div style="display:grid;gap:6px;max-height:420px;overflow:auto;">
+          ${entities.length ? entities.map((e) => `<div style="font-size:13px;"><b>[${esc(TYPE_LABEL[e.type] || e.type)}]</b> ${esc(e.name)} <span style="color:var(--text-secondary);font-size:12px;">x${esc(e.mentions || 0)}</span></div>`).join('') : '<div style="color:var(--text-secondary);">暂无</div>'}
+        </div>
+      </section>
+      <section class="card" style="padding:14px;">
+        <h4 style="margin-top:0;">关系</h4>
+        <div style="display:grid;gap:6px;max-height:420px;overflow:auto;">
+          ${relations.length ? relations.map((r) => `<div style="font-size:13px;">${esc(r.fromName)} <span style="color:var(--text-secondary);">-[${esc(r.kind)}]-></span> ${esc(r.toName)}</div>`).join('') : '<div style="color:var(--text-secondary);">暂无</div>'}
+        </div>
+      </section>
+    </div>`
+
+  body.querySelector('#nvWorld')?.addEventListener('click', async () => {
+    const provider = body.querySelector('#nvWorldProvider').value
+    try {
+      await api.extractNovelWorld(id, { provider, maxChapters: 30, chunkSize: 10 })
+      showToast('已生成世界观备选', 'success')
+      refresh()
+    } catch (err) {
+      showToast(err.message, 'error')
+    }
+  })
+  body.querySelectorAll('[data-wset]').forEach((b) => b.addEventListener('click', async () => {
+    try { await api.selectNovelWorldSet(id, b.dataset.wset); refresh() } catch (err) { showToast(err.message, 'error') }
+  }))
+}
+
+// ---------- 分季分集 ----------
+async function tabSeries({ body, novel, id, refresh }) {
+  const lk = locked(novel, 'series')
+  const [seasons, episodes] = await Promise.all([
+    api.listNovelSeasons(id).then(unwrap).catch(() => []),
+    api.listNovelEpisodes(id).then(unwrap).catch(() => []),
+  ])
+  body.innerHTML = `
+    <section class="card" style="padding:16px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;">分季分集 ${lk ? '<span style="font-size:12px;color:#d97706;">（已锁定）</span>' : ''}</h3>
+        <button id="nvPlan" class="btn btn-primary btn-sm" ${lk ? 'disabled' : ''}>规划（1章≥1集，每季≥200集）</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">季 ${esc(seasons.length)} · 集 ${esc(episodes.length)}（每集目标 90s，85–95s）</div>
+    </section>
+    <div style="display:grid;gap:8px;">
+      ${seasons.length ? seasons.slice(0, 30).map((s) => `
+        <div class="card" style="padding:10px;border:1px solid var(--border-color);font-size:13px;">
+          <b>${esc(s.title)}</b> · ${esc(s.episodeCount)} 集 · 章 ${esc(s.chapterStart)}-${esc(s.chapterEnd)}
+        </div>`).join('') : '<div style="color:var(--text-secondary);">暂无季/集，点“规划”</div>'}
+    </div>`
+
+  body.querySelector('#nvPlan')?.addEventListener('click', async () => {
+    try {
+      await api.planNovelSeries(id, {})
+      showToast('规划完成', 'success')
+      refresh()
+    } catch (err) {
+      showToast(err.message, 'error')
+    }
+  })
+}
+
+// ---------- 单集 ----------
+async function tabEpisode({ body, novel, id, refresh }) {
+  const seasons = await api.listNovelSeasons(id).then(unwrap).catch(() => [])
+  const seasonId = state.seasonId && seasons.some((s) => s.id === state.seasonId) ? state.seasonId : seasons[0]?.id
+  state.seasonId = seasonId
+  const episodes = seasonId ? await api.listNovelEpisodes(id, seasonId).then(unwrap).catch(() => []) : []
+  const lkScript = locked(novel, 'episodes')
+  const lkAssets = locked(novel, 'assets')
+  const lkCompose = locked(novel, 'compose')
+
+  body.innerHTML = `
+    <section class="card" style="padding:16px;margin-bottom:14px;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <label style="font-size:13px;">季</label>
+        <select id="nvSeason" class="form-input" style="padding:4px;max-width:260px;">
+          ${seasons.map((s) => `<option value="${esc(s.id)}" ${s.id === seasonId ? 'selected' : ''}>${esc(s.title)}（${esc(s.episodeCount)} 集）</option>`).join('') || '<option>（无季）</option>'}
+        </select>
+        <span style="font-size:12px;color:var(--text-secondary);">单集：剧本 ${lkScript ? '锁定' : '可改'} / 资产 ${lkAssets ? '锁定' : '可改'} / 成片 ${lkCompose ? '锁定' : '可改'}</span>
+      </div>
+    </section>
+    <div style="display:grid;gap:8px;">
+      ${episodes.length ? episodes.slice(0, 40).map((e) => `
+        <div class="card" style="padding:10px;border:1px solid var(--border-color);">
+          <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;">
+            <div style="font-size:13px;"><b>#${esc(e.episodeNo)}</b> ${esc(e.title)} <span style="color:var(--text-secondary);font-size:12px;">· ${esc(e.targetSeconds)}s · ${esc(e.status)}${e.screenplay ? ` · ${esc(e.screenplay.totalSeconds)}s` : ''}</span></div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-sm" data-script="${esc(e.id)}" ${lkScript ? 'disabled' : ''}>剧本</button>
+              <button class="btn btn-sm" data-assets="${esc(e.id)}" ${lkAssets ? 'disabled' : ''}>资产</button>
+              <button class="btn btn-sm" data-compose="${esc(e.id)}" ${lkCompose ? 'disabled' : ''}>成片</button>
+              <button class="btn btn-sm" data-handoff="${esc(e.id)}">交接导出</button>
+            </div>
+          </div>
+        </div>`).join('') : '<div style="color:var(--text-secondary);">该季暂无集，请先在「分季分集」规划</div>'}
+    </div>`
+
+  body.querySelector('#nvSeason')?.addEventListener('change', (ev) => {
+    state.seasonId = ev.target.value
+    refresh()
+  })
+  body.querySelectorAll('[data-script]').forEach((b) => b.addEventListener('click', async () => {
+    try { await api.generateEpisodeScript(id, b.dataset.script, {}); showToast('剧本已生成', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
+  }))
+  body.querySelectorAll('[data-assets]').forEach((b) => b.addEventListener('click', async () => {
+    try { await api.generateEpisodeAssets(id, b.dataset.assets, {}); showToast('资产已生成', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
+  }))
+  body.querySelectorAll('[data-compose]').forEach((b) => b.addEventListener('click', async () => {
+    try { await api.composeEpisode(id, b.dataset.compose, {}); showToast('成片完成', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
+  }))
+  body.querySelectorAll('[data-handoff]').forEach((b) => b.addEventListener('click', async () => {
+    try { const r = unwrap(await api.exportEpisodeHandoff(id, b.dataset.handoff)); showToast('交接包已导出：' + (r.dir || ''), 'success') } catch (err) { showToast(err.message, 'error') }
+  }))
+}
+
+// ---------- 风格 / 同步 ----------
+async function tabSync({ body, novel, id, refresh }) {
+  const manifest = await api.getNovelManifest(id).then(unwrap).catch(() => ({ files: [] }))
+  body.innerHTML = `
+    <section class="card" style="padding:16px;margin-bottom:14px;">
+      <h3 style="margin-top:0;">全书风格</h3>
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">${novel.style && novel.style.name ? `${esc(novel.style.name)}｜${esc(novel.style.visual || '')}` : '（未生成）'}</div>
+      <button id="nvStyle" class="btn btn-sm">生成风格（LLM）</button>
+    </section>
+    <section class="card" style="padding:16px;">
+      <h3 style="margin-top:0;">剧集包 / 同步</h3>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">清单文件数 ${esc((manifest.files || []).length)}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input id="nvSyncDir" class="form-input" style="flex:1;min-width:240px;" placeholder="本地同步目标目录（如 /Users/link/out）" />
+        <button id="nvSyncLocal" class="btn btn-sm">同步到本地</button>
+        <button id="nvSyncQuark" class="btn btn-sm">夸克网盘 dry-run</button>
+      </div>
+    </section>`
+
+  body.querySelector('#nvStyle')?.addEventListener('click', async () => {
+    try { await api.generateNovelStyle(id); showToast('风格已生成', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
+  })
+  body.querySelector('#nvSyncLocal')?.addEventListener('click', async () => {
+    const targetDir = body.querySelector('#nvSyncDir')?.value?.trim()
+    if (!targetDir) return showToast('请填目标目录', 'error')
+    try { const r = unwrap(await api.syncNovel(id, { backend: 'local', targetDir })); showToast(`已复制 ${r.copied} 个文件`, 'success') } catch (err) { showToast(err.message, 'error') }
+  })
+  body.querySelector('#nvSyncQuark')?.addEventListener('click', async () => {
+    try { const r = unwrap(await api.syncNovel(id, { backend: 'quark', dryRun: true })); showToast(`夸克 dry-run：${r.fileCount} 个文件`, 'success') } catch (err) { showToast(err.message, 'error') }
+  })
 }

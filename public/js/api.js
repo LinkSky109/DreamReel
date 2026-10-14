@@ -477,6 +477,30 @@ export const api = {
   approveNovelCharacter: (id, cid) =>
     request(`/novels/${id}/characters/${cid}/approve`, { method: 'POST', body: {} }),
   novelReviewStats: (id) => request(`/novels/${id}/review-stats`),
+  advanceNovel: (id, to) => request(`/novels/${id}/advance`, { method: 'POST', body: { to } }),
+  generateNovelStyle: (id) => request(`/novels/${id}/style/generate`, { method: 'POST', body: {} }),
+  // 角色备选
+  listNovelCharacterSets: (id) => request(`/novels/${id}/characters/sets`),
+  selectNovelCharacterSet: (id, setId) => request(`/novels/${id}/characters/select`, { method: 'POST', body: { setId } }),
+  // 世界观
+  extractNovelWorld: (id, data = {}) => request(`/novels/${id}/world/extract`, { method: 'POST', body: data }),
+  getNovelWorld: (id) => request(`/novels/${id}/world`),
+  listNovelWorldEntities: (id, type) => request(`/novels/${id}/world/entities${type ? `?type=${type}` : ''}`),
+  listNovelWorldRelations: (id) => request(`/novels/${id}/world/relations`),
+  listNovelWorldSets: (id) => request(`/novels/${id}/world/sets`),
+  selectNovelWorldSet: (id, setId) => request(`/novels/${id}/world/select`, { method: 'POST', body: { setId } }),
+  // 分季分集 + 单集
+  planNovelSeries: (id, data = {}) => request(`/novels/${id}/series/plan`, { method: 'POST', body: data }),
+  listNovelSeasons: (id) => request(`/novels/${id}/seasons`),
+  listNovelEpisodes: (id, seasonId) => request(`/novels/${id}/episodes${seasonId ? `?seasonId=${seasonId}` : ''}`),
+  generateEpisodeScript: (id, eid, data = {}) => request(`/novels/${id}/episodes/${eid}/script`, { method: 'POST', body: data }),
+  generateEpisodeAssets: (id, eid, data = {}) => request(`/novels/${id}/episodes/${eid}/assets`, { method: 'POST', body: data }),
+  composeEpisode: (id, eid, data = {}) => request(`/novels/${id}/episodes/${eid}/compose`, { method: 'POST', body: data }),
+  exportEpisodeHandoff: (id, eid) => request(`/novels/${id}/episodes/${eid}/handoff`, { method: 'POST', body: {} }),
+  importEpisodeHandoff: (id, eid, filePath) => request(`/novels/${id}/episodes/${eid}/handoff/import`, { method: 'POST', body: { filePath } }),
+  listNovelHandoff: (id) => request(`/novels/${id}/handoff`),
+  getNovelManifest: (id) => request(`/novels/${id}/manifest`),
+  syncNovel: (id, data) => request(`/novels/${id}/sync`, { method: 'POST', body: data }),
 }
 
 export default api
