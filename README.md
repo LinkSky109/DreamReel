@@ -305,8 +305,42 @@ docker-compose down
 | POST | `/api/novels/:id/episodes/:eid/compose` | 单集成片（片段循环到目标时长 + 混音/静音轨）→ mp4，body `{ seconds? }` |
 | GET | `/api/novels/:id/manifest` | 剧集包清单（novels/** + exports 成片） |
 | POST | `/api/novels/:id/sync` | 存储同步，body `{ backend: 'local'\|'quark', dryRun?, targetDir?, cookie? }`；本地真实复制，夸克网盘 dry-run，真实上传需 `QUARK_COOKIE` |
+| POST | `/api/novels/:id/episodes/:eid/handoff` | 导出单集"外部生成"交接包（prompt.txt + spec.json + refs/） |
+| POST | `/api/novels/:id/episodes/:eid/handoff/import` | 回传外部产物 mp4，body `{ filePath }` |
+| GET | `/api/novels/:id/handoff` | 交接列表 |
+| POST | `/api/novels/:id/world/extract` | 抽取世界观，body `{ provider?: 'llm'\|'heuristic', maxChapters?, chunkSize? }` |
+| GET | `/api/novels/:id/world` | 世界观概览（各类型计数 / 关系数 / 缺失核心类型） |
+| GET | `/api/novels/:id/world/entities?type=` | 世界观实体列表（可按类型过滤） |
+| GET | `/api/novels/:id/world/relations` | 实体关系列表 |
+| POST | `/api/novels/:id/advance` | 推进阶段，body `{ to? }`；进入下一阶段后**之前阶段锁定**（不可修改），锁定操作返回 409 |
+| GET | `/api/novels/:id/characters/sets` | 角色备选集合列表 |
+| POST | `/api/novels/:id/characters/select` | 选定角色集合，body `{ setId }` |
+| GET | `/api/novels/:id/world/sets` | 世界观备选集合列表 |
+| POST | `/api/novels/:id/world/select` | 选定世界观集合，body `{ setId }` |
 
-> CLI：`npm run novel -- <create|ingest|extract|list|show|characters|stats|style|plan|seasons|episodes|script|assets|compose|manifest|sync>`。来源首选站点 **TXT 下载**（两跳 Cookie + GB18030 解码）；**不绕过**登录/验证码/加密。抽取默认**离线启发式**（低精度基线）；**配置 `LLM_PROVIDER=opencode` 后走真实 LLM**（Vercel AI SDK + `ai-sdk-provider-opencode-sdk`，本机 OpenCode 2.x 服务；或 `OPENCODE_BASE_URL`+`OPENCODE_PASSWORD`）。分季分集为**规则驱动**（确定性）；单集剧本启发式必落 85–95s，LLM 可选。视频生成：`VIDEO_PROVIDER=seedance` + `SEEDANCE_API_KEY` + `SEEDANCE_MODEL`（Ark Doubao-Seedance-2.5）。产出落 `storage/novels/<id>/`，成片落 `storage/exports/novels/<id>/`。
+> **阶段与锁定**：`source → characters → world → series → episodes → assets → compose`。**源文本/世界观提取一次**；**角色设定卡与世界观设定集可多次生成备选**，选定后**进入下一阶段即不可修改**。
+
+> CLI：`npm run novel -- <create|ingest|extract|list|show|characters|stats|style|plan|seasons|episodes|script|assets|compose|manifest|sync|handoff|handoff-import|handoff-list|world|world-show|world-entities|world-relations>`。来源首选站点 **TXT 下载**（两跳 Cookie + GB18030 解码）；**不绕过**登录/验证码/加密。抽取默认**离线启发式**（低精度基线）；**配置 `LLM_PROVIDER=opencode` 后走真实 LLM**（Vercel AI SDK + `ai-sdk-provider-opencode-sdk`，本机 OpenCode 2.x 服务；或 `OPENCODE_BASE_URL`+`OPENCODE_PASSWORD`）。分季分集为**规则驱动**（确定性）；单集剧本启发式必落 85–95s，LLM 可选。视频生成：`VIDEO_PROVIDER=seedance` + `SEEDANCE_API_KEY` + `SEEDANCE_MODEL`（Ark Doubao-Seedance-2.5）。产出落 `storage/novels/<id>/`，成片落 `storage/exports/novels/<id>/`。
+
+**单集"外部生成"交接**（视频 plan 受限时的替代流程）：导出提示词/规格/参考图 → 交外部平台生成 → 结果放回视频目录并 import。
+```
+storage/novels/<novelId>/handoff/<episodeId>/
+├─ prompt.txt        生成提示词（风格+分镜+时长/比例）
+├─ spec.json         规格（时长/比例/分辨率/建议模型/回传路径/分镜表）
+└─ refs/keyframe.png, characters.txt   参考图与角色参考
+回传 → storage/videos/novels/<novelId>/<episodeId>.mp4（import 后写入 episode.assets.video）
+```
+
+**媒体产物路径规划**（按 `novels/<novelId>/` 归类，均在已服务的媒体根下）：
+
+```
+storage/images/novels/<novelId>/<episodeId>_frame.png      单集关键帧图（真实/占位）
+storage/videos/novels/<novelId>/<episodeId>.mp4            单集视频片段（真实模型产物下载到此）
+storage/audio/voices/novels/<novelId>/<episodeId>.<ext>    单集旁白音
+storage/exports/novels/<novelId>/<episodeId>.mp4           单集成片
+storage/novels/<novelId>/                                  项目元数据/原文/切片/角色/剧本/清单/同步账本
+```
+对应 URL：`/storage/images|videos|audio/voices|exports/novels/<novelId>/...`。
 
 ### 配音字幕
 

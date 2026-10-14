@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { storageService } from './storageService.js'
 import { NovelChunk } from '../models/NovelChunk.js'
-import { getNovelProject, updateNovelProject, writeNovelFile, novelDir } from './novelProjectService.js'
+import { getNovelProject, updateNovelProject, writeNovelFile, novelDir, assertEditable } from './novelProjectService.js'
 import { fetchQishuxiaTxt } from './novelSourceService.js'
 
 /** 章节标题（第X章 / 第X节 / 第X回） */
@@ -82,6 +82,7 @@ export function splitChapters(raw) {
  */
 export async function ingestNovel(novelId, { sourceType = 'text', text, url, maxChapters, force = false } = {}) {
   const project = getNovelProject(novelId)
+  assertEditable(project, 'source')
   const cleanedAbs = path.join(novelDir(novelId), 'source', 'cleaned.txt')
   let cleaned
   let meta = {}

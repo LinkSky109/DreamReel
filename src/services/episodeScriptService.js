@@ -2,7 +2,7 @@ import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import { getLLMProvider } from '../providers/llmProviderFactory.js'
 import { storageService } from './storageService.js'
-import { getNovelProject, readNovelFile } from './novelProjectService.js'
+import { getNovelProject, readNovelFile, assertEditable } from './novelProjectService.js'
 
 /**
  * 单集剧本生成（Sprint 21 / S21-3）
@@ -55,7 +55,8 @@ ${text.slice(0, 6000)}`,
 }
 
 export async function generateEpisodeScript(novelId, episodeId, opts = {}) {
-  getNovelProject(novelId)
+  const project = getNovelProject(novelId)
+  assertEditable(project, 'episodes')
   const ep = storageService.getEpisode(episodeId)
   if (!ep || ep.novelId !== novelId) throw new Error(`episode not found: ${episodeId}`)
 

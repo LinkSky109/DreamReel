@@ -125,6 +125,9 @@ class StorageService {
       novelCharacterStates: {},
       seriesSeasons: {},
       seriesEpisodes: {},
+      novelWorldEntities: {},
+      characterSets: {},
+      worldSets: {},
       meta: { version: 1, createdAt: new Date().toISOString() },
     }
     this.save()
@@ -452,6 +455,58 @@ class StorageService {
     this.data.seriesEpisodes[episode.id] = episode
     this.save()
     return episode
+  }
+
+  // ============ Worldbuilding（世界观实体） ============
+
+  createWorldEntity(entity) {
+    if (!this.data.novelWorldEntities) this.data.novelWorldEntities = {}
+    this.data.novelWorldEntities[entity.id] = entity
+    this.save()
+    return entity
+  }
+
+  getWorldEntity(id) {
+    if (!this.data.novelWorldEntities) return null
+    return this.data.novelWorldEntities[id] || null
+  }
+
+  listWorldEntities(novelId) {
+    if (!this.data.novelWorldEntities) return []
+    return Object.values(this.data.novelWorldEntities).filter((e) => e.novelId === novelId)
+  }
+
+  updateWorldEntity(entity) {
+    if (!this.data.novelWorldEntities) this.data.novelWorldEntities = {}
+    this.data.novelWorldEntities[entity.id] = entity
+    this.save()
+    return entity
+  }
+
+  // ============ 备选集合（角色/世界观多次生成） ============
+
+  createCharacterSet(set) {
+    if (!this.data.characterSets) this.data.characterSets = {}
+    this.data.characterSets[set.id] = set
+    this.save()
+    return set
+  }
+
+  getCharacterSet(id) {
+    if (!this.data.characterSets) return null
+    return this.data.characterSets[id] || null
+  }
+
+  createWorldSet(set) {
+    if (!this.data.worldSets) this.data.worldSets = {}
+    this.data.worldSets[set.id] = set
+    this.save()
+    return set
+  }
+
+  getWorldSet(id) {
+    if (!this.data.worldSets) return null
+    return this.data.worldSets[id] || null
   }
 }
 

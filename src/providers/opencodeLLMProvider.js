@@ -46,9 +46,9 @@ export class OpencodeLLMProvider extends BaseLLMProvider {
 
   async generate(params = {}) {
     const provider = this._getProvider()
-    const model = provider(this.model)
+    // 每次调用用新会话（无状态、避免会话复用变慢/串话）
+    const model = provider(this.model, { createNewSession: true })
     // OpenCode 不支持 temperature / maxTokens（服务端管理），不传以避免告警
-    // 加超时，避免免费模型偶发排队导致挂死
     const result = await generateText({
       model,
       system: params.systemPrompt,

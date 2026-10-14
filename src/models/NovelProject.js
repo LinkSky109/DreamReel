@@ -1,8 +1,11 @@
 import { generateId } from '../utils/idGenerator.js'
 
+/** 阶段顺序：进入更靠后的阶段后，之前的阶段锁定（不可修改/重新生成） */
+export const STAGES = ['source', 'characters', 'world', 'series', 'episodes', 'assets', 'compose']
+
 /**
- * 小说项目（Sprint 19 / S19-1）
- * 一部小说的顶层容器：来源、风格（全书统一）、状态、目录与计数。
+ * 小说项目（Sprint 19+）
+ * 一部小说 = 一个项目；含阶段进度、备选集合与选定项。
  */
 export class NovelProject {
   constructor(data = {}) {
@@ -12,11 +15,17 @@ export class NovelProject {
     this.category = data.category || ''
     this.sourceType = data.sourceType || 'text' // text | qishuxia-txt | qishuxia-chapters
     this.sourceRef = data.sourceRef || ''
-    // 风格：MVP 为全书统一
     this.style = data.style || { scope: 'book', name: '', description: '' }
-    this.status = data.status || 'created' // created | ingested | extracted | reviewed
+    // 阶段进度（进入下一阶段后，之前的阶段锁定）
+    this.stage = STAGES.includes(data.stage) ? data.stage : 'source'
+    this.status = data.status || 'created'
     this.dir = data.dir || ''
     this.counts = data.counts || { chapters: 0, characters: 0 }
+    // 备选集合（多次生成）与选定项
+    this.characterSets = Array.isArray(data.characterSets) ? data.characterSets : []
+    this.selectedCharacterSet = data.selectedCharacterSet || null
+    this.worldSets = Array.isArray(data.worldSets) ? data.worldSets : []
+    this.selectedWorldSet = data.selectedWorldSet || null
     this.createdAt = data.createdAt || new Date().toISOString()
     this.updatedAt = data.updatedAt || this.createdAt
   }

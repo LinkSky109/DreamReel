@@ -16,6 +16,7 @@ export class OpenAIImageProvider extends BaseImageProvider {
     this.apiKey = config.apiKey
     this.baseUrl = (config.baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '')
     this.model = config.model || 'gpt-image-1'
+    this.size = config.size || '' // 显式尺寸覆盖（如 "2K"）
   }
 
   async generateImage(params) {
@@ -31,7 +32,7 @@ export class OpenAIImageProvider extends BaseImageProvider {
       body: JSON.stringify({
         model: this.model,
         prompt,
-        size: mapped.size,
+        size: this.size || mapped.size,
         n: 1,
       }),
     })

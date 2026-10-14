@@ -4,7 +4,7 @@ import config from '../config/index.js'
 import ffmpeg from '../utils/ffmpeg.js'
 import logger from '../utils/logger.js'
 import { storageService } from './storageService.js'
-import { getNovelProject } from './novelProjectService.js'
+import { getNovelProject, assertEditable } from './novelProjectService.js'
 
 /**
  * 单集成片（Sprint 23 / S23-1）
@@ -22,7 +22,8 @@ function urlToAbs(url) {
 }
 
 export async function composeEpisode(novelId, episodeId, opts = {}) {
-  getNovelProject(novelId)
+  const project = getNovelProject(novelId)
+  assertEditable(project, 'compose')
   const ep = storageService.getEpisode(episodeId)
   if (!ep || ep.novelId !== novelId) throw new Error(`episode not found: ${episodeId}`)
 
@@ -52,7 +53,7 @@ export async function composeEpisode(novelId, episodeId, opts = {}) {
   ])
 
   // 2) 音轨：旁白（补齐到目标）或静音
-  const audioUrl = assets.audio && assets.audio.audioUrl
+  const audioUrl = assets.audio && (assets.audio.url || assets.audio.audioUrl)
   const audioAbs = audioUrl ? urlToAbs(audioUrl) : null
   const tmpAudio = path.join(TEMP_DIR, `${episodeId}_aud.m4a`)
   if (audioAbs && fs.existsSync(audioAbs)) {

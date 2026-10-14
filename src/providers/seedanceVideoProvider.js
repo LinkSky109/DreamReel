@@ -31,9 +31,12 @@ export class SeedanceVideoProvider extends BaseVideoProvider {
         { type: 'text', text: params.prompt || '' },
       ],
       duration: params.duration || 5,
-      aspect_ratio: params.aspectRatio === '9:16' ? '9:16' : '16:9',
-      resolution: params.resolution || '720p',
+      // 火山方舟用 ratio（非 aspect_ratio）
+      ratio: params.aspectRatio || '16:9',
+      watermark: params.watermark !== undefined ? params.watermark : false,
     }
+    if (params.resolution) body.resolution = params.resolution
+    if (params.generateAudio) body.generate_audio = true
 
     if (params.referenceImages?.length) {
       body.content.push({ type: 'image_url', image_url: { url: params.referenceImages[0] } })

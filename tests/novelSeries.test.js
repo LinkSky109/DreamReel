@@ -162,7 +162,7 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.equal(res.status, 200)
     const assets = res.body.data.assets
     assert.ok(assets.image && (assets.image.url || assets.image.filePath), 'image asset')
-    assert.ok(assets.audio && assets.audio.audioUrl, 'audio asset')
+    assert.ok(assets.audio && (assets.audio.url || assets.audio.filePath), 'audio asset')
     assert.ok(assets.video && assets.video.taskId, 'video task started')
   })
 
@@ -203,6 +203,96 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     // 夸克网盘真实上传（无 cookie）→ 如实失败
     res = await request(app).post(`/api/novels/${id}/sync`).send({ backend: 'quark', dryRun: false })
     assert.equal(res.status, 400)
+  })
+
+  it('HTTP: 单集外部生成交接（导出提示词/参考 + 回传）', async () => {
+    let res = await request(app).post('/api/novels').send({ title: '交接测试' })
+    const id = res.body.data.id
+    created.push(id)
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+    await request(app).post(`/api/novels/${id}/series/plan`).send({ episodesPerSeason: 1 })
+    res = await request(app).get(`/api/novels/${id}/episodes`)
+    const eid = res.body.data[0].id
+
+    // 导出交接包
+    res = await request(app).post(`/api/novels/${id}/episodes/${eid}/handoff`).send({})
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.dir.includes('handoff'))
+    const promptFile = path.join(novelDir(id), 'handoff', eid, 'prompt.txt')
+    const specFile = path.join(novelDir(id), 'handoff', eid, 'spec.json')
+    assert.ok(fs.existsSync(promptFile), 'prompt.txt')
+    assert.ok(fs.existsSync(specFile), 'spec.json')
+
+    // 回传外部产物
+    const src = path.join(os.tmpdir(), `dr-import-${Date.now()}.mp4`)
+    fs.writeFileSync(src, Buffer.from('fake-mp4-bytes'))
+    res = await request(app).post(`/api/novels/${id}/episodes/${eid}/handoff/import`).send({ filePath: src })
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.provider, 'external')
+    assert.ok(res.body.data.videoUrl.includes('/storage/videos/novels/'))
+
+    // 交接列表
+    res = await request(app).get(`/api/novels/${id}/handoff`)
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.some((h) => h.episodeId === eid && h.status === 'imported'))
+  })
+
+  it('HTTP: 世界观设定集（种族/势力/事件/装备/文化）', async () => {
+    const WORLD_SAMPLE = `第1章 帝国
+银河帝国崛起。银河帝国强大。银河帝国扩张。
+第2章 战争
+自由联盟对抗银河帝国。战争爆发，帝国军团推进。
+第3章 装备
+殖装装甲广泛使用，帝国军团与自由联盟的战争持续。`
+
+    let res = await request(app).post('/api/novels').send({ title: '世界观测试' })
+    const id = res.body.data.id
+    created.push(id)
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: WORLD_SAMPLE })
+
+    res = await request(app).post(`/api/novels/${id}/world/extract`).send({ provider: 'heuristic' })
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.summary.total >= 1, `entities=${res.body.data.summary.total}`)
+    assert.ok(res.body.data.summary.byType.faction >= 1)
+
+    res = await request(app).get(`/api/novels/${id}/world/entities`)
+    assert.equal(res.status, 200)
+    assert.ok(Array.isArray(res.body.data) && res.body.data.length >= 1)
+
+    res = await request(app).get(`/api/novels/${id}/world/relations`)
+    assert.equal(res.status, 200)
+    assert.ok(Array.isArray(res.body.data))
+  })
+
+  it('HTTP: 阶段锁定 + 备选/选定', async () => {
+    let res = await request(app).post('/api/novels').send({ title: '锁定测试' })
+    const id = res.body.data.id
+    created.push(id)
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+
+    // 角色多次生成 → 备选集合
+    await request(app).post(`/api/novels/${id}/extract`).send({ provider: 'heuristic', minFreq: 1 })
+    await request(app).post(`/api/novels/${id}/extract`).send({ provider: 'heuristic', minFreq: 1 })
+    res = await request(app).get(`/api/novels/${id}/characters/sets`)
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.length, 2)
+    const first = res.body.data[0].id
+
+    // 选定某个备选
+    res = await request(app).post(`/api/novels/${id}/characters/select`).send({ setId: first })
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.selectedCharacterSet, first)
+
+    // 推进到 characters → source 锁定 → 不能再 ingest
+    res = await request(app).post(`/api/novels/${id}/advance`).send({ to: 'characters' })
+    assert.equal(res.status, 200)
+    res = await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+    assert.equal(res.status, 409)
+
+    // 推进到 world → characters 锁定 → 不能再抽取
+    await request(app).post(`/api/novels/${id}/advance`).send({ to: 'world' })
+    res = await request(app).post(`/api/novels/${id}/extract`).send({ provider: 'heuristic', minFreq: 1 })
+    assert.equal(res.status, 409)
   })
 
   it('HTTP: 400 / 404 语义', async () => {

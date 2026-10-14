@@ -1,0 +1,29 @@
+task_id: "TASK-20261014-026"
+task_name: "Sprint 26: 阶段锁定 + 备选/选定（角色/世界观）"
+create_time: "2026-10-14T15:45:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+scope:
+  - id: "S26-1"
+    name: "阶段锁定"
+    features:
+      - "NovelProject.stage；STAGES = source→characters→world→series→episodes→assets→compose"
+      - "isLocked/assertEditable：进入更靠后阶段后，之前的阶段不可修改/重新生成"
+      - "advanceStage：只进不退；被锁定操作返回 409"
+  - id: "S26-2"
+    name: "备选/选定（角色 & 世界观）"
+    features:
+      - "每次抽取生成一个候选集合（characterSets / worldSets），默认选中最新"
+      - "select：选定某个集合为当前生效；锁定后不可再生成/选定"
+      - "listCharacters/listEntities 返回当前选定集合的内容"
+
+acceptance:
+  - "源文本/世界观：提取一次；进入下一阶段后不可修改（409）"
+  - "角色设定卡 & 世界观设定集：可多次生成备选，选定后进入下一阶段不可修改"
+  - "落盘、重启不丢；测试隔离"
+
+state_log:
+  - time: "2026-10-14T15:45:00+08:00"
+    from: "N/A"
+    to: "GLOBAL_DONE"
+    note: "Sprint 26 完成：阶段锁定 + 备选/选定。E2E：角色生成两次得 2 个备选集合并选定；advance 后 source/characters 依次锁定，ingest/extract 返回锁定错误。全量 556/556/0（一次片头测试偶发，复跑通过），lint 0。"

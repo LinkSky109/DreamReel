@@ -47,6 +47,8 @@ const config = {
     apiKey: process.env.OPENAI_IMAGE_API_KEY || process.env.OPENAI_API_KEY || '',
     baseUrl: process.env.OPENAI_IMAGE_BASE_URL || '',
     model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1',
+    // 显式 size 覆盖（如火山方舟 Agent Plan 用 "2K"/"1K"；为空则按 aspectRatio 映射像素尺寸）
+    size: process.env.OPENAI_IMAGE_SIZE || '',
   },
 
   character: {

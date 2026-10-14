@@ -1,7 +1,7 @@
 import { storageService } from './storageService.js'
 import { Season } from '../models/Season.js'
 import { Episode } from '../models/Episode.js'
-import { getNovelProject, updateNovelProject, writeNovelFile, readNovelFile } from './novelProjectService.js'
+import { getNovelProject, updateNovelProject, writeNovelFile, readNovelFile, assertEditable } from './novelProjectService.js'
 import { listChunks } from './novelChunkService.js'
 
 /**
@@ -40,6 +40,7 @@ export function planSeries(novelId, opts = {}) {
   const maxChapters = opts.maxChapters && opts.maxChapters > 0 ? opts.maxChapters : Infinity
 
   const project = getNovelProject(novelId)
+  assertEditable(project, 'series')
   const chapters = listChunks(novelId).slice(0, maxChapters)
   if (!chapters.length) throw new Error('尚未摄取正文，请先 ingest')
 

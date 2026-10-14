@@ -41,6 +41,20 @@ const result = spawnSync(
       ...process.env,
       NODE_ENV: 'test',
       JWT_SECRET: 'test-jwt-secret-for-dreamreel-testing-only-32chars',
+      // 测试必须确定性：强制 mock provider，避免 .env 里的真实 key 触发外网调用
+      LLM_PROVIDER: 'mock',
+      VIDEO_PROVIDER: 'mock',
+      IMAGE_PROVIDER: 'mock',
+      TTS_PROVIDER: 'mock',
+      // 清空真实 key，保证 isProviderConfigured 断言稳定（不依赖本地 .env）
+      OPENAI_API_KEY: '',
+      OPENAI_IMAGE_API_KEY: '',
+      SEEDANCE_API_KEY: '',
+      RUNWAY_API_KEY: '',
+      PIKA_API_KEY: '',
+      MINIMAX_API_KEY: '',
+      WAN_API_KEY: '',
+      ELEVENLABS_API_KEY: '',
     },
   }
 )

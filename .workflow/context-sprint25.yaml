@@ -1,0 +1,38 @@
+task_id: "TASK-20261014-025"
+task_name: "Sprint 25: 世界观设定集（种族/势力/事件/装备/文化 + 关系）"
+create_time: "2026-10-14T15:20:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+reference:
+  plan: "docs/novel-series-plan.md"
+  prev_sprint_context: ".workflow/context-sprint23.yaml"
+  delivery_report: "docs/sprint25-delivery-report.md"
+  git_branch: "main"
+
+scope:
+  - id: "S25-1"
+    name: "世界观实体抽取"
+    features:
+      - "WorldEntity：type ∈ race/faction/event/item/culture/location/power/other；name/aliases/description/attributes/relations"
+      - "worldbuildingService.extractWorld：分片 LLM 抽取（逐片容错）+ 合并去重 + 别名归一 + mentions 统计；启发式兜底"
+  - id: "S25-2"
+    name: "实体关系图"
+    features:
+      - "实体 relations[{target,kind}]；listRelations 解析 target 到实体 id"
+  - id: "S25-3"
+    name: "存储/接口/CLI"
+    features:
+      - "落盘 novels/<id>/worldbuilding/entities.json；storageService.novelWorldEntities"
+      - "API：POST /:id/world/extract、GET /:id/world、GET /:id/world/entities、GET /:id/world/relations"
+      - "CLI：world / world-show / world-entities / world-relations"
+
+acceptance:
+  - "一部小说项目产出覆盖 种族/势力/重要事件/装备/文化 的实体集合（LLM 路径）"
+  - "实体间有关系；概览给出各类型计数与缺失核心类型提示"
+  - "落盘、重启不丢；测试隔离"
+
+state_log:
+  - time: "2026-10-14T15:20:00+08:00"
+    from: "N/A"
+    to: "GLOBAL_DONE"
+    note: "Sprint 25 完成：世界观实体抽取（分片 LLM + 合并 + 关系）+ API/CLI。真实 E2E（殖装前 6 章）：provider=llm，23 实体（种族2/势力1/事件3/装备4/文化3/地点3/力量1/其他6），42 条关系。全量 555/555/0，lint 0。"

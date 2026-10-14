@@ -1,9 +1,10 @@
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
+import { generateId } from '../utils/idGenerator.js'
 import { storageService } from './storageService.js'
 import { NovelCharacter } from '../models/NovelCharacter.js'
 import { getLLMProvider } from '../providers/llmProviderFactory.js'
-import { getNovelProject, updateNovelProject, writeNovelFile } from './novelProjectService.js'
+import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
 import { listChunks } from './novelChunkService.js'
 
 /** 常见姓氏（启发式用） */
@@ -117,6 +118,7 @@ function normalizeCharacters(list) {
  */
 export async function extractCharacters(novelId, opts = {}) {
   const project = getNovelProject(novelId)
+  assertEditable(project, 'characters')
   const chunks = listChunks(novelId)
   if (!chunks.length) throw new Error('尚未摄取正文，请先 ingest')
 
@@ -169,14 +171,54 @@ export async function extractCharacters(novelId, opts = {}) {
 
   writeNovelFile(novelId, 'characters/characters.json', JSON.stringify(saved, null, 2))
 
+  // 备选集合：每次抽取生成一个候选集合，默认选中最新
+  const set = storageService.createCharacterSet({
+    id: generateId(),
+    novelId,
+    provider,
+    createdAt: new Date().toISOString(),
+    characterIds: saved.map((c) => c.id),
+  })
+
   const updated = updateNovelProject(novelId, {
     status: 'extracted',
     counts: { ...project.counts, characters: saved.length },
+    characterSets: [...(project.characterSets || []), set.id],
+    selectedCharacterSet: set.id,
   })
 
-  return { project: updated, provider, characters: saved }
+  return { project: updated, provider, characters: saved, set }
 }
 
+/** 选定某个角色集合为当前生效 */
+export function selectCharacterSet(novelId, setId) {
+  const project = getNovelProject(novelId)
+  assertEditable(project, 'characters')
+  const set = storageService.getCharacterSet(setId)
+  if (!set || set.novelId !== novelId) throw new Error(`character set not found: ${setId}`)
+  return updateNovelProject(novelId, { selectedCharacterSet: setId })
+}
+
+/** 当前生效的角色集合（未选定则返回全部） */
 export function listCharacters(novelId) {
-  return storageService.listNovelCharacters(novelId)
+  const project = storageService.getNovelProject(novelId)
+  const all = storageService.listNovelCharacters(novelId)
+  const setId = project && project.selectedCharacterSet
+  if (setId) {
+    const set = storageService.getCharacterSet(setId)
+    if (set) {
+      const ids = new Set(set.characterIds)
+      return all.filter((c) => ids.has(c.id))
+    }
+  }
+  return all
+}
+
+/** 备选集合列表（含字符数） */
+export function listCharacterSets(novelId) {
+  const project = storageService.getNovelProject(novelId)
+  return (project?.characterSets || []).map((sid) => {
+    const set = storageService.getCharacterSet(sid)
+    return set ? { id: set.id, provider: set.provider, createdAt: set.createdAt, count: set.characterIds.length, selected: sid === project.selectedCharacterSet } : null
+  }).filter(Boolean)
 }

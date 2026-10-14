@@ -30,6 +30,17 @@ export function buildManifest(novelId) {
   for (const f of walk(exportDir)) {
     files.push({ rel: path.join('exports', f.rel), abs: f.abs, size: f.size })
   }
+  // 媒体产物（图/视频/音）
+  const mediaRoots = [
+    ['images', path.join(config.storage.path, 'images', 'novels', novelId)],
+    ['videos', path.join(config.storage.path, 'videos', 'novels', novelId)],
+    ['audio', path.join(config.storage.path, 'audio', 'voices', 'novels', novelId)],
+  ]
+  for (const [base, dir] of mediaRoots) {
+    for (const f of walk(dir)) {
+      files.push({ rel: path.join(base, f.rel), abs: f.abs, size: f.size })
+    }
+  }
   return files
 }
 

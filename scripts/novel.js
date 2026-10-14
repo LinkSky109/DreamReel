@@ -55,6 +55,8 @@ async function main() {
     epAsset: await import('../src/services/episodeAssetService.js'),
     compose: await import('../src/services/episodeComposeService.js'),
     sync: await import('../src/services/novelSyncService.js'),
+    handoff: await import('../src/services/episodeHandoffService.js'),
+    world: await import('../src/services/worldbuildingService.js'),
   }
 
   const [cmd, ...rest] = process.argv.slice(2)
@@ -244,8 +246,104 @@ async function main() {
       break
     }
 
+    case 'handoff': {
+      const id = positional[0]
+      const eid = positional[1]
+      if (!id || !eid) throw new Error('用法：handoff <novelId> <episodeId>')
+      const r = await services.handoff.exportHandoff(id, eid, { modelHint: flags['model-hint'] })
+      print({ dir: r.dir, refs: r.refs })
+      break
+    }
+
+    case 'handoff-import': {
+      const id = positional[0]
+      const eid = positional[1]
+      const file = positional[2]
+      if (!id || !eid || !file) throw new Error('用法：handoff-import <novelId> <episodeId> <file.mp4>')
+      print(services.handoff.importHandoffResult(id, eid, file))
+      break
+    }
+
+    case 'handoff-list': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      print(services.handoff.listHandoff(id))
+      break
+    }
+
+    case 'world': {
+      const id = positional[0]
+      if (!id) throw new Error('用法：world <novelId> [--provider llm|heuristic] [--max-chapters N] [--chunk-size N]')
+      const r = await services.world.extractWorld(id, {
+        provider: flags.provider,
+        maxChapters: flags['max-chapters'] ? Number(flags['max-chapters']) : undefined,
+        chunkSize: flags['chunk-size'] ? Number(flags['chunk-size']) : undefined,
+      })
+      print({ provider: r.provider, entities: r.entities, summary: r.summary })
+      break
+    }
+
+    case 'world-show': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      print(services.world.summarize(id))
+      break
+    }
+
+    case 'world-entities': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      print(services.world.listEntities(id, positional[1]).map((e) => ({ type: e.type, name: e.name, aliases: e.aliases, mentions: e.mentions })))
+      break
+    }
+
+    case 'world-relations': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      print(services.world.listRelations(id))
+      break
+    }
+
+    case 'advance': {
+      const id = positional[0]
+      if (!id) throw new Error('用法：advance <novelId> [--to <stage>]')
+      const p = services.project.advanceStage(id, flags.to)
+      print({ stage: p.stage })
+      break
+    }
+
+    case 'characters-sets': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      print(services.extract.listCharacterSets(id))
+      break
+    }
+
+    case 'characters-select': {
+      const id = positional[0]
+      const setId = positional[1]
+      if (!id || !setId) throw new Error('用法：characters-select <novelId> <setId>')
+      print({ selectedCharacterSet: services.extract.selectCharacterSet(id, setId).selectedCharacterSet })
+      break
+    }
+
+    case 'world-sets': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      print(services.world.listWorldSets(id))
+      break
+    }
+
+    case 'world-select': {
+      const id = positional[0]
+      const setId = positional[1]
+      if (!id || !setId) throw new Error('用法：world-select <novelId> <setId>')
+      print({ selectedWorldSet: services.world.selectWorldSet(id, setId).selectedWorldSet })
+      break
+    }
+
     default:
-      print('usage: node scripts/novel.js <create|ingest|extract|list|show|characters|stats|style|plan|seasons|episodes|script|assets> [args]')
+      print('usage: node scripts/novel.js <create|ingest|extract|list|show|characters|characters-sets|characters-select|stats|style|plan|seasons|episodes|script|assets|compose|manifest|sync|handoff|handoff-import|handoff-list|world|world-show|world-entities|world-relations|world-sets|world-select|advance> [args]')
   }
 }
 

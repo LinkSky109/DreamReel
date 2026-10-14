@@ -7,6 +7,8 @@ import {
 } from '../services/novelProjectService.js'
 import { ingestNovel, listChunks } from '../services/novelChunkService.js'
 import { extractCharacters, listCharacters } from '../services/characterExtractionService.js'
+import { selectCharacterSet, listCharacterSets } from '../services/characterExtractionService.js'
+import { advanceStage } from '../services/novelProjectService.js'
 import { ensureCards, applyEdits, reviewStats } from '../services/characterCardService.js'
 import { generateStyle } from '../services/novelStyleService.js'
 import { addState, listStates } from '../services/characterGrowthService.js'
@@ -20,6 +22,9 @@ import { generateEpisodeScript, getEpisodeScript } from '../services/episodeScri
 import { generateEpisodeAssets, getEpisodeAssets } from '../services/episodeAssetService.js'
 import { composeEpisode } from '../services/episodeComposeService.js'
 import { buildManifest, syncToLocal, syncToQuark } from '../services/novelSyncService.js'
+import { exportHandoff, importHandoffResult, listHandoff } from '../services/episodeHandoffService.js'
+import { extractWorld, listEntities, listRelations, summarize } from '../services/worldbuildingService.js'
+import { selectWorldSet, listWorldSets } from '../services/worldbuildingService.js'
 
 /**
  * 小说 → 剧集 路由（Sprint 19），挂载 /api/novels
@@ -29,7 +34,9 @@ import { buildManifest, syncToLocal, syncToQuark } from '../services/novelSyncSe
 const router = Router()
 
 function statusFor(error) {
-  return /not found/i.test(error.message) ? 404 : 400
+  if (/not found/i.test(error.message)) return 404
+  if (/锁定|locked/i.test(error.message)) return 409
+  return 400
 }
 
 // 创建小说项目
@@ -301,6 +308,130 @@ router.post('/:id/sync', (req, res) => {
       return res.json({ success: true, data: syncToQuark(req.params.id, { dryRun, cookie }) })
     }
     return res.status(400).json({ success: false, error: `unknown backend: ${backend}` })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// ===== 单集"外部生成"交接（Sprint 24：视频 plan 受限时的替代流程） =====
+
+// 导出交接包（提示词 + 规格 + 参考图）
+router.post('/:id/episodes/:eid/handoff', async (req, res) => {
+  try {
+    const data = await exportHandoff(req.params.id, req.params.eid, req.body || {})
+    res.json({ success: true, data })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 回传外部产物（mp4）到项目视频目录
+router.post('/:id/episodes/:eid/handoff/import', (req, res) => {
+  try {
+    const { filePath } = req.body || {}
+    const data = importHandoffResult(req.params.id, req.params.eid, filePath)
+    res.json({ success: true, data })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 交接列表
+router.get('/:id/handoff', (req, res) => {
+  try {
+    res.json({ success: true, data: listHandoff(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// ===== 世界观设定集（Sprint 25） =====
+
+// 抽取世界观（种族/势力/事件/装备/文化…）+ 关系
+router.post('/:id/world/extract', async (req, res) => {
+  try {
+    const result = await extractWorld(req.params.id, req.body || {})
+    res.json({ success: true, data: { provider: result.provider, entities: result.entities, summary: result.summary } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 世界观概览
+router.get('/:id/world', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: summarize(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 实体列表（可按 type 过滤）
+router.get('/:id/world/entities', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: listEntities(req.params.id, req.query.type) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 关系列表
+router.get('/:id/world/relations', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: listRelations(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// ===== 阶段推进 + 备选/选定（Sprint 26） =====
+
+// 推进阶段（进入下一阶段后，之前阶段锁定）
+router.post('/:id/advance', (req, res) => {
+  try {
+    const project = advanceStage(req.params.id, (req.body || {}).to)
+    res.json({ success: true, data: { stage: project.stage } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 角色备选集合
+router.get('/:id/characters/sets', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: listCharacterSets(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+router.post('/:id/characters/select', (req, res) => {
+  try {
+    const { setId } = req.body || {}
+    if (!setId) return res.status(400).json({ success: false, error: 'setId required' })
+    res.json({ success: true, data: selectCharacterSet(req.params.id, setId) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 世界观备选集合
+router.get('/:id/world/sets', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: listWorldSets(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+router.post('/:id/world/select', (req, res) => {
+  try {
+    const { setId } = req.body || {}
+    if (!setId) return res.status(400).json({ success: false, error: 'setId required' })
+    res.json({ success: true, data: selectWorldSet(req.params.id, setId) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
