@@ -28,7 +28,7 @@ import { selectWorldSet, listWorldSets } from '../services/worldbuildingService.
 import { CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
 import { optionalClampInt } from '../utils/coerce.js'
-import { resolveLLMPreference, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
+import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
 
 /**
  * 小说 → 剧集 路由（Sprint 19），挂载 /api/novels
@@ -121,7 +121,7 @@ router.post('/:id/extract', async (req, res) => {
       userId: req.user?.id,
     })
     ensureCards(req.params.id)
-    res.json({ success: true, data: { provider: result.provider, characters: listCharacters(req.params.id) } })
+    res.json({ success: true, data: { provider: result.provider, degraded: /fallback/.test(result.provider), characters: listCharacters(req.params.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -369,7 +369,7 @@ router.post('/:id/world/extract', async (req, res) => {
       maxChars: optionalClampInt(body.maxChars, 200, 32000),
       userId: req.user?.id,
     })
-    res.json({ success: true, data: { provider: result.provider, entities: result.entities, summary: result.summary } })
+    res.json({ success: true, data: { provider: result.provider, degraded: /fallback/.test(result.provider), entities: result.entities, summary: result.summary } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -437,6 +437,42 @@ router.put('/:id/model-config', (req, res) => {
     const providerPreferences = { ...(getNovelProject(req.params.id).providerPreferences || {}), llm: next, updatedAt: new Date().toISOString() }
     const updated = updateNovelProject(req.params.id, { providerPreferences })
     res.json({ success: true, data: { preferences: updated.providerPreferences, resolved: resolveLLMPreference(next, req.user?.id) } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+router.post('/:id/model-config/test', async (req, res) => {
+  try {
+    const project = getNovelProject(req.params.id)
+    const body = req.body || {}
+    let pref = project.providerPreferences?.llm || null
+    if (body.llm !== undefined) {
+      if (body.llm === null) {
+        pref = null
+      } else {
+        const provider = String(body.llm.provider || '')
+        if (!getAvailableLLMProviders().includes(provider)) {
+          return res.status(400).json({ success: false, error: `unknown llm provider: ${provider}` })
+        }
+        pref = { provider, model: body.llm.model ? String(body.llm.model) : null }
+      }
+    }
+    const llm = getLLMProviderByPref(pref, req.user?.id)
+    const startedAt = Date.now()
+    let ok = true
+    let error = ''
+    try {
+      await llm.generateJSON({
+        systemPrompt: '你是 JSON 生成器，只输出 JSON。',
+        userPrompt: '只输出 {"ok":true}',
+        options: { temperature: 0, maxTokens: 50 },
+      })
+    } catch (e) {
+      ok = false
+      error = String((e && e.message) || e).slice(0, 300)
+    }
+    res.json({ success: true, data: { ok, provider: llm.name, model: llm.model || null, latencyMs: Date.now() - startedAt, error } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

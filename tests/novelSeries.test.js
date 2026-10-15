@@ -466,6 +466,30 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.equal(res.body.data.preferences.llm, null)
   })
 
+  it('HTTP: 模型连通性检测 + 抽取降级标记', async () => {
+    let res = await request(app).post('/api/novels').send({ title: '模型检测测试' })
+    const id = res.body.data.id
+    created.push(id)
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+
+    res = await request(app).post(`/api/novels/${id}/model-config/test`).send({ llm: { provider: 'mock' } })
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.ok, true)
+
+    res = await request(app).post(`/api/novels/${id}/model-config/test`).send({ llm: { provider: 'nope' } })
+    assert.equal(res.status, 400)
+
+    // 世界观 LLM 无 entities → 回退，degraded=true
+    res = await request(app).post(`/api/novels/${id}/world/extract`).send({ provider: 'llm' })
+    assert.equal(res.body.data.provider, 'heuristic-fallback')
+    assert.equal(res.body.data.degraded, true)
+
+    // 角色 LLM（mock 有 characters）→ provider=llm，degraded=false
+    res = await request(app).post(`/api/novels/${id}/extract`).send({ provider: 'llm' })
+    assert.equal(res.body.data.provider, 'llm')
+    assert.equal(res.body.data.degraded, false)
+  })
+
   it('HTTP: 400 / 404 语义', async () => {
     let res = await request(app).get('/api/novels/does-not-exist')
     assert.equal(res.status, 404)

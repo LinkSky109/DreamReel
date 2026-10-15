@@ -266,10 +266,13 @@ async function mountLlmPicker(host, id, refresh) {
         ${modelList.map((m) => `<option value="${esc(m.id)}" ${m.id === curModel ? 'selected' : ''}>${esc(m.name || m.id)}</option>`).join('')}
       </select>
       <button id="nvLlmSave" class="btn btn-sm">保存模型</button>
+      <button id="nvLlmTest" class="btn btn-sm">检测</button>
+      <span id="nvLlmTestResult" style="color:var(--text-secondary);"></span>
       <span style="color:var(--text-secondary);">当前生效：${esc(resolved.provider || '-')}${resolved.model ? ' / ' + esc(resolved.model) : ''}（${esc(resolved.source || '')}）</span>
     </div>`
   const pSel = host.querySelector('#nvLlmProvider')
   const mSel = host.querySelector('#nvLlmModel')
+  const tOut = host.querySelector('#nvLlmTestResult')
   pSel?.addEventListener('change', () => {
     const p = providers.find((x) => x.id === pSel.value)
     mSel.disabled = !p
@@ -283,6 +286,22 @@ async function mountLlmPicker(host, id, refresh) {
       refresh()
     } catch (err) {
       showToast(err.message, 'error')
+    }
+  })
+  host.querySelector('#nvLlmTest')?.addEventListener('click', async () => {
+    const provider = pSel.value
+    if (!provider) {
+      tOut.textContent = '（"默认"不单独检测，保存后按生效配置检测）'
+      return
+    }
+    tOut.textContent = '检测中…'
+    try {
+      const r = unwrap(await api.testNovelModelConfig(id, { llm: { provider, model: mSel.value || null } }))
+      tOut.textContent = r.ok ? `✅ ${esc(r.provider)}${r.model ? '/' + esc(r.model) : ''} 可用（${r.latencyMs}ms）` : `❌ 不可用：${esc((r.error || '').slice(0, 120))}`
+      tOut.style.color = r.ok ? '#16a34a' : '#dc2626'
+    } catch (err) {
+      tOut.textContent = `❌ ${err.message}`
+      tOut.style.color = '#dc2626'
     }
   })
 }
@@ -348,8 +367,9 @@ async function tabCharacters({ body, novel, id, refresh }) {
   body.querySelector('#nvExtract')?.addEventListener('click', async () => {
     const provider = body.querySelector('#nvExtractProvider').value
     try {
-      await api.extractNovelCharacters(id, { provider, minFreq: 1 })
-      showToast('已生成角色备选', 'success')
+      const r = unwrap(await api.extractNovelCharacters(id, { provider, minFreq: 1 }))
+      if (r && r.degraded) showToast('LLM 调用失败，已回退启发式：结果可能为空/粗糙，请检查「模型」是否可用', 'error')
+      else showToast('已生成角色备选', 'success')
       refresh()
     } catch (err) {
       showToast(err.message, 'error')
@@ -451,8 +471,9 @@ async function tabWorld({ body, novel, id, refresh }) {
   body.querySelector('#nvWorld')?.addEventListener('click', async () => {
     const provider = body.querySelector('#nvWorldProvider').value
     try {
-      await api.extractNovelWorld(id, { provider })
-      showToast('已生成世界观备选', 'success')
+      const r = unwrap(await api.extractNovelWorld(id, { provider }))
+      if (r && r.degraded) showToast('LLM 调用失败，已回退启发式：结果可能为空/粗糙，请检查「模型」是否可用', 'error')
+      else showToast('已生成世界观备选', 'success')
       refresh()
     } catch (err) {
       showToast(err.message, 'error')

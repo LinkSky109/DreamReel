@@ -504,6 +504,7 @@ export const api = {
   getNovelSchema: (id) => request(`/novels/${id}/schema`),
   getNovelModelConfig: (id) => request(`/novels/${id}/model-config`),
   updateNovelModelConfig: (id, data) => request(`/novels/${id}/model-config`, { method: 'PUT', body: data }),
+  testNovelModelConfig: (id, data) => request(`/novels/${id}/model-config/test`, { method: 'POST', body: data }),
 }
 
 export default api
