@@ -6,7 +6,7 @@
  *   node scripts/novel.js create   --title "殖装" [--author 铅笔刀 --category 科幻灵异 --url <bookUrl>]
  *   node scripts/novel.js ingest   <novelId> --url https://www.qishuxia.com/book/34639/ [--max-chapters 100]
  *   node scripts/novel.js ingest   <novelId> --text-file ./book.txt [--max-chapters 100]
- *   node scripts/novel.js extract  <novelId> [--provider heuristic|llm] [--max-chapters 100] [--min-freq 20]
+ *   node scripts/novel.js extract  <novelId> [--provider heuristic|llm] [--max-chapters 100] [--chunk-size 8] [--min-freq 20]
  *   node scripts/novel.js list
  *   node scripts/novel.js show     <novelId>
  *   node scripts/novel.js characters <novelId>
@@ -107,6 +107,7 @@ async function main() {
       const result = await services.extract.extractCharacters(id, {
         provider: flags.provider,
         maxChapters: flags['max-chapters'] ? Number(flags['max-chapters']) : undefined,
+        chunkSize: flags['chunk-size'] ? Number(flags['chunk-size']) : undefined,
         maxChars: flags['max-chars'] ? Number(flags['max-chars']) : undefined,
         minFreq: flags['min-freq'] ? Number(flags['min-freq']) : undefined,
       })

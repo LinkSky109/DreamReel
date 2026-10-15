@@ -1,0 +1,27 @@
+/**
+ * 按"字符预算 + 章数上限"把章节切片分组，保证每个 chunk 至少被完整读取一次。
+ * 修复固定 chunkSize 分组时因单组超长而丢弃组内后续章节的问题。
+ * @param {Array<{chapterTitle:string,text:string}>} chunks
+ * @param {{chunkSize?:number, maxChars?:number, format?:(c:object)=>string}} opts
+ * @returns {Array<{sample:string, titles:string[]}>}
+ */
+export function groupChunks(chunks, { chunkSize = 8, maxChars = 8000, format } = {}) {
+  const fmt = format || ((c) => `【${c.chapterTitle}】\n${c.text}`)
+  const groups = []
+  let i = 0
+  while (i < chunks.length) {
+    let sample = ''
+    const titles = []
+    while (i < chunks.length) {
+      const piece = fmt(chunks[i])
+      if (sample && (sample.length + piece.length > maxChars || titles.length >= chunkSize)) break
+      sample += piece.length > maxChars ? piece.slice(0, maxChars) : piece
+      titles.push(chunks[i].chapterTitle)
+      i++
+    }
+    groups.push({ sample, titles })
+  }
+  return groups
+}
+
+export default groupChunks

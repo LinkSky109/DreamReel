@@ -8,7 +8,11 @@ import app from '../src/server.js'
 import { storageService } from '../src/services/storageService.js'
 import { createNovelProject, novelDir } from '../src/services/novelProjectService.js'
 import { cleanText, splitChapters, ingestNovel } from '../src/services/novelChunkService.js'
-import { heuristicExtract } from '../src/services/characterExtractionService.js'
+import { heuristicExtract, mergeCharacters } from '../src/services/characterExtractionService.js'
+import { heuristicExtract as worldHeuristicExtract, mergeEntities } from '../src/services/worldbuildingService.js'
+import { groupChunks } from '../src/utils/textChunking.js'
+import { CARD_SCHEMA, CARD_FIELDS, CHARACTER_FIELDS } from '../src/models/NovelCharacter.js'
+import { WORLD_TYPES, WORLD_ATTRIBUTES } from '../src/models/WorldEntity.js'
 
 const SAMPLE = `第1章 起点
 一秒记住【奇书网】本站域名
@@ -49,6 +53,38 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.ok(names.includes('张三'))
     assert.ok(names.includes('李四'))
     assert.ok(names.includes('王五'))
+  })
+
+  it('角色卡 schema 覆盖八大类', () => {
+    const groups = new Set(CARD_SCHEMA.map((f) => f.group))
+    for (const g of ['basic', 'ability', 'relations', 'trauma', 'beliefs', 'secrets', 'ending', 'media']) {
+      assert.ok(groups.has(g), `missing group ${g}`)
+    }
+    assert.ok(CARD_FIELDS.includes('coreKnot'))
+    assert.ok(CARD_FIELDS.includes('hiddenIdentity'))
+    assert.ok(CARD_FIELDS.includes('talents'))
+  })
+
+  it('mergeCharacters 按别名合并同一角色并合并卡片', () => {
+    const merged = mergeCharacters([
+      { name: '张三', aliases: ['小张'], card: { personality: '冷静' } },
+      { name: '小张', aliases: [], card: { abilities: '剑术' } },
+      { name: '李四', aliases: [], card: {} },
+    ])
+    assert.equal(merged.length, 2)
+    const z = merged.find((m) => m.name === '张三')
+    assert.ok(z.aliases.includes('小张'))
+    assert.equal(z.card.personality, '冷静')
+    assert.equal(z.card.abilities, '剑术')
+  })
+
+  it('世界观类型与属性模板覆盖长篇小说模块', () => {
+    for (const t of ['world', 'power', 'rule', 'race', 'faction', 'event', 'item', 'location', 'culture', 'prophecy', 'conflict', 'civilization', 'narrative']) {
+      assert.ok(WORLD_TYPES.includes(t), `missing type ${t}`)
+    }
+    assert.ok(WORLD_ATTRIBUTES.power.some((a) => a.key === 'tiers'))
+    assert.ok(WORLD_ATTRIBUTES.faction.some((a) => a.key === 'trueGoal'))
+    assert.ok(WORLD_ATTRIBUTES.item.some((a) => a.key === 'spirit'))
   })
 
   it('ingest → 切片入库', async () => {
@@ -264,6 +300,28 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.ok(Array.isArray(res.body.data))
   })
 
+  it('HTTP: schema 接口 + 全维度字段入库', async () => {
+    let res = await request(app).post('/api/novels').send({ title: 'schema 测试' })
+    const id = res.body.data.id
+    created.push(id)
+
+    res = await request(app).get(`/api/novels/${id}/schema`)
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.character.fields.length >= 20)
+    assert.ok(res.body.data.character.groups.basic)
+    assert.ok(res.body.data.world.types.some((t) => t.key === 'prophecy'))
+    assert.ok(res.body.data.world.attributes.faction)
+
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+    res = await request(app).post(`/api/novels/${id}/extract`).send({ provider: 'heuristic', minFreq: 1 })
+    assert.equal(res.status, 200)
+
+    res = await request(app).get(`/api/novels/${id}/review-stats`)
+    assert.equal(res.body.data.totalFields, res.body.data.characters * CHARACTER_FIELDS.length)
+    assert.equal(CHARACTER_FIELDS.length, 35) // name + aliases + 33 卡字段
+    assert.ok(res.body.data.characters >= 3)
+  })
+
   it('HTTP: 阶段锁定 + 备选/选定', async () => {
     let res = await request(app).post('/api/novels').send({ title: '锁定测试' })
     const id = res.body.data.id
@@ -293,6 +351,82 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     await request(app).post(`/api/novels/${id}/advance`).send({ to: 'world' })
     res = await request(app).post(`/api/novels/${id}/extract`).send({ provider: 'heuristic', minFreq: 1 })
     assert.equal(res.status, 409)
+  })
+
+  it('mergeCharacters 并入方名字不丢失（反转顺序）', () => {
+    const merged = mergeCharacters([
+      { name: '小张', aliases: [] },
+      { name: '张三', aliases: ['小张'] },
+    ])
+    assert.equal(merged.length, 1)
+    const names = [merged[0].name, ...merged[0].aliases]
+    assert.ok(names.includes('张三'))
+    assert.ok(names.includes('小张'))
+  })
+
+  it('groupChunks 覆盖每个章节且不丢章', () => {
+    const chunks = Array.from({ length: 10 }, (_, i) => ({ chapterTitle: `第${i + 1}章`, text: 'x'.repeat(3000) }))
+    const groups = groupChunks(chunks, { chunkSize: 8, maxChars: 8000 })
+    const titles = groups.flatMap((g) => g.titles)
+    assert.equal(titles.length, 10)
+    assert.equal(new Set(titles).size, 10)
+    assert.ok(groups.length >= 4)
+    const big = groupChunks([{ chapterTitle: '超长', text: 'y'.repeat(20000) }], { chunkSize: 8, maxChars: 8000 })
+    assert.equal(big.length, 1)
+    assert.equal(big[0].sample.length, 8000)
+  })
+
+  it('mergeCharacters 处理群体标记与长描述优先', () => {
+    const merged = mergeCharacters([
+      { name: '银翼军团', aliases: [], description: '短', kind: 'individual', card: {} },
+      { name: '银翼军团', aliases: ['银翼'], description: '这是一支纪律严明的重装军团', kind: 'group', card: {} },
+    ])
+    assert.equal(merged.length, 1)
+    assert.equal(merged[0].kind, 'group')
+    assert.ok(merged[0].aliases.includes('银翼'))
+    assert.ok(merged[0].description.includes('纪律严明'))
+  })
+
+  it('世界观 mergeEntities 按类型合并属性与关系', () => {
+    const merged = mergeEntities([
+      { type: 'faction', name: '银河帝国', attributes: { government: '帝制' }, relations: [{ target: '自由联盟', kind: '敌对' }] },
+      { type: 'faction', name: '银河帝国', attributes: { trueGoal: '统一银河' }, relations: [{ target: '自由联盟', kind: '敌对' }, { target: '殖装装甲', kind: '拥有' }] },
+    ])
+    assert.equal(merged.length, 1)
+    assert.equal(merged[0].attributes.government, '帝制')
+    assert.equal(merged[0].attributes.trueGoal, '统一银河')
+    assert.equal(merged[0].relations.length, 2)
+  })
+
+  it('世界观 heuristicExtract 命中势力/装备（启发式兜底）', () => {
+    const text = '银河帝国与自由联盟交战。银河帝国调用殖装装甲。银河帝国强大。殖装装甲普及。殖装装甲量产。'
+    const found = worldHeuristicExtract(text, { minFreq: 2 })
+    const types = found.map((e) => e.type)
+    assert.ok(types.includes('faction'))
+    assert.ok(found.some((e) => e.name.includes('帝国')))
+  })
+
+  it('HTTP: LLM 引擎抽取角色（mock 返回角色）', async () => {
+    let res = await request(app).post('/api/novels').send({ title: 'LLM 抽取测试' })
+    const id = res.body.data.id
+    created.push(id)
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+
+    res = await request(app).post(`/api/novels/${id}/extract`).send({ provider: 'llm' })
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.provider, 'llm')
+    assert.ok(res.body.data.characters.length >= 1)
+  })
+
+  it('HTTP: 世界观 LLM 无 entities 时回退启发式', async () => {
+    let res = await request(app).post('/api/novels').send({ title: '世界观回退测试' })
+    const id = res.body.data.id
+    created.push(id)
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+
+    res = await request(app).post(`/api/novels/${id}/world/extract`).send({ provider: 'llm' })
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.provider, 'heuristic-fallback')
   })
 
   it('HTTP: 400 / 404 语义', async () => {

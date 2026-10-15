@@ -43,7 +43,7 @@ DreamReel 让每个人都能像做梦一样拍电影。覆盖剧本、分镜、�
 | 企业版与私有化 | **企业管理概览（团队/成员/项目归集）、SSO(SAML/OIDC)与安全策略（IP白名单/水印/禁止公开分享/数据驻留）、审计日志查询、私有化部署信息** |
 | 移动端与 PWA | **响应式适配（小屏紧凑导航/单列/横向滚动标签）、触屏优化（≥40px 触控目标、底部导航栏）、PWA 可安装到主屏幕、Service Worker 离线应用外壳** |
 | 影评社区 | **影评发布（四维评分 + 影片标签）、热评榜单（daily/weekly/monthly，含指数时间衰减）、个性化推荐（标签重叠 + 四维评分余弦相似度 + 热度）、内容举报与审核（`approved` 自动隐藏被举报影评）、社区通知（他人点赞自动通知作者、未读数/已读）**（侧边栏「🗣️ 影评社区」`#/community`；`/api/community`，演示数据 `npm run seed:community`） |
-| 小说剧场（Sprint 19） | **书名/链接 → 站点 TXT 下载（GB18030 解码）→ 分章切片入库 → 角色抽取（别名归一；离线启发式基线 + LLM 路径）→ 角色卡（外形/性格/声线/口头禅/关系网/能力/成长）→ 人工审核（Web + `npm run novel` CLI），含修订率统计**（侧边栏「📚 小说剧场」`#/novels`；`/api/novels`） |
+| 小说剧场（Sprint 19） | **书名/链接 → 站点 TXT 下载（GB18030 解码）→ 分章切片入库 → 全书分片角色抽取（别名归一合并；离线启发式基线 + LLM 路径）→ 分八大类角色卡（基础档案/能力面板/人际关系网/过往创伤/信念价值观/伏笔隐藏身份/结局遗留/声线成长）→ 人工审核（Web + `npm run novel` CLI），含修订率统计**；**世界观设定集覆盖 13 类模块（另含 other 兜底共 14 项）（世界规则/力量体系/律法禁忌/种族物种/势力组织/重大事件/装备宝物/地域风貌/文化风俗/预言传说/冲突体系/文明体系/叙事特色），每类含专属属性模板**（侧边栏「📚 小说剧场」`#/novels`；`/api/novels`） |
 
 ### 账户与商业化
 
@@ -286,7 +286,7 @@ docker-compose down
 | PUT | `/api/novels/:id/style` | 设置全书风格（MVP：全书统一） |
 | POST | `/api/novels/:id/ingest` | 摄取，body `{ sourceType: 'qishuxia-txt'\|'text', url?, text?, maxChapters? }` |
 | GET | `/api/novels/:id/chunks` | 切片列表 |
-| POST | `/api/novels/:id/extract` | 角色抽取，body `{ provider?: 'heuristic'\|'llm', maxChapters?, minFreq? }` |
+| POST | `/api/novels/:id/extract` | 角色抽取（全书分片 + 别名合并），body `{ provider?: 'heuristic'\|'llm', maxChapters?, chunkSize?, maxChars?, minFreq? }` |
 | GET | `/api/novels/:id/characters` | 角色列表 |
 | PATCH | `/api/novels/:id/characters/:cid` | 修订角色（记录 `reviewEdits`；`approve:true` 直接通过） |
 | POST | `/api/novels/:id/characters/:cid/approve` | 通过角色 |
@@ -308,9 +308,10 @@ docker-compose down
 | POST | `/api/novels/:id/episodes/:eid/handoff` | 导出单集"外部生成"交接包（prompt.txt + spec.json + refs/） |
 | POST | `/api/novels/:id/episodes/:eid/handoff/import` | 回传外部产物 mp4，body `{ filePath }` |
 | GET | `/api/novels/:id/handoff` | 交接列表 |
-| POST | `/api/novels/:id/world/extract` | 抽取世界观，body `{ provider?: 'llm'\|'heuristic', maxChapters?, chunkSize? }` |
+| POST | `/api/novels/:id/world/extract` | 抽取世界观（全书分片 + 合并），body `{ provider?: 'llm'\|'heuristic', maxChapters?, chunkSize?, maxChars? }` |
 | GET | `/api/novels/:id/world` | 世界观概览（各类型计数 / 关系数 / 缺失核心类型） |
 | GET | `/api/novels/:id/world/entities?type=` | 世界观实体列表（可按类型过滤） |
+| GET | `/api/novels/:id/schema` | 抽取 schema（角色卡字段分组 + 世界观类型/专属属性模板，供前端渲染） |
 | GET | `/api/novels/:id/world/relations` | 实体关系列表 |
 | POST | `/api/novels/:id/advance` | 推进阶段，body `{ to? }`；进入下一阶段后**之前阶段锁定**（不可修改），锁定操作返回 409 |
 | GET | `/api/novels/:id/characters/sets` | 角色备选集合列表 |
@@ -320,7 +321,7 @@ docker-compose down
 
 > **阶段与锁定**：`source → characters → world → series → episodes → assets → compose`。**源文本/世界观提取一次**；**角色设定卡与世界观设定集可多次生成备选**，选定后**进入下一阶段即不可修改**。
 
-> CLI：`npm run novel -- <create|ingest|extract|list|show|characters|stats|style|plan|seasons|episodes|script|assets|compose|manifest|sync|handoff|handoff-import|handoff-list|world|world-show|world-entities|world-relations>`。来源首选站点 **TXT 下载**（两跳 Cookie + GB18030 解码）；**不绕过**登录/验证码/加密。抽取默认**离线启发式**（低精度基线）；**配置 `LLM_PROVIDER=opencode` 后走真实 LLM**（Vercel AI SDK + `ai-sdk-provider-opencode-sdk`，本机 OpenCode 2.x 服务；或 `OPENCODE_BASE_URL`+`OPENCODE_PASSWORD`）。分季分集为**规则驱动**（确定性）；单集剧本启发式必落 85–95s，LLM 可选。视频生成：`VIDEO_PROVIDER=seedance` + `SEEDANCE_API_KEY` + `SEEDANCE_MODEL`（Ark Doubao-Seedance-2.5）。产出落 `storage/novels/<id>/`，成片落 `storage/exports/novels/<id>/`。
+> CLI：`npm run novel -- <create|ingest|extract|list|show|characters|stats|style|plan|seasons|episodes|script|assets|compose|manifest|sync|handoff|handoff-import|handoff-list|world|world-show|world-entities|world-relations>`。来源首选站点 **TXT 下载**（两跳 Cookie + GB18030 解码）；**不绕过**登录/验证码/加密。抽取默认**离线启发式**（低精度基线）；**配置 `LLM_PROVIDER=opencode` 后走真实 LLM**（Vercel AI SDK + `ai-sdk-provider-opencode-sdk`，本机 OpenCode 2.x 服务；或 `OPENCODE_BASE_URL`+`OPENCODE_PASSWORD`），并按**用户级 Provider 偏好**回退解析（用户级 → 全局 → Mock；小说项目当前不参与项目级偏好）。分季分集为**规则驱动**（确定性）；单集剧本启发式必落 85–95s，LLM 可选。视频生成：`VIDEO_PROVIDER=seedance` + `SEEDANCE_API_KEY` + `SEEDANCE_MODEL`（Ark Doubao-Seedance-2.5）。产出落 `storage/novels/<id>/`，成片落 `storage/exports/novels/<id>/`。
 
 **单集"外部生成"交接**（视频 plan 受限时的替代流程）：导出提示词/规格/参考图 → 交外部平台生成 → 结果放回视频目录并 import。
 ```

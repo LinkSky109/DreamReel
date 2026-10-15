@@ -501,6 +501,7 @@ export const api = {
   listNovelHandoff: (id) => request(`/novels/${id}/handoff`),
   getNovelManifest: (id) => request(`/novels/${id}/manifest`),
   syncNovel: (id, data) => request(`/novels/${id}/sync`, { method: 'POST', body: data }),
+  getNovelSchema: (id) => request(`/novels/${id}/schema`),
 }
 
 export default api

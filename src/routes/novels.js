@@ -25,6 +25,9 @@ import { buildManifest, syncToLocal, syncToQuark } from '../services/novelSyncSe
 import { exportHandoff, importHandoffResult, listHandoff } from '../services/episodeHandoffService.js'
 import { extractWorld, listEntities, listRelations, summarize } from '../services/worldbuildingService.js'
 import { selectWorldSet, listWorldSets } from '../services/worldbuildingService.js'
+import { CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
+import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
+import { optionalClampInt } from '../utils/coerce.js'
 
 /**
  * 小说 → 剧集 路由（Sprint 19），挂载 /api/novels
@@ -107,8 +110,15 @@ router.get('/:id/chunks', (req, res) => {
 // 角色抽取
 router.post('/:id/extract', async (req, res) => {
   try {
-    const { provider, maxChapters, maxChars, minFreq } = req.body || {}
-    const result = await extractCharacters(req.params.id, { provider, maxChapters, maxChars, minFreq })
+    const body = req.body || {}
+    const result = await extractCharacters(req.params.id, {
+      provider: body.provider,
+      maxChapters: optionalClampInt(body.maxChapters, 1, 100000),
+      chunkSize: optionalClampInt(body.chunkSize, 1, 50),
+      maxChars: optionalClampInt(body.maxChars, 200, 32000),
+      minFreq: optionalClampInt(body.minFreq, 1, 1000),
+      userId: req.user?.id,
+    })
     ensureCards(req.params.id)
     res.json({ success: true, data: { provider: result.provider, characters: listCharacters(req.params.id) } })
   } catch (error) {
@@ -347,10 +357,17 @@ router.get('/:id/handoff', (req, res) => {
 
 // ===== 世界观设定集（Sprint 25） =====
 
-// 抽取世界观（种族/势力/事件/装备/文化…）+ 关系
+// 抽取世界观（世界规则/力量/种族/势力/事件/装备/文化…）+ 关系
 router.post('/:id/world/extract', async (req, res) => {
   try {
-    const result = await extractWorld(req.params.id, req.body || {})
+    const body = req.body || {}
+    const result = await extractWorld(req.params.id, {
+      provider: body.provider,
+      maxChapters: optionalClampInt(body.maxChapters, 1, 100000),
+      chunkSize: optionalClampInt(body.chunkSize, 1, 50),
+      maxChars: optionalClampInt(body.maxChars, 200, 32000),
+      userId: req.user?.id,
+    })
     res.json({ success: true, data: { provider: result.provider, entities: result.entities, summary: result.summary } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -382,6 +399,26 @@ router.get('/:id/world/relations', (req, res) => {
   try {
     getNovelProject(req.params.id)
     res.json({ success: true, data: listRelations(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// ===== 抽取 schema（供前端渲染角色卡/世界观类型与属性标签） =====
+
+router.get('/:id/schema', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({
+      success: true,
+      data: {
+        character: { fields: CARD_SCHEMA, groups: CARD_GROUPS },
+        world: {
+          types: WORLD_TYPES.map((t) => ({ key: t, label: WORLD_TYPE_LABELS[t] })),
+          attributes: WORLD_ATTRIBUTES,
+        },
+      },
+    })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

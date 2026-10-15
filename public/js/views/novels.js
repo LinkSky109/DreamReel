@@ -17,14 +17,39 @@ const STAGE_LABEL = {
   assets: '单集资产',
   compose: '成片',
 }
-const TYPE_LABEL = { race: '种族', faction: '势力', event: '重要事件', item: '装备', culture: '文化', location: '地点', power: '力量体系', other: '其他' }
+const TYPE_LABEL = {
+  world: '世界规则', power: '力量体系', rule: '律法与禁忌', race: '种族物种', faction: '势力组织',
+  event: '重大事件', item: '装备宝物', location: '地域风貌', culture: '文化风俗', prophecy: '预言传说',
+  conflict: '冲突体系', civilization: '文明体系', narrative: '叙事特色', other: '其他',
+}
+const CARD_GROUPS = { basic: '基础档案', ability: '能力面板', relations: '人际关系网', trauma: '过往创伤', beliefs: '信念与价值观', secrets: '伏笔与隐藏身份', ending: '结局与遗留影响', media: '声线与成长' }
+const DEFAULT_CARD_FIELDS = [
+  { key: 'age', label: '年龄', group: 'basic' }, { key: 'gender', label: '性别', group: 'basic' },
+  { key: 'appearance', label: '外貌', group: 'basic' }, { key: 'personality', label: '性格底色', group: 'basic' },
+  { key: 'habits', label: '习惯', group: 'basic' }, { key: 'catchphrase', label: '口头禅', group: 'basic' },
+  { key: 'fears', label: '恐惧', group: 'basic' }, { key: 'obsessions', label: '执念', group: 'basic' },
+  { key: 'weaknesses', label: '心理弱点', group: 'basic' },
+  { key: 'abilities', label: '基础能力', group: 'ability' }, { key: 'talents', label: '特殊天赋', group: 'ability' },
+  { key: 'shortcomings', label: '短板', group: 'ability' }, { key: 'combatStyle', label: '战斗风格', group: 'ability' },
+  { key: 'strengths', label: '擅长领域', group: 'ability' }, { key: 'limits', label: '不擅长领域', group: 'ability' },
+  { key: 'relations', label: '人际关系网', group: 'relations' }, { key: 'relationChanges', label: '关系变化节点', group: 'relations' },
+  { key: 'childhood', label: '童年经历', group: 'trauma' }, { key: 'regrets', label: '重大遗憾', group: 'trauma' },
+  { key: 'shadows', label: '心理阴影', group: 'trauma' }, { key: 'coreKnot', label: '核心心结', group: 'trauma' },
+  { key: 'principles', label: '原则底线', group: 'beliefs' }, { key: 'worldview', label: '三观', group: 'beliefs' },
+  { key: 'beliefShifts', label: '信念转变节点', group: 'beliefs' },
+  { key: 'hiddenIdentity', label: '隐藏身世', group: 'secrets' }, { key: 'secretMission', label: '秘密任务', group: 'secrets' },
+  { key: 'disguise', label: '伪装身份', group: 'secrets' }, { key: 'secrets', label: '不为人知的秘密', group: 'secrets' },
+  { key: 'fate', label: '生死归宿', group: 'ending' }, { key: 'legacy', label: '遗产/传说', group: 'ending' },
+  { key: 'impact', label: '对世界/他人的改变', group: 'ending' },
+  { key: 'voice', label: '声线描述', group: 'media' }, { key: 'growth', label: '成长轨迹', group: 'media' },
+]
 
-const state = { novelId: null, tab: 'stage' }
+const state = { novelId: null, tab: 'stage', worldType: 'all' }
 
 function esc(s) {
   const d = document.createElement('div')
   d.textContent = s === null || s === undefined ? '' : String(s)
-  return d.innerHTML
+  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
 function unwrap(res) {
   return res && res.data !== undefined ? res.data : res
@@ -38,6 +63,7 @@ function locked(novel, stage) {
 
 export async function renderNovelsPage(container, novelId) {
   if (novelId) {
+    if (state.novelId !== novelId) state.worldType = 'all'
     state.novelId = novelId
     return renderDetail(container)
   }
@@ -210,11 +236,25 @@ async function tabSource({ body, novel, id, refresh }) {
 // ---------- 角色 ----------
 async function tabCharacters({ body, novel, id, refresh }) {
   const lk = locked(novel, 'characters')
-  const [chars, sets, stats] = await Promise.all([
+  const [chars, sets, stats, schema] = await Promise.all([
     api.listNovelCharacters(id).then(unwrap),
     api.listNovelCharacterSets(id).then(unwrap).catch(() => []),
     api.novelReviewStats(id).then(unwrap).catch(() => ({})),
+    api.getNovelSchema(id).then(unwrap).catch(() => null),
   ])
+  const fields = (schema && schema.character && schema.character.fields) || DEFAULT_CARD_FIELDS
+  const groups = (schema && schema.character && schema.character.groups) || CARD_GROUPS
+  const groupKeys = Object.keys(groups)
+  const renderCard = (c) => {
+    const card = c.card || {}
+    const blocks = groupKeys.map((g) => {
+      const rows = fields.filter((f) => f.group === g && card[f.key])
+      if (!rows.length) return ''
+      return `<div style="margin-top:6px;"><span style="font-size:12px;color:#7c3aed;">${esc(groups[g])}</span>
+        ${rows.map((f) => `<div style="font-size:12px;color:var(--text-secondary);"><b>${esc(f.label)}</b>：${esc(card[f.key])}</div>`).join('')}</div>`
+    }).join('')
+    return blocks || '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">（未抽取到字段，可用启发式引擎先跑通或换 LLM）</div>'
+  }
   body.innerHTML = `
     <section class="card" style="padding:16px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
@@ -228,7 +268,7 @@ async function tabCharacters({ body, novel, id, refresh }) {
           <button id="nvExtract" class="btn btn-primary btn-sm" ${lk ? 'disabled' : ''}>生成角色（新备选）</button>
         </div>
       </div>
-      <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">修订率 ${((stats.revisionRate || 0) * 100).toFixed(1)}% · 已通过 ${esc(stats.approved || 0)} / ${esc(chars.length)}</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">字段 ${fields.length} 项 · 修订率 ${((stats.revisionRate || 0) * 100).toFixed(1)}% · 已通过 ${esc(stats.approved || 0)} / ${esc(chars.length)}</div>
       ${sets.length ? `<div style="margin-top:10px;font-size:12px;">备选集合：${sets.map((s) => `<button class="btn btn-sm ${s.selected ? 'btn-primary' : ''}" data-cset="${esc(s.id)}" ${lk ? 'disabled' : ''}>${s.count} 个 · ${esc(s.provider)}${s.selected ? '（当前）' : ''}</button>`).join(' ')}</div>` : ''}
     </section>
     <div style="display:grid;gap:10px;">
@@ -236,13 +276,15 @@ async function tabCharacters({ body, novel, id, refresh }) {
         <div class="card" style="padding:12px;border:1px solid var(--border-color);">
           <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
             <div><b>${esc(c.name)}</b> ${(c.aliases || []).length ? `<span style="font-size:12px;color:var(--text-secondary);">别名 ${esc(c.aliases.join('/'))}</span>` : ''}
+              ${c.kind === 'group' ? '<span style="font-size:12px;color:#7c3aed;">· 群体</span>' : ''}
               <span style="font-size:12px;color:var(--text-secondary);"> · ${esc(c.provider)} · ${esc(c.status)}</span></div>
             <div style="display:flex;gap:6px;">
               <button class="btn btn-sm" data-cedit="${esc(c.id)}" ${lk ? 'disabled' : ''}>修订</button>
               <button class="btn btn-sm" data-capprove="${esc(c.id)}" ${lk ? 'disabled' : ''}>通过</button>
             </div>
           </div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">外形：${esc((c.card && c.card.appearance) || '-')} ｜ 性格：${esc((c.card && c.card.personality) || '-')} ｜ 声线：${esc((c.card && c.card.voice) || '-')}</div>
+          ${c.description ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">${esc(c.description)}</div>` : ''}
+          ${renderCard(c)}
         </div>`).join('') : '<div style="color:var(--text-secondary);">暂无角色，先在「来源」摄取后点“生成角色”</div>'}
     </div>`
 
@@ -263,7 +305,7 @@ async function tabCharacters({ body, novel, id, refresh }) {
     try { await api.approveNovelCharacter(id, b.dataset.capprove); refresh() } catch (err) { showToast(err.message, 'error') }
   }))
   body.querySelectorAll('[data-cedit]').forEach((b) => b.addEventListener('click', async () => {
-    const key = prompt('修改字段（appearance/personality/voice/catchphrase/relations/abilities/growth/name）：', 'personality')
+    const key = prompt('修改字段（输入字段名）：\n' + fields.map((f) => `${f.key}=${f.label}`).join('  '), 'personality')
     if (!key) return
     const value = prompt(`新的 ${key}：`, '')
     if (value === null) return
@@ -278,13 +320,35 @@ async function tabCharacters({ body, novel, id, refresh }) {
 // ---------- 世界观 ----------
 async function tabWorld({ body, novel, id, refresh }) {
   const lk = locked(novel, 'world')
-  const [summary, entities, relations, sets] = await Promise.all([
+  const [summary, entities, relations, sets, schema] = await Promise.all([
     api.getNovelWorld(id).then(unwrap).catch(() => ({})),
     api.listNovelWorldEntities(id).then(unwrap).catch(() => []),
     api.listNovelWorldRelations(id).then(unwrap).catch(() => []),
     api.listNovelWorldSets(id).then(unwrap).catch(() => []),
+    api.getNovelSchema(id).then(unwrap).catch(() => null),
   ])
+  const typeLabel = (schema && schema.world && Object.fromEntries(schema.world.types.map((t) => [t.key, t.label]))) || TYPE_LABEL
+  const attrLabels = Object.fromEntries(
+    Object.entries((schema && schema.world && schema.world.attributes) || {}).map(([t, list]) => [t, Object.fromEntries((list || []).map((a) => [a.key, a.label]))])
+  )
   const byType = summary.byType || {}
+  const activeType = state.worldType || 'all'
+  const filtered = activeType === 'all' ? entities : entities.filter((e) => e.type === activeType)
+  const typeKeys = Object.keys(typeLabel).filter((k) => (byType[k] || 0) > 0)
+  const renderEntity = (e) => {
+    const attrs = e.attributes || {}
+    const labels = attrLabels[e.type] || {}
+    const rows = Object.entries(attrs).filter(([, v]) => v)
+    const rels = (e.relations || []).map((r) => `${esc(r.target)}${r.kind ? `（${esc(r.kind)}）` : ''}`)
+    return `<details style="border:1px solid var(--border-color);border-radius:6px;padding:8px;">
+      <summary style="font-size:13px;cursor:pointer;"><b>[${esc(typeLabel[e.type] || e.type)}]</b> ${esc(e.name)} <span style="color:var(--text-secondary);font-size:12px;">x${esc(e.mentions || 0)}</span>${(e.aliases || []).length ? ` <span style="color:var(--text-secondary);font-size:12px;">${esc(e.aliases.join('/'))}</span>` : ''}</summary>
+      <div style="margin-top:6px;">
+        ${e.description ? `<div style="font-size:12px;color:var(--text-secondary);">${esc(e.description)}</div>` : ''}
+        ${rows.length ? `<table style="font-size:12px;border-collapse:collapse;margin-top:4px;">${rows.map(([k, v]) => `<tr><td style="color:#7c3aed;padding:2px 8px 2px 0;vertical-align:top;">${esc(labels[k] || k)}</td><td style="color:var(--text-secondary);">${esc(v)}</td></tr>`).join('')}</table>` : '<div style="font-size:12px;color:var(--text-secondary);">（无结构化属性）</div>'}
+        ${rels.length ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">关系：${rels.join('、')}</div>` : ''}
+      </div>
+    </details>`
+  }
   body.innerHTML = `
     <section class="card" style="padding:16px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
@@ -300,21 +364,25 @@ async function tabWorld({ body, novel, id, refresh }) {
       </div>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">
         实体 ${esc(summary.total || 0)} · 关系 ${esc(summary.relations || 0)} ·
-        ${Object.entries(TYPE_LABEL).map(([k, l]) => `${l} ${esc(byType[k] || 0)}`).join(' · ')}
+        ${Object.entries(typeLabel).map(([k, l]) => `${esc(l)} ${esc(byType[k] || 0)}`).join(' · ')}
       </div>
       ${(summary.missingCoreTypes || []).length ? `<div style="font-size:12px;color:#d97706;margin-top:4px;">缺失核心类型：${esc(summary.missingCoreTypes.join('、'))}（可换引擎或增大章节范围）</div>` : ''}
       ${sets.length ? `<div style="margin-top:10px;font-size:12px;">备选集合：${sets.map((s) => `<button class="btn btn-sm ${s.selected ? 'btn-primary' : ''}" data-wset="${esc(s.id)}" ${lk ? 'disabled' : ''}>${s.count} 实体 · ${esc(s.provider)}${s.selected ? '（当前）' : ''}</button>`).join(' ')}</div>` : ''}
+      ${typeKeys.length ? `<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-sm ${activeType === 'all' ? 'btn-primary' : ''}" data-wtype="all">全部 ${esc(entities.length)}</button>
+        ${typeKeys.map((k) => `<button class="btn btn-sm ${activeType === k ? 'btn-primary' : ''}" data-wtype="${esc(k)}">${esc(typeLabel[k])} ${esc(byType[k])}</button>`).join('')}
+      </div>` : ''}
     </section>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:14px;">
       <section class="card" style="padding:14px;">
-        <h4 style="margin-top:0;">实体</h4>
-        <div style="display:grid;gap:6px;max-height:420px;overflow:auto;">
-          ${entities.length ? entities.map((e) => `<div style="font-size:13px;"><b>[${esc(TYPE_LABEL[e.type] || e.type)}]</b> ${esc(e.name)} <span style="color:var(--text-secondary);font-size:12px;">x${esc(e.mentions || 0)}</span></div>`).join('') : '<div style="color:var(--text-secondary);">暂无</div>'}
+        <h4 style="margin-top:0;">实体 ${activeType === 'all' ? '' : `· ${esc(typeLabel[activeType] || activeType)}`}</h4>
+        <div style="display:grid;gap:6px;max-height:520px;overflow:auto;">
+          ${filtered.length ? filtered.map(renderEntity).join('') : '<div style="color:var(--text-secondary);">暂无</div>'}
         </div>
       </section>
       <section class="card" style="padding:14px;">
         <h4 style="margin-top:0;">关系</h4>
-        <div style="display:grid;gap:6px;max-height:420px;overflow:auto;">
+        <div style="display:grid;gap:6px;max-height:520px;overflow:auto;">
           ${relations.length ? relations.map((r) => `<div style="font-size:13px;">${esc(r.fromName)} <span style="color:var(--text-secondary);">-[${esc(r.kind)}]-></span> ${esc(r.toName)}</div>`).join('') : '<div style="color:var(--text-secondary);">暂无</div>'}
         </div>
       </section>
@@ -323,7 +391,7 @@ async function tabWorld({ body, novel, id, refresh }) {
   body.querySelector('#nvWorld')?.addEventListener('click', async () => {
     const provider = body.querySelector('#nvWorldProvider').value
     try {
-      await api.extractNovelWorld(id, { provider, maxChapters: 30, chunkSize: 10 })
+      await api.extractNovelWorld(id, { provider })
       showToast('已生成世界观备选', 'success')
       refresh()
     } catch (err) {
@@ -332,6 +400,10 @@ async function tabWorld({ body, novel, id, refresh }) {
   })
   body.querySelectorAll('[data-wset]').forEach((b) => b.addEventListener('click', async () => {
     try { await api.selectNovelWorldSet(id, b.dataset.wset); refresh() } catch (err) { showToast(err.message, 'error') }
+  }))
+  body.querySelectorAll('[data-wtype]').forEach((b) => b.addEventListener('click', () => {
+    state.worldType = b.dataset.wtype
+    refresh()
   }))
 }
 

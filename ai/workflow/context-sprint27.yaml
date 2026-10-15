@@ -1,0 +1,86 @@
+task_id: "TASK-20261015-027"
+task_name: "Sprint 27: 长篇小说全维度抽取升级（角色八大类 + 世界观13类 + 全书分片 + 用户级 Provider）"
+create_time: "2026-10-15T10:20:00+08:00"
+current_global_state: "GLOBAL_DONE"
+
+requirement:
+  req_id: "SPRINT-27"
+  req_title: "长篇小说角色/世界观全维度拆解抽取（按全维度要素清单）"
+  acceptance_criteria:
+    - "角色卡覆盖八类维度（基础档案/能力面板/人际关系网/过往创伤/信念价值观/伏笔隐藏身份/结局遗留/声线成长）"
+    - "世界观类型覆盖 13 类模块（另含 other 兜底共 14 项），且每类有专属属性模板"
+    - "角色/世界观均按全书分片抽取并合并去重，忠于原文，禁止编造，矛盾标注"
+    - "抽取按用户级 Provider 回退解析（用户级→全局→Mock）"
+    - "前端可展示分组角色卡与世界观类型/属性/筛选"
+    - "Lint 零阻断、相关单元测试覆盖率≥80%、全量 npm test 通过"
+  product_owner: "用户"
+  req_doc_link: "ai/docs/novel-series-plan.md"
+
+dev_context:
+  dev_owner: "AI Agent"
+  feature_branch: "sprint-27-extraction-dimensions"
+  mr_id: ""
+  cr_approvers: ["code-reviewer (ECC)", "security-reviewer (ECC)"]
+  unit_test_coverage: 95.51
+  lint_result: "pass"
+  dev_complete_time: "2026-10-15T11:05:00+08:00"
+  sub_tasks:
+    - id: "S27-1"
+      name: "角色卡分八大类 schema（33 字段）"
+      status: "DEV_DONE"
+    - id: "S27-2"
+      name: "世界观 13 类型 + 专属属性模板（+other=14）"
+      status: "DEV_DONE"
+    - id: "S27-3"
+      name: "角色全书分片抽取 + 别名合并 + 新提示词"
+      status: "DEV_DONE"
+    - id: "S27-4"
+      name: "世界观全书分片 + 类型/属性模板提示词 + 属性白名单合并"
+      status: "DEV_DONE"
+    - id: "S27-5"
+      name: "用户级 Provider 解析 + schema 接口 + 前端展示/筛选 + CLI + 输入边界校验"
+      status: "DEV_DONE"
+
+test_context:
+  test_owner: "AI Agent"
+  test_env: "local（npm test 强制 mock provider，隔离 storage/test-run）"
+  test_case_total: 567
+  test_case_pass: 567
+  bug_count: 3
+  bug_closed_count: 3
+  test_report_link: "ai/docs/sprint27-delivery-report.md"
+  test_complete_time: "2026-10-15T11:20:00+08:00"
+
+consistency_context:
+  code_check: "pass（lint 0、依赖未变、diff 无密钥）"
+  env_check: "pass（无新增环境变量，.env.example 未变）"
+  data_check: "pass（旧世界观类型/旧角色卡字段全部保留，向后兼容，无迁移）"
+  doc_check: "pass（README 已同步；context/tickets/delivery 报告已生成）"
+  inspection_report_link: "ai/docs/sprint27-remediation-tickets.md"
+
+sla_info:
+  total_deadline: "2026-10-18T23:59:00+08:00"
+  current_node_timeout: 0
+  risk_level: "normal"
+
+operation_logs:
+  - time: "2026-10-15T10:20:00+08:00"
+    operator: "AI Agent"
+    action: "工作流初始化"
+    result: "GLOBAL_IN_DEV；需求全维度要素清单录入；5 个子任务已编码"
+  - time: "2026-10-15T10:35:00+08:00"
+    operator: "AI Agent"
+    action: "开发自检 + 首轮 CR/安全评审"
+    result: "lint 0；CR 提出 HIGH-1/2/3（分片丢章、合并丢名）+ 安全 C1/H2（参数无界 DoS、projectId 注入）→ 回退 IN_DEV"
+  - time: "2026-10-15T10:55:00+08:00"
+    operator: "AI Agent"
+    action: "修复阻断项"
+    result: "新增 utils/textChunking.groupChunks（按预算切组不丢章）+ utils/coerce（整数区间校验）；mergeCharacters 并入 name；移除 projectId 注入；属性白名单；日志脱敏"
+  - time: "2026-10-15T11:05:00+08:00"
+    operator: "AI Agent"
+    action: "复评通过 → DEV_DONE"
+    result: "code-reviewer 7/7 PASS；security-reviewer C1/H2/M2/M3 全 PASS，无 CRITICAL/HIGH 残留；覆盖率 95.51%"
+  - time: "2026-10-15T11:20:00+08:00"
+    operator: "AI Agent"
+    action: "测试完成 → GLOBAL_IN_CONSISTENCY → GLOBAL_DONE"
+    result: "npm test 567/567/0，隔离 OK；四维一致性 pass；H1/H3/残留 SSRF 建整改单；交付报告已生成"
