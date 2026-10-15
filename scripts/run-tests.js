@@ -33,7 +33,9 @@ const testFiles = fs
 
 const result = spawnSync(
   process.execPath,
-  ['--test', '--import', pathToFileURL(setupPath).href, ...testFiles],
+  // 限制并发：默认按 CPU 数并行会同时跑多个 ffmpeg（mock 占位视频/成片），
+  // 高负载下偶发 ffmpeg 失败导致 flaky（见 TICKET-27-04）。降到 4 提升稳定性。
+  ['--test', '--test-concurrency=4', '--import', pathToFileURL(setupPath).href, ...testFiles],
   {
     cwd: repoRoot,
     stdio: 'inherit',

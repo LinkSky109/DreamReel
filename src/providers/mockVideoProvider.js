@@ -58,13 +58,24 @@ export class MockVideoProvider extends BaseVideoProvider {
     const text = (params.prompt || 'DreamReel').slice(0, 20)
     const duration = params.duration || 5
 
-    await ffmpeg.generatePlaceholder({
+    // 并行测试下 ffmpeg 偶发瞬时失败 → 重试一次，降低 flaky（见 TICKET-27-04）
+    const args = {
       outputPath,
       duration,
       text,
       resolution: params.resolution || '720p',
       aspectRatio: params.aspectRatio || '16:9',
-    })
+    }
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        await ffmpeg.generatePlaceholder(args)
+        break
+      } catch (error) {
+        if (attempt === 2) throw error
+        logger.warn(`Mock video placeholder 重试（task=${taskId}）：${error.message}`)
+        await new Promise((r) => setTimeout(r, 500))
+      }
+    }
 
     const task = this.tasks.get(taskId)
     if (task) {
