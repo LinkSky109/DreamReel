@@ -24,6 +24,8 @@
 - 建议：Provider `baseUrl` 白名单校验或忽略用户覆盖；密钥仅服务端；不从请求体接收 `projectId`。
 - 备注：Sprint 27 已修复"抽取接口 body spread 注入 projectId"这一条路径；此为剩余同类面。
 
-## TICKET-27-04（LOW）compose 用例偶发失败（既有 flakiness）
+## TICKET-27-04（LOW，已缓解）compose 用例偶发失败（既有 flakiness）
 - 现象：`tests/novelSeries.test.js` 的「单集成片」在并行全量下偶发 400；隔离单跑通过，与本次改动无关。
-- 建议：该用例串行化或提高 `videoTimeoutMs`。
+- 根因：`run-tests.js` 默认 8 并发，同时跑多个 ffmpeg（mock 占位视频/成片），高负载下占位视频偶发失败 → 文件未落盘 → 成片 400。
+- 缓解（2026-10-15）：`run-tests.js` 加 `--test-concurrency=4`；`MockVideoProvider._generatePlaceholder` 失败重试一次。连续 3 次全量均 570/570。
+- 后续（可选）：mock 占位视频改为预置 mp4 fixture，彻底去掉 ffmpeg 依赖。
