@@ -475,14 +475,15 @@ DreamReel/
 ├── tests/                     # 测试（*.test.js）
 ├── scripts/
 │   └── render_title_card.py   # Pillow 渲染片头标题卡 PNG（中文宋体/黑体）
-├── docs/
-│   └── PRD.md                 # 产品需求文档
-├── storage/                   # 运行时数据（gitignore）
-│   ├── videos/                # 镜头视频
-│   ├── exports/               # 导出成片
-│   ├── audio/                 # 配音文件
-│   ├── thumbnails/            # 项目封面
-│   └── data/db.json           # 持久化数据
+├── ai/                        # AI 管理文档
+│   ├── workflow/              # 工作流上下文（context-sprint*.yaml）
+│   ├── docs/                  # 需求 / 交付报告 / 方案（含 PRD.md）
+│   └── refs/                  # 参考与产物（arch_report、ui_design、artifacts…）
+├── storage/                   # 代码输出文件（gitignore，运行时生成）
+│   ├── novels/<id>/           # 小说项目数据（原文/切片/角色/世界观/剧本/交接/账本）
+│   ├── images|videos|audio/   # 媒体产物（按 novels/<id>/ 归类）
+│   ├── exports/               # 成片
+│   └── data/db.json           # 持久化索引
 ├── Dockerfile
 ├── docker-compose.yml
 ├── package.json
@@ -549,9 +550,9 @@ MAX_RESOLUTION=720p
 - **Sprint 14（Wave 1 已交付）**: 五合一创作画布（剧本 / 图片 / 视频 / 音频 / 剪辑 + 更多工具）、图片生成独立 tab、生成图回填参考图、测试存储隔离与前端 lint 覆盖 ✅
 - **Sprint 15（Wave 2 已交付）**: 音频生成独立 tab（Mock TTS 本地真实占位音 / 程序化 BGM·SFX / 三轨混音预听）、智能剪辑模块（规则 EDL / BPM 对齐 / xfade 探测与硬切降级 / 真实渲染）✅
 
-> 各 Sprint 的范围与证据见 `docs/sprint*-delivery-report.md`，对标 LibTV 的差距分析见 `docs/sprint11-gap-analysis.md`。
+> 各 Sprint 的范围与证据见 `ai/docs/sprint*-delivery-report.md`，对标 LibTV 的差距分析见 `ai/docs/sprint11-gap-analysis.md`。
 
-详见 [docs/PRD.md](docs/PRD.md)
+详见 [ai/docs/PRD.md](ai/docs/PRD.md)
 
 ## License
 

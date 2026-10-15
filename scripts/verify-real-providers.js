@@ -355,7 +355,7 @@ async function main() {
     process.exit(0)
   } else if (totalSuccess === 0) {
     console.log('\n⚠️  未配置任何 API Key，跳过真实调用验证')
-    console.log('   请参照 docs/API_KEY_GUIDE.md 配置后重试')
+    console.log('   请参照 ai/docs/API_KEY_GUIDE.md 配置后重试')
     process.exit(0)
   } else {
     console.log(`\n⚠️  部分 Provider 验证失败 (${totalSuccess}/${totalExpected})`)
