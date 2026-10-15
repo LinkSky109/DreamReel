@@ -4,7 +4,7 @@
 - **主题**：造型 prompt 自动注入视频生成 + 编辑器造型表单 + 创意片头模块
 - **交付日期**：2026-10-04
 - **对标产品**：[LibTV](https://www.liblib.tv/)
-- **工作流上下文**：`.workflow/context-sprint12.yaml`
+- **工作流上下文**：`ai/workflow/context-sprint12.yaml`
 - **最终状态**：✅ GLOBAL_DONE（产品经理复核结论：通过 PASS）
 
 ---
@@ -103,8 +103,8 @@
 - `tests/videoStylingPrompt.test.js`
 - `tests/titleSequence.test.js`
 - `public/js/views/titleSequences.js`
-- `docs/sprint12-pm-review.md`
-- `.workflow/context-sprint12.yaml`
+- `ai/docs/sprint12-pm-review.md`
+- `ai/workflow/context-sprint12.yaml`
 
 **修改（7）**
 - `src/services/videoService.js`（R26 注入）
@@ -120,7 +120,7 @@
 
 ## 六、产品经理复核结论（摘要）
 
-完整复核文档：`docs/sprint12-pm-review.md`。
+完整复核文档：`ai/docs/sprint12-pm-review.md`。
 
 - **首轮结论：带条件通过**。3 项重要问题：① 片头片名未上屏（ffmpeg 未编译 drawtext/subtitles）却在模板描述中暗示上屏；② 片头无音轨而「配乐情绪」标签易被误解为自带配乐；③ README 未同步。
 - 修复采用「Pillow 绘制标题卡 PNG → ffmpeg 合成 + 静音音轨 mux + 文案/文档如实化 + README 同步」。

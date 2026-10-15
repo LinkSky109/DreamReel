@@ -1,7 +1,7 @@
 # DreamReel Sprint 20 交付报告：LLM 接入（AI SDK/OpenCode）+ 风格确定 + 角色成长状态
 
 - 任务 ID：`TASK-20261012-020`
-- 工作流上下文：`.workflow/context-sprint20.yaml`
+- 工作流上下文：`ai/workflow/context-sprint20.yaml`
 - 分支：`main`
 - 最终状态：✅ S20-1/S20-2 达成；S20-3 骨架交付（生成待后续）
 
@@ -66,7 +66,7 @@ provider: llm
 
 ## 五、新增 / 修改文件
 
-**新增**：`src/providers/opencodeLLMProvider.js`、`src/models/NovelCharacterState.js`、`src/services/novelStyleService.js`、`src/services/characterGrowthService.js`、`scripts/llm-smoke.js`、`.workflow/context-sprint20.yaml`、`docs/sprint20-delivery-report.md`
+**新增**：`src/providers/opencodeLLMProvider.js`、`src/models/NovelCharacterState.js`、`src/services/novelStyleService.js`、`src/services/characterGrowthService.js`、`scripts/llm-smoke.js`、`ai/workflow/context-sprint20.yaml`、`ai/docs/sprint20-delivery-report.md`
 
 **修改**：`src/providers/llmProviderFactory.js`、`src/providers/providerResolver.js`、`src/config/index.js`、`src/services/storageService.js`、`src/services/characterExtractionService.js`、`src/routes/novels.js`、`scripts/novel.js`、`tests/novelSeries.test.js`、`tests/providerIntegration.test.js`、`package.json`、`README.md`
 

@@ -6,7 +6,7 @@ current_global_state: "GLOBAL_DONE"
 reference:
   benchmark_url: "https://www.liblib.tv/"
   benchmark_name: "LibTV - 专业视频创作工具"
-  gap_analysis: "见 docs/sprint11-gap-analysis.md"
+  gap_analysis: "见 ai/docs/sprint11-gap-analysis.md"
 
 scope:
   - id: "R20"

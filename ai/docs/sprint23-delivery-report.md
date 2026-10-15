@@ -1,7 +1,7 @@
 # DreamReel Sprint 23 交付报告：单集成片 + 存储同步
 
 - 任务 ID：`TASK-20261012-023`
-- 工作流上下文：`.workflow/context-sprint23.yaml`
+- 工作流上下文：`ai/workflow/context-sprint23.yaml`
 - 分支：`main`
 - 最终状态：✅ 达成（成片 + 本地同步真实；夸克网盘 dry-run；真实上传留口）
 
@@ -50,7 +50,7 @@ sync quark（真实，无 cookie）→ ERROR: 夸克网盘真实上传需 QUARK_
 
 ## 五、新增 / 修改文件
 
-**新增**：`src/services/episodeComposeService.js`、`src/services/novelSyncService.js`、`.workflow/context-sprint23.yaml`、`docs/sprint23-delivery-report.md`
+**新增**：`src/services/episodeComposeService.js`、`src/services/novelSyncService.js`、`ai/workflow/context-sprint23.yaml`、`ai/docs/sprint23-delivery-report.md`
 
 **修改**：`src/routes/novels.js`、`scripts/novel.js`、`tests/novelSeries.test.js`、`README.md`
 

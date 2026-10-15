@@ -4,7 +4,7 @@
 - **主题**：导演模式（导演 prompt 编排）+ 剧场计划厂牌体系
 - **交付日期**：2026-10-04
 - **对标产品**：[LibTV](https://www.liblib.tv/)
-- **工作流上下文**：`.workflow/context-sprint13.yaml`
+- **工作流上下文**：`ai/workflow/context-sprint13.yaml`
 - **最终状态**：✅ GLOBAL_DONE（产品经理独立复核结论：通过 PASS）
 
 ---
@@ -120,8 +120,8 @@
 - `tests/studioSystem.test.js`
 - `public/js/views/directors.js`
 - `public/js/views/studios.js`
-- `docs/sprint13-pm-review.md`
-- `.workflow/context-sprint13.yaml`
+- `ai/docs/sprint13-pm-review.md`
+- `ai/workflow/context-sprint13.yaml`
 
 **修改（11）**
 - `src/services/videoService.js`（导演注入）
@@ -140,7 +140,7 @@
 
 ## 六、产品经理复核结论（摘要）
 
-完整复核文档：`docs/sprint13-pm-review.md`。
+完整复核文档：`ai/docs/sprint13-pm-review.md`。
 
 - **唯一一轮总体结论：✅ 通过（PASS）**。PM 独立读源码、自跑 `npm test`（365/0）、自起 server（PORT=3030）从 HTTP 入口 curl 全链路复测，并自写 stub provider 捕获真实下发 prompt：
   - kubrick 启用后真实 prompt 含「导演执导…本镜运镜:缓慢推镜…配乐情绪建议（非自动生成配乐）」，wong 含「霓虹」不含「对称」，二者逐字不同；关闭 / 未知导演不注入；

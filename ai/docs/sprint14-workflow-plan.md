@@ -4,8 +4,8 @@
 - 任务 ID：`TASK-20261005-014`
 - 任务名称：`DreamReel Sprint 14: 五合一画布 + 图片生成 + 工程收口`
 - 技能：`agent-continuous-workflow`
-- 需求分析：`docs/sprint14-requirements-analysis.md`
-- 工作流上下文：`.workflow/context-sprint14.yaml`
+- 需求分析：`ai/docs/sprint14-requirements-analysis.md`
+- 工作流上下文：`ai/workflow/context-sprint14.yaml`
 - 当前状态：`GLOBAL_PENDING`（需求已录入、规划已就绪，等待“需求确认 / 启动开发”事件）
 
 ---
@@ -55,7 +55,7 @@ GLOBAL_PENDING
   - 产出 R31–R35 需求分析
   - 裁决 Wave 1 / Wave 2
 - 准出：
-  - `docs/sprint14-requirements-analysis.md` 完成
+  - `ai/docs/sprint14-requirements-analysis.md` 完成
   - 每个需求有用户故事、范围、非目标、验收标准、估算
   - Wave 1 范围不超过 3 个需求
 - 异常：需求歧义 -> `E009`，创建确认项，不进入开发
@@ -197,7 +197,7 @@ GLOBAL_PENDING
 - pre_state：`GLOBAL_DONE`
 - executor：orchestrator
 - 动作：
-  - 生成 `docs/sprint14-delivery-report.md`
+  - 生成 `ai/docs/sprint14-delivery-report.md`
   - 更新 README 测试数与路线图
   - 清理端口与临时文件
   - 归档上下文
@@ -215,7 +215,7 @@ GLOBAL_PENDING
 | backend-shared | 编排者串行修改 | `src/config/index.js`、`src/server.js`、`src/services/storageService.js`、`src/services/quotaService.js`、`src/services/projectService.js`、`package.json`、`eslint.config.js` | 不与其他后端同时改同一行 | - |
 | frontend | 前端开发子代理 | `public/index.html`、`public/js/app.js`、`public/js/api.js`、`public/js/views/editor.js`、`public/js/views/editorTabs.js`、`public/js/views/images.js`、`public/css/style.css` | `src/**` | 3022 |
 | test | 测试子代理 | `tests/**`（新增测试文件） | `src/**`、`public/**` | 3023 |
-| PM review | 产品复核子代理 | 只新增 `docs/sprint14-pm-review.md` | 其它全部只读 | 3030 / 3031 |
+| PM review | 产品复核子代理 | 只新增 `ai/docs/sprint14-pm-review.md` | 其它全部只读 | 3030 / 3031 |
 | orchestrator | 主编排 | 收口、共享文件、文档、最终冒烟 | 不覆盖用户既存改动 | 3040 |
 
 **冲突规则**：`editor.js` 只允许 frontend 一个写入者；`server.js`、`config/index.js`、`storageService.js`、`quotaService.js` 由编排者在后端契约冻结后串行修改，避免并行覆盖。
@@ -297,7 +297,7 @@ GLOBAL_PENDING
 ### PM 复核
 
 - PM 自跑命令、自起服务、自写 probe 的证据。
-- 只看不改；唯一允许产物为 `docs/sprint14-pm-review.md`。
+- 只看不改；唯一允许产物为 `ai/docs/sprint14-pm-review.md`。
 
 ---
 

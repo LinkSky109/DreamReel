@@ -154,7 +154,7 @@ LLM/剧本 `scriptService`·`llmProviderFactory`；风格 `styleService`·`direc
 
 ### Sprint 20 — 风格确定 + 角色资产 + 成长状态
 - 风格确定：复用 `styleService`（导演风格/色调）产出全局风格 + 角色造型基调。
-- **LLM 接入（Vercel AI SDK）与多供应商 key 切换**：新增 `ai-sdk` provider 适配（包 `llmProviderFactory`），用 `generateText`+`Output.object`(Zod)；开发用 opencode-go；供应商/model/key 可切换（官方 provider + OpenAI 兼容）。参考 `docs/novel-series-plan.md` §4.1。
+- **LLM 接入（Vercel AI SDK）与多供应商 key 切换**：新增 `ai-sdk` provider 适配（包 `llmProviderFactory`），用 `generateText`+`Output.object`(Zod)；开发用 opencode-go；供应商/model/key 可切换（官方 provider + OpenAI 兼容）。参考 `ai/docs/novel-series-plan.md` §4.1。
 - 角色**形象图**（`imageService`，先 mock）、**音色样本**（TTS，先 mock/占位）。
 - **角色成长状态**：按章节/集记录外貌/关系/能力演进（`CharacterState`）。
 - 验收：每角色出形象+音色+可查询成长轨迹；风格全局可锁定；LLM 路径跑通（opencode-go）。

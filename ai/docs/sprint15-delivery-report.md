@@ -4,8 +4,8 @@
 - 主题：音频生成 + 智能剪辑
 - 交付日期：2026-10-05
 - 分支：`sprint-15-audio-smart-edit`
-- 工作流上下文：`.workflow/context-sprint15.yaml`
-- 独立复核：`docs/sprint15-pm-review.md`
+- 工作流上下文：`ai/workflow/context-sprint15.yaml`
+- 独立复核：`ai/docs/sprint15-pm-review.md`
 - 最终状态：✅ `GLOBAL_DONE`（正确性复核 + 安全复核 PASS）
 
 ---
@@ -125,9 +125,9 @@
 - `tests/audioGeneration.test.js`
 - `tests/editPlan.test.js`
 - `tests/projectCleanupContainment.test.js`
-- `.workflow/context-sprint15.yaml`
-- `docs/sprint15-pm-review.md`
-- `docs/sprint15-delivery-report.md`
+- `ai/workflow/context-sprint15.yaml`
+- `ai/docs/sprint15-pm-review.md`
+- `ai/docs/sprint15-delivery-report.md`
 
 **修改（主要）**
 

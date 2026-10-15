@@ -7,8 +7,8 @@ current_global_state: "GLOBAL_DONE"
 reference:
   source_commit: "cdd9c08 Merge Sprint 16/17/18 patches"
   commit_message_section: "Sprint 17 - Features & Improvements"
-  prev_sprint_context: ".workflow/context-sprint16.yaml"
-  delivery_report: "docs/sprint17-delivery-report.md"
+  prev_sprint_context: "ai/workflow/context-sprint16.yaml"
+  delivery_report: "ai/docs/sprint17-delivery-report.md"
 
 baseline:
   repo_root: "/Users/link/work/DreamReel"

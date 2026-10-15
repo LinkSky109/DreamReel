@@ -18,7 +18,7 @@ requirement:
     - "前端页面全功能测试通过"
     - "端到端验证：创建项目→生成剧本→生成视频→加BGM→导出成片"
   product_owner: "用户"
-  req_doc_link: "docs/requirements-analysis.md"
+  req_doc_link: "ai/docs/requirements-analysis.md"
 
 dev_context:
   dev_owner: "AI Agent"
@@ -83,4 +83,4 @@ operation_logs:
   - time: "2026-10-02T15:00:00+08:00"
     operator: "AI Agent"
     action: "Sprint 1 交付完成"
-    result: "一致性校验通过，README已更新，交付报告已生成 docs/sprint1-delivery-report.md，GLOBAL_DONE"
+    result: "一致性校验通过，README已更新，交付报告已生成 ai/docs/sprint1-delivery-report.md，GLOBAL_DONE"

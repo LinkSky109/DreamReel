@@ -3,9 +3,9 @@
 - 版本：v1.0
 - 日期：2026-10-05
 - 分析人：AI Agent（产品 / 架构视角）
-- 输入依据：`docs/sprint11-gap-analysis.md` 第五节、`docs/sprint13-delivery-report.md` 第七节、当前 `/Users/link/work/DreamReel` 代码基线
-- 关联上下文：`.workflow/context-sprint14.yaml`
-- 实施规划：`docs/sprint14-workflow-plan.md`
+- 输入依据：`ai/docs/sprint11-gap-analysis.md` 第五节、`ai/docs/sprint13-delivery-report.md` 第七节、当前 `/Users/link/work/DreamReel` 代码基线
+- 关联上下文：`ai/workflow/context-sprint14.yaml`
+- 实施规划：`ai/docs/sprint14-workflow-plan.md`
 
 ---
 

@@ -4,9 +4,9 @@ create_time: "2026-10-05T20:05:00+08:00"
 current_global_state: "GLOBAL_DONE"
 
 reference:
-  prev_sprint_context: ".workflow/context-sprint14.yaml"
-  prev_delivery_report: "docs/sprint14-delivery-report.md"
-  requirements_source: "docs/sprint14-requirements-analysis.md（第六/七节 R33/R34）"
+  prev_sprint_context: "ai/workflow/context-sprint14.yaml"
+  prev_delivery_report: "ai/docs/sprint14-delivery-report.md"
+  requirements_source: "ai/docs/sprint14-requirements-analysis.md（第六/七节 R33/R34）"
   carry_forward: "Sprint 14 Wave 1 工作树改动未提交，已随分支 sprint-15-audio-smart-edit 继续；10 个用户既存未提交改动必须保留"
 
 baseline:
@@ -87,7 +87,7 @@ consistency_context:
   env_check: "PASS（ffmpeg BGM/SFX/混音/xfade 实测可用；audioService 修复硬编码 storage，走 STORAGE_PATH）"
   data_check: "PASS（project.editPlan hydrate/白名单；方案清除不改原镜头；测试库隔离）"
   doc_check: "PASS（README 功能/API/测试数/路线图已同步；PM 复核与交付报告已生成）"
-  inspection_report_link: "docs/sprint15-pm-review.md"
+  inspection_report_link: "ai/docs/sprint15-pm-review.md"
 
 sla_info:
   total_deadline: "2026-10-12T23:59:00+08:00"
@@ -126,4 +126,4 @@ state_log:
   - time: "2026-10-05T20:40:00+08:00"
     from: "GLOBAL_IN_CONSISTENCY"
     to: "GLOBAL_DONE"
-    note: "两组独立复核二次复测 PASS；生成 docs/sprint15-pm-review.md 与 docs/sprint15-delivery-report.md；README/context/交付全量对齐。残留：通用项目 PUT/DELETE 授权缺口（既有）、公开媒体 URL、循环扩展语义、xfade 降级未强制验证"
+    note: "两组独立复核二次复测 PASS；生成 ai/docs/sprint15-pm-review.md 与 ai/docs/sprint15-delivery-report.md；README/context/交付全量对齐。残留：通用项目 PUT/DELETE 授权缺口（既有）、公开媒体 URL、循环扩展语义、xfade 降级未强制验证"

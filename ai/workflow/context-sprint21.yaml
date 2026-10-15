@@ -4,9 +4,9 @@ create_time: "2026-10-12T18:10:00+08:00"
 current_global_state: "GLOBAL_DONE"
 
 reference:
-  plan: "docs/novel-series-plan.md（§6 Sprint 21；决策 5d 分集规则）"
-  prev_sprint_context: ".workflow/context-sprint20.yaml"
-  delivery_report: "docs/sprint21-delivery-report.md"
+  plan: "ai/docs/novel-series-plan.md（§6 Sprint 21；决策 5d 分集规则）"
+  prev_sprint_context: "ai/workflow/context-sprint20.yaml"
+  delivery_report: "ai/docs/sprint21-delivery-report.md"
   git_branch: "main"
   git_head_at_start: "34424e8 feat: Sprint 20 ..."
 

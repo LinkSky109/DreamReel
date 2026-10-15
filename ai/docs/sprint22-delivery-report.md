@@ -1,7 +1,7 @@
 # DreamReel Sprint 22 交付报告：单集内容生成（图/音/视频）
 
 - 任务 ID：`TASK-20261012-022`
-- 工作流上下文：`.workflow/context-sprint22.yaml`
+- 工作流上下文：`ai/workflow/context-sprint22.yaml`
 - 分支：`main`
 - 最终状态：✅ 达成（mock 路径验证；Ark Doubao-Seedance-2.5 路径已接通，真实调用待 key）
 
@@ -67,7 +67,7 @@ SEEDANCE_MODEL=<Ark 的 Doubao-Seedance-2.5 模型/端点 ID>
 
 ## 六、新增 / 修改文件
 
-**新增**：`src/services/episodeAssetService.js`、`.workflow/context-sprint22.yaml`、`docs/sprint22-delivery-report.md`
+**新增**：`src/services/episodeAssetService.js`、`ai/workflow/context-sprint22.yaml`、`ai/docs/sprint22-delivery-report.md`
 
 **修改**：`src/routes/novels.js`、`scripts/novel.js`、`tests/novelSeries.test.js`、`README.md`
 

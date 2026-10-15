@@ -4,9 +4,9 @@ create_time: "2026-10-12T18:55:00+08:00"
 current_global_state: "GLOBAL_DONE"
 
 reference:
-  plan: "docs/novel-series-plan.md（§6 Sprint 22）"
-  prev_sprint_context: ".workflow/context-sprint21.yaml"
-  delivery_report: "docs/sprint22-delivery-report.md"
+  plan: "ai/docs/novel-series-plan.md（§6 Sprint 22）"
+  prev_sprint_context: "ai/workflow/context-sprint21.yaml"
+  delivery_report: "ai/docs/sprint22-delivery-report.md"
   git_branch: "main"
   git_head_at_start: "5ec1a7c feat: Sprint 21 ..."
 

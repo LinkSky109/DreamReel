@@ -97,7 +97,7 @@
 | CineAI（/Users/link/myApp/CineAI） | ✅ 未被动过 | 该目录非 node_modules 文件无 2026-10-03 之后修改；目录 mtime 仍为 9-30 |
 | 用户已有文件删除 | ✅ 未发现 | storage 下既有产物保留；本期仅新增 title-sequences 产物 |
 | README/文档与代码一致 | ❌ 不一致 | 见问题 #3 |
-| .workflow/context-sprint12.yaml | ⚠️ 滞后 | 仍 `GLOBAL_IN_DEV`、subagents `DISPATCHED`、`pm_review: PENDING`，与「已进入 PM 复核」不符（问题 #6） |
+| ai/workflow/context-sprint12.yaml | ⚠️ 滞后 | 仍 `GLOBAL_IN_DEV`、subagents `DISPATCHED`、`pm_review: PENDING`，与「已进入 PM 复核」不符（问题 #6） |
 
 **测试与 lint 独立复核**
 - 自跑 `npm test`：**tests 331 / pass 331 / fail 0**（duration ~18.2s），与自报一致。
@@ -141,7 +141,7 @@
 - `storage/title-sequences/` 已积累 6 个历史 mp4（含本次复测 1 个，已清理），重复生成会无限堆积。建议后续加 TTL 或按 projectId 去重。
 
 **#6 工作流状态机未流转**
-- `.workflow/context-sprint12.yaml` 仍 `GLOBAL_IN_DEV`、两子代理 `DISPATCHED`、`pm_review: PENDING`，与实际已进入 PM 复核不符。流程侧需由编排者更新。
+- `ai/workflow/context-sprint12.yaml` 仍 `GLOBAL_IN_DEV`、两子代理 `DISPATCHED`、`pm_review: PENDING`，与实际已进入 PM 复核不符。流程侧需由编排者更新。
 
 **#7 前端代码未纳入 eslint**
 - `npm run lint` 只扫 `src/ tests/`，新增的 `public/js/views/titleSequences.js`、editor.js 改动无静态检查。建议后续把 `public/js` 加入 lint 范围。

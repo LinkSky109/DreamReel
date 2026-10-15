@@ -4,8 +4,8 @@ create_time: "2026-10-05T19:20:00+08:00"
 current_global_state: "GLOBAL_DONE"
 
 planning:
-  requirements_doc: "docs/sprint14-requirements-analysis.md"
-  workflow_plan: "docs/sprint14-workflow-plan.md"
+  requirements_doc: "ai/docs/sprint14-requirements-analysis.md"
+  workflow_plan: "ai/docs/sprint14-workflow-plan.md"
   recommended_wave1: ["R31", "R32", "R35"]
   recommended_wave2: ["R33", "R34"]
   wave_split_reason: "R31/R32/R35 可独立闭环并互相支撑；R33/R34 均需新增 ffmpeg 能力与 editor.js 深层改动，混入同一轮会显著放大回归面"
@@ -13,10 +13,10 @@ planning:
 reference:
   benchmark_url: "https://www.liblib.tv/"
   benchmark_name: "LibTV - 专业视频创作工具"
-  gap_analysis: "docs/sprint11-gap-analysis.md（第五/六节：五合一画布、图片生成、音频生成、智能剪辑后置路线）"
-  prev_sprint_context: ".workflow/context-sprint13.yaml"
-  prev_delivery_report: "docs/sprint13-delivery-report.md"
-  prev_pm_review: "docs/sprint13-pm-review.md"
+  gap_analysis: "ai/docs/sprint11-gap-analysis.md（第五/六节：五合一画布、图片生成、音频生成、智能剪辑后置路线）"
+  prev_sprint_context: "ai/workflow/context-sprint13.yaml"
+  prev_delivery_report: "ai/docs/sprint13-delivery-report.md"
+  prev_pm_review: "ai/docs/sprint13-pm-review.md"
 
 baseline:
   repo_root: "/Users/link/work/DreamReel"
@@ -92,13 +92,13 @@ next_sprint:
     name: "音频生成独立 Tab"
     priority: "P1"
     wave: 2
-    status: "DELIVERED（见 .workflow/context-sprint15.yaml）"
+    status: "DELIVERED（见 ai/workflow/context-sprint15.yaml）"
     boundary: "TTS 真实/占位双口径；程序化 BGM/SFX；不做 AI 作曲与声音克隆"
   - id: "R34"
     name: "智能剪辑模块"
     priority: "P1"
     wave: 2
-    status: "DELIVERED（见 .workflow/context-sprint15.yaml）"
+    status: "DELIVERED（见 ai/workflow/context-sprint15.yaml）"
     boundary: "规则驱动 EDL + 真实渲染；不做 ML 内容理解与自动高光识别"
 
 out_of_scope:
@@ -142,7 +142,7 @@ test_context:
   test_case_pass: 465
   bug_count: 0
   bug_closed_count: 0
-  test_report_link: "docs/sprint14-workflow-plan.md（证据要求）+ 本轮 curl/浏览器输出"
+  test_report_link: "ai/docs/sprint14-workflow-plan.md（证据要求）+ 本轮 curl/浏览器输出"
   test_complete_time: "2026-10-05T19:40:00+08:00"
 
 consistency_context:
@@ -150,7 +150,7 @@ consistency_context:
   env_check: "PASS（ffmpeg/python3/Pillow 可用；测试使用独立 STORAGE_PATH）"
   data_check: "PASS（ImageAsset 与 shot.referenceImages 重启不丢；测试前后开发库 48 projects 未变）"
   doc_check: "PASS（README 功能/API/测试数/路线图已同步；需求分析、执行规划、PM 复核、交付报告四件套齐全）"
-  inspection_report_link: "docs/sprint14-pm-review.md"
+  inspection_report_link: "ai/docs/sprint14-pm-review.md"
 
 sla_info:
   total_deadline: "2026-10-10T23:59:00+08:00"
@@ -183,7 +183,7 @@ subagents:
     port_first: 3030
     port_recheck: 3031
     scope: ["交付复核，只看不改"]
-    owns: ["docs/sprint14-pm-review.md"]
+    owns: ["ai/docs/sprint14-pm-review.md"]
     verdicts: ["正确性复核 PASS", "安全复核 PASS（Critical/High 修复后复测）"]
 
 shared_file_ownership:
@@ -238,4 +238,4 @@ state_log:
   - time: "2026-10-05T19:55:00+08:00"
     from: "GLOBAL_IN_CONSISTENCY"
     to: "GLOBAL_DONE"
-    note: "两组独立复核二次复测 PASS；生成 docs/sprint14-pm-review.md 与 docs/sprint14-delivery-report.md；README/context/需求/规划/交付全量对齐；Wave 1 交付完成"
+    note: "两组独立复核二次复测 PASS；生成 ai/docs/sprint14-pm-review.md 与 ai/docs/sprint14-delivery-report.md；README/context/需求/规划/交付全量对齐；Wave 1 交付完成"

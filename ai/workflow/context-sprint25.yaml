@@ -4,9 +4,9 @@ create_time: "2026-10-14T15:20:00+08:00"
 current_global_state: "GLOBAL_DONE"
 
 reference:
-  plan: "docs/novel-series-plan.md"
-  prev_sprint_context: ".workflow/context-sprint23.yaml"
-  delivery_report: "docs/sprint25-delivery-report.md"
+  plan: "ai/docs/novel-series-plan.md"
+  prev_sprint_context: "ai/workflow/context-sprint23.yaml"
+  delivery_report: "ai/docs/sprint25-delivery-report.md"
   git_branch: "main"
 
 scope:

@@ -3,7 +3,7 @@
 - 任务 ID：`TASK-20261010-017`
 - 主题：T17-006 影评四维评分与评论模型基线；跨模块 lint 收口
 - 来源提交：`cdd9c08 Merge Sprint 16/17/18 patches`（2026-10-10）
-- 工作流上下文：`.workflow/context-sprint17.yaml`
+- 工作流上下文：`ai/workflow/context-sprint17.yaml`
 - 最终状态：⚠️ `GLOBAL_DONE`（代码） / `PARTIAL`（验证），**含 1 项前端功能性回归**
 
 > ⚠️ **补记说明**：Sprint 16/17/18 同属一个提交，无原始子代理记录。本报告于 2026-10-12 依据代码 diff 重建。

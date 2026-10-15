@@ -16,7 +16,7 @@ requirement:
     - "所有新功能有单元测试，321+测试全部通过"
     - "前端页面全功能测试通过"
   product_owner: "用户"
-  req_doc_link: "docs/requirements-analysis.md"
+  req_doc_link: "ai/docs/requirements-analysis.md"
 
 dev_context:
   dev_owner: "AI Agent"

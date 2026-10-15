@@ -6,10 +6,10 @@ current_global_state: "GLOBAL_DONE"
 reference:
   benchmark_url: "https://www.liblib.tv/"
   benchmark_name: "LibTV - 专业视频创作工具"
-  prev_sprint_context: ".workflow/context-sprint12.yaml"
-  gap_analysis: "docs/sprint11-gap-analysis.md（第五节 Sprint 13 = 导演模式 + 剧场计划厂牌体系）"
-  delivery_report: "docs/sprint13-delivery-report.md"
-  pm_review: "docs/sprint13-pm-review.md"
+  prev_sprint_context: "ai/workflow/context-sprint12.yaml"
+  gap_analysis: "ai/docs/sprint11-gap-analysis.md（第五节 Sprint 13 = 导演模式 + 剧场计划厂牌体系）"
+  delivery_report: "ai/docs/sprint13-delivery-report.md"
+  pm_review: "ai/docs/sprint13-pm-review.md"
 
 scope:
   - id: "R29"

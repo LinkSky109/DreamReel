@@ -1,7 +1,7 @@
 # DreamReel Sprint 21 交付报告：分季分集 + 剧本
 
 - 任务 ID：`TASK-20261012-021`
-- 工作流上下文：`.workflow/context-sprint21.yaml`
+- 工作流上下文：`ai/workflow/context-sprint21.yaml`
 - 分支：`main`
 - 最终状态：✅ 达成（规则驱动分季分集 + 单集剧本；LLM 剧本可选）
 
@@ -52,7 +52,7 @@ consistency → 结构返回（本次未先抽取角色，故 characters=0）
 
 ## 五、新增 / 修改文件
 
-**新增**：`src/models/Season.js`、`src/models/Episode.js`、`src/services/seriesPlannerService.js`、`src/services/episodeScriptService.js`、`.workflow/context-sprint21.yaml`、`docs/sprint21-delivery-report.md`
+**新增**：`src/models/Season.js`、`src/models/Episode.js`、`src/services/seriesPlannerService.js`、`src/services/episodeScriptService.js`、`ai/workflow/context-sprint21.yaml`、`ai/docs/sprint21-delivery-report.md`
 
 **修改**：`src/services/storageService.js`（seriesSeasons/seriesEpisodes）、`src/routes/novels.js`（series/seasons/episodes/script/consistency）、`scripts/novel.js`（plan/seasons/episodes/script）、`tests/novelSeries.test.js`、`README.md`
 

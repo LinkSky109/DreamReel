@@ -86,9 +86,9 @@
 - `src/providers/seedanceVideoProvider.js`
 - `src/providers/minimaxVideoProvider.js`
 - `src/providers/wanVideoProvider.js`
-- `docs/sprint11-gap-analysis.md`
-- `docs/sprint11-delivery-report.md`
-- `.workflow/context-sprint11.yaml`
+- `ai/docs/sprint11-gap-analysis.md`
+- `ai/docs/sprint11-delivery-report.md`
+- `ai/workflow/context-sprint11.yaml`
 
 **修改**
 - `src/config/index.js`（新增三个国产模型的 Key/BaseUrl/Model 配置）

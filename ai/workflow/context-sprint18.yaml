@@ -8,8 +8,8 @@ state_note: "原始提交以完成态合入 main；补记时独立复测发现 P
 reference:
   source_commit: "cdd9c08 Merge Sprint 16/17/18 patches"
   commit_message_section: "Sprint 18 - FNV Hash & Community"
-  prev_sprint_context: ".workflow/context-sprint17.yaml"
-  delivery_report: "docs/sprint18-delivery-report.md"
+  prev_sprint_context: "ai/workflow/context-sprint17.yaml"
+  delivery_report: "ai/docs/sprint18-delivery-report.md"
 
 baseline:
   repo_root: "/Users/link/work/DreamReel"

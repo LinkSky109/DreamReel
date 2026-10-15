@@ -3,7 +3,7 @@
 - 任务 ID：`TASK-20261012-019`
 - 主题：原文切片入库 + 角色抽取&别名归一 + 角色卡 + 人工审核（API/CLI/Web）
 - 分支：`main`
-- 工作流上下文：`.workflow/context-sprint19.yaml`
+- 工作流上下文：`ai/workflow/context-sprint19.yaml`
 - 最终状态：⚠️ **部分达成**——管线/落盘/审核闭环已交付并验证；**"人工修订率 < 30%" 未达成**（需真实 LLM，见下）
 
 > 说明：本轮为**开发期最小成本**实现，抽取走**离线启发式基线**；LLM 路径已接线但本机无 key，未验证。
@@ -82,7 +82,7 @@ extract --provider heuristic --min-freq 30  → 40 个角色
 - `scripts/novel.js`
 - `public/js/views/novels.js`
 - `tests/novelSeries.test.js`
-- `.workflow/context-sprint19.yaml`、`docs/sprint19-delivery-report.md`
+- `ai/workflow/context-sprint19.yaml`、`ai/docs/sprint19-delivery-report.md`
 
 **修改**
 
@@ -95,7 +95,7 @@ extract --provider heuristic --min-freq 30  → 40 个角色
 1. **接一个真实 LLM**（便宜模型即可），验证 `provider:'llm'` 路径并复测修订率 —— 这是达成 Sprint 19 验收的关键。
 2. 补 `qishuxia-chapters` 逐章兜底。
 3. 前端做一次真实浏览器走查。
-4. **已并入后续需求**（记录于 `docs/novel-series-plan.md` §6）：
+4. **已并入后续需求**（记录于 `ai/docs/novel-series-plan.md` §6）：
    - **LLM 供应商**：开发用 opencode-go 订阅；留多供应商 key 切换口子；后续按开源参考接入（Sprint 20）。
    - **角色成长状态**（Sprint 20）。
    - **剧本/分集规则（Sprint 21）**：1 章 ≥ 1 集、每集 85–95s（以**成片秒数**为准）、季按大事件/总结划分、每季 ≥ 200 集、以季为单元生成剧本。

@@ -4,10 +4,10 @@
 - 主题：五合一创作画布 + 图片生成 + 工程收口
 - 交付日期：2026-10-05
 - 分支：`sprint-14-canvas-image`
-- 工作流上下文：`.workflow/context-sprint14.yaml`
-- 需求分析：`docs/sprint14-requirements-analysis.md`
-- 执行规划：`docs/sprint14-workflow-plan.md`
-- 独立复核：`docs/sprint14-pm-review.md`
+- 工作流上下文：`ai/workflow/context-sprint14.yaml`
+- 需求分析：`ai/docs/sprint14-requirements-analysis.md`
+- 执行规划：`ai/docs/sprint14-workflow-plan.md`
+- 独立复核：`ai/docs/sprint14-pm-review.md`
 - 最终状态：✅ `GLOBAL_DONE`（两名独立复核 PASS）
 
 ---
@@ -121,7 +121,7 @@
 4. prompt / 响应 DoS → 已加 prompt 长度与 body 大小上限。
 5. 失败生成消耗额度 → 已退款。
 
-复核子代理二次复测确认以上均成立。残留风险见 `docs/sprint14-pm-review.md`。
+复核子代理二次复测确认以上均成立。残留风险见 `ai/docs/sprint14-pm-review.md`。
 
 ---
 
@@ -140,11 +140,11 @@
 - `tests/imageRoutes.test.js`
 - `public/js/views/editorTabs.js`
 - `public/js/views/images.js`
-- `docs/sprint14-requirements-analysis.md`
-- `docs/sprint14-workflow-plan.md`
-- `docs/sprint14-pm-review.md`
-- `docs/sprint14-delivery-report.md`
-- `.workflow/context-sprint14.yaml`
+- `ai/docs/sprint14-requirements-analysis.md`
+- `ai/docs/sprint14-workflow-plan.md`
+- `ai/docs/sprint14-pm-review.md`
+- `ai/docs/sprint14-delivery-report.md`
+- `ai/workflow/context-sprint14.yaml`
 
 **修改（主要）**
 

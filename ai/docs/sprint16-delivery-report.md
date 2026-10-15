@@ -3,7 +3,7 @@
 - 任务 ID：`TASK-20261010-016`
 - 主题：R36 项目所有权校验 + R37 媒体文件访问控制加固
 - 来源提交：`cdd9c08 Merge Sprint 16/17/18 patches`（2026-10-10）
-- 工作流上下文：`.workflow/context-sprint16.yaml`
+- 工作流上下文：`ai/workflow/context-sprint16.yaml`
 - 最终状态：✅ `GLOBAL_DONE`（代码已接入）；⚠️ 验证为 `PARTIAL`（缺专项自动化测试）
 
 > ⚠️ **补记说明**：Sprint 16/17/18 由同一个提交合并，仓库内无原始 Sprint 16 的子代理/时间记录。本报告由编排者于 2026-10-12 依据 `git diff d3bdbb2 cdd9c08` 的代码事实重建，未杜撰未记录信息。

@@ -4,9 +4,9 @@ create_time: "2026-10-12T17:20:00+08:00"
 current_global_state: "GLOBAL_DONE"
 
 reference:
-  plan: "docs/novel-series-plan.md（§4.1 LLM 策略 / §6 Sprint 20）"
-  prev_sprint_context: ".workflow/context-sprint19.yaml"
-  delivery_report: "docs/sprint20-delivery-report.md"
+  plan: "ai/docs/novel-series-plan.md（§4.1 LLM 策略 / §6 Sprint 20）"
+  prev_sprint_context: "ai/workflow/context-sprint19.yaml"
+  delivery_report: "ai/docs/sprint20-delivery-report.md"
   git_branch: "main"
   git_head_at_start: "7e4d4fd docs: Sprint 19 ..."
 

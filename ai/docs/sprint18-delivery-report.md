@@ -3,7 +3,7 @@
 - 任务 ID：`TASK-20261010-018`
 - 主题：T18-001 FNV-1a 稳定 ID；Wave 2 影评社区（榜单 / 推荐 / 举报审核）
 - 来源提交：`cdd9c08 Merge Sprint 16/17/18 patches`（2026-10-10）
-- 工作流上下文：`.workflow/context-sprint18.yaml`
+- 工作流上下文：`ai/workflow/context-sprint18.yaml`
 - 最终状态：✅ **通过（修复后）**——P0 缺陷于 2026-10-12 修复，`npm test` **523 / 523 / 0**
 
 > ⚠️ **补记说明**：本报告由编排者于 2026-10-12 补记并独立复测。复测发现原始提交存在未关闭的 P0 缺陷，状态曾回退为 `GLOBAL_IN_CONSISTENCY`；同日修复后复测全绿，置回 `GLOBAL_DONE`。P2（`src/app.js`）仍待决策。

@@ -1,7 +1,7 @@
 # DreamReel Sprint 25 交付报告：世界观设定集
 
 - 任务 ID：`TASK-20261014-025`
-- 工作流上下文：`.workflow/context-sprint25.yaml`
+- 工作流上下文：`ai/workflow/context-sprint25.yaml`
 - 分支：`main`
 - 最终状态：✅ 达成（LLM 抽取 + 关系 + 落盘 + API/CLI）
 
@@ -53,7 +53,7 @@ world --provider llm --max-chapters 6 --chunk-size 3
 
 ## 五、新增 / 修改文件
 
-**新增**：`src/models/WorldEntity.js`、`src/services/worldbuildingService.js`、`.workflow/context-sprint25.yaml`、`docs/sprint25-delivery-report.md`
+**新增**：`src/models/WorldEntity.js`、`src/services/worldbuildingService.js`、`ai/workflow/context-sprint25.yaml`、`ai/docs/sprint25-delivery-report.md`
 
 **修改**：`src/services/storageService.js`、`src/routes/novels.js`、`scripts/novel.js`、`tests/novelSeries.test.js`、`README.md`
 

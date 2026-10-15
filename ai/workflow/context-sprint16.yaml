@@ -7,9 +7,9 @@ current_global_state: "GLOBAL_DONE"
 reference:
   source_commit: "cdd9c08 Merge Sprint 16/17/18 patches"
   commit_message_section: "Sprint 16 - Security Hardening"
-  prev_sprint_context: ".workflow/context-sprint15.yaml"
-  prev_delivery_report: "docs/sprint15-delivery-report.md"
-  delivery_report: "docs/sprint16-delivery-report.md"
+  prev_sprint_context: "ai/workflow/context-sprint15.yaml"
+  prev_delivery_report: "ai/docs/sprint15-delivery-report.md"
+  delivery_report: "ai/docs/sprint16-delivery-report.md"
 
 baseline:
   repo_root: "/Users/link/work/DreamReel"
