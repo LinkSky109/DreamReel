@@ -34,7 +34,7 @@ function countOccurrences(text, name) {
   return n
 }
 
-export function heuristicExtract(text, { minFreq = 3, max = 120 } = {}) {
+export function heuristicExtract(text, { minFreq = 2, max = 120 } = {}) {
   const found = []
   for (const [type, re] of Object.entries(TYPE_SUFFIX)) {
     const seen = new Map()
