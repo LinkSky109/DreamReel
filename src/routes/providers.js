@@ -6,7 +6,7 @@ import {
 } from '../providers/videoProviderFactory.js'
 import {
   getAvailableProviders as getAvailableLLMProviders,
-  getLLMModelCatalog,
+  getLLMModelCatalogLive,
 } from '../providers/llmProviderFactory.js'
 import {
   getAvailableProviders as getAvailableTTSProviders,
@@ -69,7 +69,7 @@ router.get('/status', (req, res) => {
  * 获取所有可用 Provider 列表（Phase 1 扩展：支持按 stage 过滤，返回完整元数据）
  * GET /api/providers/available?stage=video|llm|tts
  */
-router.get('/available', (req, res) => {
+router.get('/available', async (req, res) => {
   try {
     const { stage } = req.query
 
@@ -86,7 +86,7 @@ router.get('/available', (req, res) => {
       res.json({
         stage: 'llm',
         current: config.llm.provider,
-        models: getLLMModelCatalog(),
+        models: await getLLMModelCatalogLive(),
       })
       return
     }
@@ -117,7 +117,7 @@ router.get('/available', (req, res) => {
       },
       llm: {
         current: config.llm.provider,
-        models: getLLMModelCatalog(),
+        models: await getLLMModelCatalogLive(),
       },
       tts: {
         current: config.tts.provider,

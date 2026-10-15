@@ -18,8 +18,12 @@ export class OpencodeLLMProvider extends BaseLLMProvider {
   constructor(config = {}) {
     super(config)
     this.name = 'opencode'
+    // 模型解析优先级：显式解析出的 opencode 模型（含 "/"，来自用户/项目偏好）
+    //   > OPENCODE_MODEL 配置 > 默认。
+    // 注意：全局 LLM_MODEL（如 gpt-4o-mini）不含 "/"，不应覆盖 opencode 模型。
+    const resolved = typeof config.model === 'string' && config.model.includes('/') ? config.model : ''
     this.model =
-      config.opencodeModel || process.env.OPENCODE_MODEL || 'opencode/big-pickle'
+      resolved || config.opencodeModel || process.env.OPENCODE_MODEL || 'opencode/big-pickle'
     this.baseUrl = config.opencodeBaseUrl || process.env.OPENCODE_BASE_URL || ''
     this.password = config.opencodePassword || process.env.OPENCODE_PASSWORD || ''
     this.timeout = config.timeout || 120000

@@ -86,4 +86,33 @@ export function getLLMModelCatalog() {
   }))
 }
 
+/**
+ * LLM 模型目录（opencode 时尝试从本机 OpenCode 2.x 服务拉取实时模型清单）。
+ * 失败则回退静态目录，保证接口始终可用。
+ */
+export async function getLLMModelCatalogLive() {
+  const catalog = getLLMModelCatalog()
+  const oc = catalog.find((c) => c.id === 'opencode')
+  const baseUrl = config.llm.opencodeBaseUrl
+  if (!oc || !baseUrl) return catalog
+  try {
+    const headers = {}
+    if (config.llm.opencodePassword) {
+      headers.Authorization = 'Basic ' + Buffer.from(`opencode:${config.llm.opencodePassword}`).toString('base64')
+    }
+    const res = await fetch(`${baseUrl}/api/model`, { headers, signal: AbortSignal.timeout(5000) })
+    if (!res.ok) return catalog
+    const data = await res.json()
+    const models = (data.data || [])
+      .map((m) => ({ id: `${m.providerID}/${m.modelID}`, name: m.name || m.modelID }))
+      .filter((m) => m.id.includes('/'))
+    if (models.length) {
+      oc.models = models.map((m) => ({ ...m, default: m.id === 'opencode/big-pickle' }))
+    }
+  } catch {
+    // 服务未启动/超时 → 保留静态目录
+  }
+  return catalog
+}
+
 export default getLLMProvider
