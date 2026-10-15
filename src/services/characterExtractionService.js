@@ -2,7 +2,7 @@ import logger from '../utils/logger.js'
 import { generateId } from '../utils/idGenerator.js'
 import { storageService } from './storageService.js'
 import { NovelCharacter, CARD_SCHEMA, CARD_FIELDS, CARD_GROUPS, CHARACTER_KINDS } from '../models/NovelCharacter.js'
-import { getLLMProviderForProject } from '../providers/llmProviderFactory.js'
+import { getLLMProviderByPref } from '../providers/llmProviderFactory.js'
 import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
 import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
@@ -201,7 +201,7 @@ export async function extractCharacters(novelId, opts = {}) {
   const maxChars = clampInt(opts.maxChars, 8000, 200, 32000)
   const minFreq = optionalClampInt(opts.minFreq, 1, 1000)
   const useChunks = chunks.slice(0, maxChapters)
-  const llm = getLLMProviderForProject(opts.projectId ?? null, opts.userId ?? null)
+  const llm = getLLMProviderByPref(project.providerPreferences?.llm || null, opts.userId ?? null)
   const useLLM = opts.provider ? opts.provider === 'llm' : llm.name !== 'mock'
 
   let characters

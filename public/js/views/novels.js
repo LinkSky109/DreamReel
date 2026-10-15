@@ -233,6 +233,60 @@ async function tabSource({ body, novel, id, refresh }) {
   })
 }
 
+// ---------- 该小说的供应商/模型选择（存 NovelProject，抽取按 小说→用户→全局 解析） ----------
+async function mountLlmPicker(host, id, refresh) {
+  if (!host) return
+  let catalog
+  let config
+  try {
+    ;[catalog, config] = await Promise.all([
+      api.getAvailableProviderCatalog('llm').then(unwrap),
+      api.getNovelModelConfig(id).then(unwrap),
+    ])
+  } catch {
+    host.innerHTML = ''
+    return
+  }
+  const providers = ((catalog && catalog.models) || []).filter((p) => p.id !== 'mock' && p.configured)
+  const pref = (config && config.preferences && config.preferences.llm) || null
+  const resolved = (config && config.resolved) || {}
+  const cur = pref && pref.provider ? pref.provider : ''
+  const curModel = (pref && pref.model) || ''
+  const modelList = (providers.find((p) => p.id === cur) || {}).models || []
+  host.innerHTML = `
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;">
+      <label style="color:var(--text-secondary);">供应商</label>
+      <select id="nvLlmProvider" class="form-input" style="padding:4px;">
+        <option value="">默认</option>
+        ${providers.map((p) => `<option value="${esc(p.id)}" ${p.id === cur ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+      </select>
+      <label style="color:var(--text-secondary);">模型</label>
+      <select id="nvLlmModel" class="form-input" style="padding:4px;max-width:220px;" ${cur ? '' : 'disabled'}>
+        <option value="">默认</option>
+        ${modelList.map((m) => `<option value="${esc(m.id)}" ${m.id === curModel ? 'selected' : ''}>${esc(m.name || m.id)}</option>`).join('')}
+      </select>
+      <button id="nvLlmSave" class="btn btn-sm">保存模型</button>
+      <span style="color:var(--text-secondary);">当前生效：${esc(resolved.provider || '-')}${resolved.model ? ' / ' + esc(resolved.model) : ''}（${esc(resolved.source || '')}）</span>
+    </div>`
+  const pSel = host.querySelector('#nvLlmProvider')
+  const mSel = host.querySelector('#nvLlmModel')
+  pSel?.addEventListener('change', () => {
+    const p = providers.find((x) => x.id === pSel.value)
+    mSel.disabled = !p
+    mSel.innerHTML = '<option value="">默认</option>' + ((p && p.models) || []).map((m) => `<option value="${esc(m.id)}">${esc(m.name || m.id)}</option>`).join('')
+  })
+  host.querySelector('#nvLlmSave')?.addEventListener('click', async () => {
+    const provider = pSel.value
+    try {
+      await api.updateNovelModelConfig(id, { llm: provider ? { provider, model: mSel.value || null } : null })
+      showToast('模型配置已保存', 'success')
+      refresh()
+    } catch (err) {
+      showToast(err.message, 'error')
+    }
+  })
+}
+
 // ---------- 角色 ----------
 async function tabCharacters({ body, novel, id, refresh }) {
   const lk = locked(novel, 'characters')
@@ -268,6 +322,7 @@ async function tabCharacters({ body, novel, id, refresh }) {
           <button id="nvExtract" class="btn btn-primary btn-sm" ${lk ? 'disabled' : ''}>生成角色（新备选）</button>
         </div>
       </div>
+      <div id="nvLlmPicker" style="margin-top:8px;"></div>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">字段 ${fields.length} 项 · 修订率 ${((stats.revisionRate || 0) * 100).toFixed(1)}% · 已通过 ${esc(stats.approved || 0)} / ${esc(chars.length)}</div>
       ${sets.length ? `<div style="margin-top:10px;font-size:12px;">备选集合：${sets.map((s) => `<button class="btn btn-sm ${s.selected ? 'btn-primary' : ''}" data-cset="${esc(s.id)}" ${lk ? 'disabled' : ''}>${s.count} 个 · ${esc(s.provider)}${s.selected ? '（当前）' : ''}</button>`).join(' ')}</div>` : ''}
     </section>
@@ -287,6 +342,8 @@ async function tabCharacters({ body, novel, id, refresh }) {
           ${renderCard(c)}
         </div>`).join('') : '<div style="color:var(--text-secondary);">暂无角色，先在「来源」摄取后点“生成角色”</div>'}
     </div>`
+
+  mountLlmPicker(body.querySelector('#nvLlmPicker'), id, refresh)
 
   body.querySelector('#nvExtract')?.addEventListener('click', async () => {
     const provider = body.querySelector('#nvExtractProvider').value
@@ -362,6 +419,7 @@ async function tabWorld({ body, novel, id, refresh }) {
           <button id="nvWorld" class="btn btn-primary btn-sm" ${lk ? 'disabled' : ''}>生成世界观（新备选）</button>
         </div>
       </div>
+      <div id="nvLlmPicker" style="margin-top:8px;"></div>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">
         实体 ${esc(summary.total || 0)} · 关系 ${esc(summary.relations || 0)} ·
         ${Object.entries(typeLabel).map(([k, l]) => `${esc(l)} ${esc(byType[k] || 0)}`).join(' · ')}
@@ -387,6 +445,8 @@ async function tabWorld({ body, novel, id, refresh }) {
         </div>
       </section>
     </div>`
+
+  mountLlmPicker(body.querySelector('#nvLlmPicker'), id, refresh)
 
   body.querySelector('#nvWorld')?.addEventListener('click', async () => {
     const provider = body.querySelector('#nvWorldProvider').value

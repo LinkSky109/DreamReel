@@ -26,6 +26,8 @@ export class NovelProject {
     this.selectedCharacterSet = data.selectedCharacterSet || null
     this.worldSets = Array.isArray(data.worldSets) ? data.worldSets : []
     this.selectedWorldSet = data.selectedWorldSet || null
+    // 该小说的模型偏好（供应商/模型），抽取时按 小说 → 用户 → 全局 → Mock 解析
+    this.providerPreferences = data.providerPreferences || { llm: null, updatedAt: null }
     this.createdAt = data.createdAt || new Date().toISOString()
     this.updatedAt = data.updatedAt || this.createdAt
   }

@@ -312,6 +312,8 @@ docker-compose down
 | GET | `/api/novels/:id/world` | 世界观概览（各类型计数 / 关系数 / 缺失核心类型） |
 | GET | `/api/novels/:id/world/entities?type=` | 世界观实体列表（可按类型过滤） |
 | GET | `/api/novels/:id/schema` | 抽取 schema（角色卡字段分组 + 世界观类型/专属属性模板，供前端渲染） |
+| GET | `/api/novels/:id/model-config` | 该小说的模型偏好与生效解析（`resolved.source`: novel/user-default/global-default/fallback） |
+| PUT | `/api/novels/:id/model-config` | 设置该小说的 LLM 供应商/模型，body `{ llm: { provider, model } \| null }`（不接受 `config`，避免密钥外泄） |
 | GET | `/api/novels/:id/world/relations` | 实体关系列表 |
 | POST | `/api/novels/:id/advance` | 推进阶段，body `{ to? }`；进入下一阶段后**之前阶段锁定**（不可修改），锁定操作返回 409 |
 | GET | `/api/novels/:id/characters/sets` | 角色备选集合列表 |

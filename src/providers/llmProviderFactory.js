@@ -77,6 +77,31 @@ export function getAvailableProviders() {
 }
 
 /**
+ * 按显式偏好（如某小说的 providerPreferences.llm）解析 LLM Provider。
+ * 偏好未配置/不可用 → 回退到用户级 → 全局 → Mock。
+ * @param {{provider?:string, model?:string, config?:object}|null} pref
+ * @param {string|null} userId
+ */
+export function getLLMProviderByPref(pref, userId = null) {
+  if (pref && pref.provider && PROVIDER_MAP[pref.provider] && isProviderConfigured('llm', pref.provider)) {
+    const merged = buildMergedConfig('llm', pref.provider, pref.config || {}, pref.model || null)
+    return new PROVIDER_MAP[pref.provider](merged)
+  }
+  if (pref && pref.provider) {
+    logger.warn(`预设 LLM provider=${pref.provider} 不可用（缺少凭据/未知），回退默认解析`)
+  }
+  return getLLMProviderForProject(null, userId)
+}
+
+/** 解析结果（供接口展示）：来源 = novel | user-default | global-default | fallback */
+export function resolveLLMPreference(pref, userId = null) {
+  if (pref && pref.provider && isProviderConfigured('llm', pref.provider)) {
+    return { provider: pref.provider, model: pref.model || null, source: 'novel' }
+  }
+  return resolveProviderConfig('llm', null, userId)
+}
+
+/**
  * 获取 LLM 模型目录
  */
 export function getLLMModelCatalog() {

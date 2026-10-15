@@ -28,6 +28,7 @@ import { selectWorldSet, listWorldSets } from '../services/worldbuildingService.
 import { CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
 import { optionalClampInt } from '../utils/coerce.js'
+import { resolveLLMPreference, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
 
 /**
  * 小说 → 剧集 路由（Sprint 19），挂载 /api/novels
@@ -399,6 +400,43 @@ router.get('/:id/world/relations', (req, res) => {
   try {
     getNovelProject(req.params.id)
     res.json({ success: true, data: listRelations(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// ===== 该小说的模型配置（供应商/模型，抽取按 小说→用户→全局→Mock 解析） =====
+
+router.get('/:id/model-config', (req, res) => {
+  try {
+    const project = getNovelProject(req.params.id)
+    const pref = project.providerPreferences?.llm || null
+    res.json({
+      success: true,
+      data: { preferences: project.providerPreferences || { llm: null }, resolved: resolveLLMPreference(pref, req.user?.id) },
+    })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+router.put('/:id/model-config', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    const body = req.body || {}
+    const llm = body.llm
+    let next = null
+    if (llm !== null && llm !== undefined) {
+      const provider = String(llm.provider || '')
+      if (!getAvailableLLMProviders().includes(provider)) {
+        return res.status(400).json({ success: false, error: `unknown llm provider: ${provider}` })
+      }
+      // 只接受 provider/model；不接受 config（避免 baseUrl 覆盖 + 全局密钥外泄）
+      next = { provider, model: llm.model ? String(llm.model) : null, updatedAt: new Date().toISOString() }
+    }
+    const providerPreferences = { ...(getNovelProject(req.params.id).providerPreferences || {}), llm: next, updatedAt: new Date().toISOString() }
+    const updated = updateNovelProject(req.params.id, { providerPreferences })
+    res.json({ success: true, data: { preferences: updated.providerPreferences, resolved: resolveLLMPreference(next, req.user?.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

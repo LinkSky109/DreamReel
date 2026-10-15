@@ -1,6 +1,6 @@
 import logger from '../utils/logger.js'
 import { generateId } from '../utils/idGenerator.js'
-import { getLLMProviderForProject } from '../providers/llmProviderFactory.js'
+import { getLLMProviderByPref } from '../providers/llmProviderFactory.js'
 import { storageService } from './storageService.js'
 import { WorldEntity, WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES, WORLD_CORE_TYPES, attributeKeysFor } from '../models/WorldEntity.js'
 import { groupChunks } from '../utils/textChunking.js'
@@ -133,7 +133,7 @@ export async function extractWorld(novelId, opts = {}) {
   const useChunks = chunks.slice(0, maxChapters)
   const fullText = useChunks.map((c) => c.text).join('\n')
 
-  const llm = getLLMProviderForProject(opts.projectId ?? null, opts.userId ?? null)
+  const llm = getLLMProviderByPref(project.providerPreferences?.llm || null, opts.userId ?? null)
   const useLLM = opts.provider ? opts.provider === 'llm' : llm.name !== 'mock'
 
   let raw = []

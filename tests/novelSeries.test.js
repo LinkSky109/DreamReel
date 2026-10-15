@@ -11,6 +11,7 @@ import { cleanText, splitChapters, ingestNovel } from '../src/services/novelChun
 import { heuristicExtract, mergeCharacters } from '../src/services/characterExtractionService.js'
 import { heuristicExtract as worldHeuristicExtract, mergeEntities } from '../src/services/worldbuildingService.js'
 import { groupChunks } from '../src/utils/textChunking.js'
+import { getLLMProviderByPref } from '../src/providers/llmProviderFactory.js'
 import { CARD_SCHEMA, CARD_FIELDS, CHARACTER_FIELDS } from '../src/models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_ATTRIBUTES } from '../src/models/WorldEntity.js'
 
@@ -427,6 +428,42 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     res = await request(app).post(`/api/novels/${id}/world/extract`).send({ provider: 'llm' })
     assert.equal(res.status, 200)
     assert.equal(res.body.data.provider, 'heuristic-fallback')
+  })
+
+  it('getLLMProviderByPref 采用小说偏好（供应商/模型）', () => {
+    const p = getLLMProviderByPref({ provider: 'opencode', model: 'opencode/deepseek-v4-pro' })
+    assert.equal(p.name, 'opencode')
+    assert.equal(p.model, 'opencode/deepseek-v4-pro')
+    const fallback = getLLMProviderByPref(null)
+    assert.ok(fallback.name)
+  })
+
+  it('HTTP: 小说模型配置（供应商/模型，按小说作用域）', async () => {
+    let res = await request(app).post('/api/novels').send({ title: '模型配置测试' })
+    const id = res.body.data.id
+    created.push(id)
+
+    res = await request(app).get(`/api/novels/${id}/model-config`)
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.preferences.llm, null)
+    assert.ok(res.body.data.resolved.provider)
+
+    res = await request(app).put(`/api/novels/${id}/model-config`).send({ llm: { provider: 'opencode', model: 'opencode/deepseek-v4-pro' } })
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.preferences.llm.provider, 'opencode')
+    assert.equal(res.body.data.resolved.source, 'novel')
+
+    // config 不被接受（避免 baseUrl 覆盖 + 全局密钥外泄）
+    res = await request(app).put(`/api/novels/${id}/model-config`).send({ llm: { provider: 'opencode', model: 'x', config: { baseUrl: 'http://evil' } } })
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.preferences.llm.config, undefined)
+
+    res = await request(app).put(`/api/novels/${id}/model-config`).send({ llm: { provider: 'nope' } })
+    assert.equal(res.status, 400)
+
+    res = await request(app).put(`/api/novels/${id}/model-config`).send({ llm: null })
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.preferences.llm, null)
   })
 
   it('HTTP: 400 / 404 语义', async () => {

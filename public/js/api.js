@@ -502,6 +502,8 @@ export const api = {
   getNovelManifest: (id) => request(`/novels/${id}/manifest`),
   syncNovel: (id, data) => request(`/novels/${id}/sync`, { method: 'POST', body: data }),
   getNovelSchema: (id) => request(`/novels/${id}/schema`),
+  getNovelModelConfig: (id) => request(`/novels/${id}/model-config`),
+  updateNovelModelConfig: (id, data) => request(`/novels/${id}/model-config`, { method: 'PUT', body: data }),
 }
 
 export default api

@@ -121,9 +121,14 @@ export function resolveProviderConfig(stage, projectId = null, userId = null) {
   // 3. 全局默认
   const globalProvider = config[stage]?.provider
   if (globalProvider && isProviderConfigured(stage, globalProvider)) {
+    // opencode 的默认模型与 OpenAI 系不同名，避免把 LLM_MODEL（如 gpt-4o-mini）误当 opencode 模型
+    const globalModel =
+      stage === 'llm' && globalProvider === 'opencode'
+        ? config.llm?.opencodeModel || null
+        : config[stage]?.model || null
     return {
       provider: globalProvider,
-      model: config[stage]?.model || null,
+      model: globalModel,
       config: {},
       source: 'global-default',
     }
