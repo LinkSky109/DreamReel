@@ -123,8 +123,8 @@ router.post('/:id/extract', async (req, res) => {
     const result = await extractCharacters(req.params.id, {
       provider: body.provider,
       maxChapters: optionalClampInt(body.maxChapters, 1, 100000),
-      chunkSize: optionalClampInt(body.chunkSize, 1, 50),
-      maxChars: optionalClampInt(body.maxChars, 200, 32000),
+      chunkSize: optionalClampInt(body.chunkSize, 1, 100),
+      maxChars: optionalClampInt(body.maxChars, 200, 64000),
       minFreq: optionalClampInt(body.minFreq, 1, 1000),
       userId: req.user?.id,
     })
@@ -430,8 +430,8 @@ router.post('/:id/world/extract', async (req, res) => {
     const result = await extractWorld(req.params.id, {
       provider: body.provider,
       maxChapters: optionalClampInt(body.maxChapters, 1, 100000),
-      chunkSize: optionalClampInt(body.chunkSize, 1, 50),
-      maxChars: optionalClampInt(body.maxChars, 200, 32000),
+      chunkSize: optionalClampInt(body.chunkSize, 1, 100),
+      maxChars: optionalClampInt(body.maxChars, 200, 64000),
       userId: req.user?.id,
     })
     res.json({ success: true, data: { provider: result.provider, degraded: /fallback/.test(result.provider), entities: result.entities, summary: result.summary } })

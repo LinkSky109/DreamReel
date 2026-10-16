@@ -128,8 +128,8 @@ export async function extractWorld(novelId, opts = {}) {
   if (!chunks.length) throw new Error('尚未摄取正文，请先 ingest')
 
   const maxChapters = clampInt(opts.maxChapters, chunks.length, 1, 100000)
-  const chunkSize = clampInt(opts.chunkSize, 10, 1, 50)
-  const maxChars = clampInt(opts.maxChars, 8000, 200, 32000)
+  const chunkSize = clampInt(opts.chunkSize, 16, 1, 100)
+  const maxChars = clampInt(opts.maxChars, 24000, 200, 64000)
   const useChunks = chunks.slice(0, maxChapters)
   const fullText = useChunks.map((c) => c.text).join('\n')
 
