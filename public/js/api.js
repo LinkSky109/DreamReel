@@ -49,6 +49,16 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  // 受保护的 /storage 媒体：<img> 无法带 Authorization 头，前端用带 token 的 fetch 取 blob
+  async mediaObjectUrl(url) {
+    const headers = {}
+    const token = getToken()
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const response = await fetch(url, { headers })
+    if (!response.ok) throw new Error(`media ${response.status}`)
+    return URL.createObjectURL(await response.blob())
+  },
+
   // Auth
   register: (data) => request('/auth/register', { method: 'POST', body: data }),
   login: (data) => request('/auth/login', { method: 'POST', body: data }),
@@ -505,6 +515,12 @@ export const api = {
   getNovelModelConfig: (id) => request(`/novels/${id}/model-config`),
   updateNovelModelConfig: (id, data) => request(`/novels/${id}/model-config`, { method: 'PUT', body: data }),
   testNovelModelConfig: (id, data) => request(`/novels/${id}/model-config/test`, { method: 'POST', body: data }),
+  listNovelAssets: (id, category) => request(`/novels/${id}/assets${category ? `?category=${category}` : ''}`),
+  createNovelAsset: (id, data) => request(`/novels/${id}/assets`, { method: 'POST', body: data }),
+  updateNovelAsset: (id, aid, data) => request(`/novels/${id}/assets/${aid}`, { method: 'PATCH', body: data }),
+  deleteNovelAsset: (id, aid) => request(`/novels/${id}/assets/${aid}`, { method: 'DELETE' }),
+  generateNovelAsset: (id, aid, data = {}) => request(`/novels/${id}/assets/${aid}/generate`, { method: 'POST', body: data }),
+  suggestNovelAssets: (id, data = {}) => request(`/novels/${id}/assets/suggest`, { method: 'POST', body: data }),
 }
 
 export default api

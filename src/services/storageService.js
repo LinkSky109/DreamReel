@@ -126,6 +126,7 @@ class StorageService {
       seriesSeasons: {},
       seriesEpisodes: {},
       novelWorldEntities: {},
+      novelAssetImages: {},
       characterSets: {},
       worldSets: {},
       meta: { version: 1, createdAt: new Date().toISOString() },
@@ -481,6 +482,39 @@ class StorageService {
     this.data.novelWorldEntities[entity.id] = entity
     this.save()
     return entity
+  }
+
+  // ============ 设定图集（Sprint 28） ============
+
+  createNovelAssetImage(asset) {
+    if (!this.data.novelAssetImages) this.data.novelAssetImages = {}
+    this.data.novelAssetImages[asset.id] = asset
+    this.save()
+    return asset
+  }
+
+  getNovelAssetImage(id) {
+    if (!this.data.novelAssetImages) return null
+    return this.data.novelAssetImages[id] || null
+  }
+
+  listNovelAssetImages(novelId) {
+    if (!this.data.novelAssetImages) return []
+    return Object.values(this.data.novelAssetImages).filter((a) => a.novelId === novelId)
+  }
+
+  updateNovelAssetImage(asset) {
+    if (!this.data.novelAssetImages) this.data.novelAssetImages = {}
+    this.data.novelAssetImages[asset.id] = asset
+    this.save()
+    return asset
+  }
+
+  deleteNovelAssetImage(id) {
+    if (!this.data.novelAssetImages || !this.data.novelAssetImages[id]) return false
+    delete this.data.novelAssetImages[id]
+    this.save()
+    return true
   }
 
   // ============ 备选集合（角色/世界观多次生成） ============

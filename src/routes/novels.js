@@ -29,6 +29,7 @@ import { CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
 import { optionalClampInt } from '../utils/coerce.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
+import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats } from '../services/novelAssetService.js'
 
 /**
  * 小说 → 剧集 路由（Sprint 19），挂载 /api/novels
@@ -473,6 +474,68 @@ router.post('/:id/model-config/test', async (req, res) => {
       error = String((e && e.message) || e).slice(0, 300)
     }
     res.json({ success: true, data: { ok, provider: llm.name, model: llm.model || null, latencyMs: Date.now() - startedAt, error } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// ===== 设定图集（Sprint 28：角色/衣物/装备/建筑/场景/道具…，供图生视频） =====
+
+// 列表（可按类别过滤）+ 统计
+router.get('/:id/assets', (req, res) => {
+  try {
+    res.json({ success: true, data: { assets: listAssets(req.params.id, { category: req.query.category }), stats: assetStats(req.params.id) } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 从角色/世界观导入候选草稿（不生成图）
+router.post('/:id/assets/suggest', (req, res) => {
+  try {
+    const { categories } = req.body || {}
+    const created = suggestAssets(req.params.id, { categories })
+    res.json({ success: true, data: { created: created.length, assets: listAssets(req.params.id), stats: assetStats(req.params.id) } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 手动新增设定图
+router.post('/:id/assets', (req, res) => {
+  try {
+    const { category, name, prompt } = req.body || {}
+    const asset = createAsset(req.params.id, { category, name, prompt, source: 'manual' })
+    res.status(201).json({ success: true, data: asset })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 编辑
+router.patch('/:id/assets/:aid', (req, res) => {
+  try {
+    res.json({ success: true, data: updateAsset(req.params.id, req.params.aid, req.body || {}) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 删除
+router.delete('/:id/assets/:aid', (req, res) => {
+  try {
+    res.json({ success: true, data: deleteAsset(req.params.id, req.params.aid) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 生成设定图（真实出图）
+router.post('/:id/assets/:aid/generate', async (req, res) => {
+  try {
+    const { aspectRatio } = req.body || {}
+    const asset = await generateAssetImage(req.params.id, req.params.aid, { userId: req.user?.id, aspectRatio })
+    res.json({ success: true, data: asset })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

@@ -212,3 +212,21 @@ LLM/剧本 `scriptService`·`llmProviderFactory`；风格 `styleService`·`direc
 - [ ] 人工审核判定口径（"修订字段数 ÷ 字段总数"）是否作为 <30% 的唯一口径。
 - [ ] 20–23 里程碑时间与优先级。
 - [ ] `<!-- TODO：其它你想加的 -->`
+
+## 9. 视频与成片：待办（A/B/C，2026-10-16 记录，暂缓）
+
+> 现状：单集视频只出 1 段 5s「整集代表片段」，成片用 `-stream_loop` 循环到 90s + 旁白；
+> 剧本的 `shots` 未参与视频/成片。当前 `VIDEO_PROVIDER=seedance`（Agent Plan `/api/plan/v3`）
+> 报 `UnsupportedModel: does not support the agent plan feature`。
+> **当前决定：暂不升级 plan。** 先做「设定图集」为后续图生视频铺路。
+
+- [ ] **A. 修视频连通**：Seedance 换标准 `/api/v3`（或改用支持 Agent Plan 的模型/供应商），让视频真实出片。
+- [ ] **B. 按镜头多段生成**：`screenplay.shots` 每段生成 N 秒视频 → `compose` 拼接，做成真「分镜成片」。
+- [ ] **C. 成片增强**：镜头拼接 + 旁白对时 + 字幕 + BGM/音效（复用 `bgmLibrary`/`sfxLibrary`/`sceneLibrary`）+ 转场。
+
+建议顺序：A → B → C。
+
+## 10. 设定图集（当前进行中）
+
+为「图生视频」预先产出成套设定图（角色/衣物/装备/建筑/场景/道具…），
+复用图片 provider（`doubao-seedream-5.0-pro`，当前 plan 可用）；Entity/角色可作为候选来源一键生成。

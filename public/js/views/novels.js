@@ -44,7 +44,7 @@ const DEFAULT_CARD_FIELDS = [
   { key: 'voice', label: '声线描述', group: 'media' }, { key: 'growth', label: '成长轨迹', group: 'media' },
 ]
 
-const state = { novelId: null, tab: 'stage', worldType: 'all' }
+const state = { novelId: null, tab: 'stage', worldType: 'all', artCategory: 'all' }
 
 function esc(s) {
   const d = document.createElement('div')
@@ -139,6 +139,7 @@ async function renderDetail(container) {
     ['world', '世界观'],
     ['series', '分季分集'],
     ['episode', '单集'],
+    ['art', '设定图集'],
     ['sync', '风格/同步'],
   ]
 
@@ -172,6 +173,7 @@ async function renderDetail(container) {
     else if (state.tab === 'world') await tabWorld(ctx)
     else if (state.tab === 'series') await tabSeries(ctx)
     else if (state.tab === 'episode') await tabEpisode(ctx)
+    else if (state.tab === 'art') await tabArt(ctx)
     else await tabSync(ctx)
   } catch (err) {
     body.innerHTML = `<div class="empty-state"><div class="empty-state-text">${esc(err.message)}</div></div>`
@@ -485,6 +487,106 @@ async function tabWorld({ body, novel, id, refresh }) {
   body.querySelectorAll('[data-wtype]').forEach((b) => b.addEventListener('click', () => {
     state.worldType = b.dataset.wtype
     refresh()
+  }))
+}
+
+// ---------- 设定图集（角色/衣物/装备/建筑/场景/道具…） ----------
+const ASSET_CATEGORIES = [['character', '角色'], ['clothing', '衣物'], ['equipment', '装备'], ['architecture', '建筑'], ['scene', '场景'], ['prop', '道具'], ['other', '其他']]
+const ASSET_CAT_LABEL = Object.fromEntries(ASSET_CATEGORIES)
+
+async function tabArt({ body, id, refresh }) {
+  const data = await api.listNovelAssets(id).then(unwrap).catch(() => ({ assets: [], stats: {} }))
+  const assets = (data && data.assets) || []
+  const stats = (data && data.stats) || {}
+  const active = state.artCategory || 'all'
+  const filtered = active === 'all' ? assets : assets.filter((a) => a.category === active)
+  const card = (a) => `
+    <div class="card" style="padding:10px;border:1px solid var(--border-color);">
+      <div style="aspect-ratio:16/9;background:var(--bg-secondary,#f3f4f6);border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+        ${a.imageUrl ? `<img data-media="${esc(a.imageUrl)}" alt="${esc(a.name)}" style="width:100%;height:100%;object-fit:cover;" />` : '<span style="font-size:12px;color:var(--text-secondary);">未出图</span>'}
+      </div>
+      <div style="font-size:13px;margin-top:6px;font-weight:600;">${esc(a.name)} <span style="font-size:11px;color:#7c3aed;">${esc(ASSET_CAT_LABEL[a.category] || a.category)}</span>${a.source !== 'manual' ? ` <span style="font-size:11px;color:var(--text-secondary);">· ${esc(a.source)}</span>` : ''}</div>
+      ${a.prompt ? `<div style="font-size:11px;color:var(--text-secondary);max-height:32px;overflow:hidden;">${esc(a.prompt)}</div>` : ''}
+      ${a.error ? `<div style="font-size:11px;color:#dc2626;">${esc(a.error)}</div>` : ''}
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+        <button class="btn btn-sm" data-agen="${esc(a.id)}">${a.imageUrl ? '重出图' : '生成图'}</button>
+        <button class="btn btn-sm" data-aedit="${esc(a.id)}">编辑</button>
+        <button class="btn btn-sm" data-adel="${esc(a.id)}">删除</button>
+      </div>
+    </div>`
+  body.innerHTML = `
+    <section class="card" style="padding:16px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;">设定图集 <span style="font-size:12px;color:var(--text-secondary);">（为图生视频准备成套设定图）</span></h3>
+        <button id="nvArtSuggest" class="btn btn-sm">从角色/世界观导入候选</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">共 ${assets.length} · 已出图 ${esc(stats.generated || 0)} · 失败 ${esc(stats.failed || 0)} · ${ASSET_CATEGORIES.map(([k, l]) => `${l} ${esc((stats.byCategory && stats.byCategory[k]) || 0)}`).join(' · ')}</div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-sm ${active === 'all' ? 'btn-primary' : ''}" data-acat="all">全部 ${assets.length}</button>
+        ${ASSET_CATEGORIES.map(([k, l]) => `<button class="btn btn-sm ${active === k ? 'btn-primary' : ''}" data-acat="${k}">${l} ${esc((stats.byCategory && stats.byCategory[k]) || 0)}</button>`).join('')}
+      </div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <select id="nvArtCat" class="form-input" style="padding:4px;">${ASSET_CATEGORIES.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select>
+        <input id="nvArtName" class="form-input" style="flex:1;min-width:150px;" placeholder="名称（如：主角 / 星舰 / 王城）" />
+        <input id="nvArtPrompt" class="form-input" style="flex:2;min-width:200px;" placeholder="描述（可选）" />
+        <button id="nvArtAdd" class="btn btn-sm">+ 新增</button>
+      </div>
+    </section>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+      ${filtered.length ? filtered.map(card).join('') : '<div style="color:var(--text-secondary);">暂无设定图。点「从角色/世界观导入候选」，或手动新增。</div>'}
+    </div>`
+
+  body.querySelectorAll('img[data-media]').forEach(async (img) => {
+    try { img.src = await api.mediaObjectUrl(img.dataset.media) } catch { /* 未登录/无权限则保持占位 */ }
+  })
+  body.querySelectorAll('[data-acat]').forEach((b) => b.addEventListener('click', () => {
+    state.artCategory = b.dataset.acat
+    refresh()
+  }))
+  body.querySelector('#nvArtAdd')?.addEventListener('click', async () => {
+    const category = body.querySelector('#nvArtCat').value
+    const name = body.querySelector('#nvArtName').value.trim()
+    const prompt = body.querySelector('#nvArtPrompt').value.trim()
+    if (!name) return showToast('请填名称', 'error')
+    try {
+      await api.createNovelAsset(id, { category, name, prompt })
+      showToast('已新增', 'success')
+      refresh()
+    } catch (err) { showToast(err.message, 'error') }
+  })
+  body.querySelector('#nvArtSuggest')?.addEventListener('click', async () => {
+    try {
+      const r = unwrap(await api.suggestNovelAssets(id, {}))
+      showToast(`已导入候选 ${r.created} 个`, 'success')
+      refresh()
+    } catch (err) { showToast(err.message, 'error') }
+  })
+  body.querySelectorAll('[data-agen]').forEach((b) => b.addEventListener('click', async () => {
+    showToast('生成中…（约 10–30 秒）')
+    try {
+      await api.generateNovelAsset(id, b.dataset.agen)
+      showToast('已出图', 'success')
+      refresh()
+    } catch (err) { showToast(err.message, 'error') }
+  }))
+  body.querySelectorAll('[data-aedit]').forEach((b) => b.addEventListener('click', async () => {
+    const name = prompt('名称：')
+    if (name === null) return
+    const p = prompt('描述：')
+    if (p === null) return
+    try {
+      await api.updateNovelAsset(id, b.dataset.aedit, { name, prompt: p })
+      showToast('已保存', 'success')
+      refresh()
+    } catch (err) { showToast(err.message, 'error') }
+  }))
+  body.querySelectorAll('[data-adel]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('删除该设定图？')) return
+    try {
+      await api.deleteNovelAsset(id, b.dataset.adel)
+      showToast('已删除', 'success')
+      refresh()
+    } catch (err) { showToast(err.message, 'error') }
   }))
 }
 

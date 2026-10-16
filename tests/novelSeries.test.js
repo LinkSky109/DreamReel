@@ -36,6 +36,7 @@ describe('Sprint 19 小说 → 角色流水线', () => {
       delete storageService.data.novelProjects?.[id]
       for (const c of storageService.listNovelChunks(id)) delete storageService.data.novelChunks[c.id]
       for (const c of storageService.listNovelCharacters(id)) delete storageService.data.novelCharacters[c.id]
+      if (storageService.listNovelAssetImages) for (const a of storageService.listNovelAssetImages(id)) delete storageService.data.novelAssetImages[a.id]
     }
     storageService._flush()
   })
@@ -488,6 +489,41 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     res = await request(app).post(`/api/novels/${id}/extract`).send({ provider: 'llm' })
     assert.equal(res.body.data.provider, 'llm')
     assert.equal(res.body.data.degraded, false)
+  })
+
+  it('HTTP: 设定图集（新增/导入候选/出图/过滤/删除）', async () => {
+    let res = await request(app).post('/api/novels').send({ title: '设定图集测试' })
+    const id = res.body.data.id
+    created.push(id)
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+    await request(app).post(`/api/novels/${id}/extract`).send({ provider: 'heuristic', minFreq: 1 })
+
+    res = await request(app).post(`/api/novels/${id}/assets`).send({ category: 'character', name: '张三', prompt: '主角，白衣' })
+    assert.equal(res.status, 201)
+    const aid = res.body.data.id
+    assert.equal(res.body.data.status, 'draft')
+
+    res = await request(app).post(`/api/novels/${id}/assets/suggest`).send({})
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.created >= 1)
+
+    res = await request(app).post(`/api/novels/${id}/assets/${aid}/generate`).send({})
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.status, 'generated')
+    assert.ok(res.body.data.imageUrl && res.body.data.imageUrl.includes('/storage/images/novels/'))
+
+    res = await request(app).get(`/api/novels/${id}/assets`)
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.assets.length >= 2)
+    assert.ok(res.body.data.stats.generated >= 1)
+
+    res = await request(app).get(`/api/novels/${id}/assets?category=character`)
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.assets.every((a) => a.category === 'character'))
+
+    res = await request(app).delete(`/api/novels/${id}/assets/${aid}`)
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.deleted, true)
   })
 
   it('HTTP: 400 / 404 语义', async () => {
