@@ -553,7 +553,7 @@ MAX_RESOLUTION=720p
 - **Sprint 14（Wave 1 已交付）**: 五合一创作画布（剧本 / 图片 / 视频 / 音频 / 剪辑 + 更多工具）、图片生成独立 tab、生成图回填参考图、测试存储隔离与前端 lint 覆盖 ✅
 - **Sprint 15（Wave 2 已交付）**: 音频生成独立 tab（Mock TTS 本地真实占位音 / 程序化 BGM·SFX / 三轨混音预听）、智能剪辑模块（规则 EDL / BPM 对齐 / xfade 探测与硬切降级 / 真实渲染）✅
 
-> 各 Sprint 的范围与证据见 `ai/docs/sprint*-delivery-report.md`，对标 LibTV 的差距分析见 `ai/docs/sprint11-gap-analysis.md`；**工作流说明见 [`ai/workflow/README.md`](ai/workflow/README.md)**。
+> 各 Sprint 的范围与证据见 `ai/docs/sprint*-delivery-report.md`，对标 LibTV 的差距分析见 `ai/docs/sprint11-gap-analysis.md`；**工作流说明见 [`ai/workflow/README.md`](ai/workflow/README.md)**；**小说剧场路线与视频/成片待办见 [`ai/docs/novel-series-plan.md`](ai/docs/novel-series-plan.md)**；**外部视频工具对接说明见 [`ai/docs/external-video-handoff-spec.md`](ai/docs/external-video-handoff-spec.md)**。
 
 详见 [ai/docs/PRD.md](ai/docs/PRD.md)
 

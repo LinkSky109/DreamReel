@@ -230,3 +230,17 @@ LLM/剧本 `scriptService`·`llmProviderFactory`；风格 `styleService`·`direc
 
 为「图生视频」预先产出成套设定图（角色/衣物/装备/建筑/场景/道具…），
 复用图片 provider（`doubao-seedream-5.0-pro`，当前 plan 可用）；Entity/角色可作为候选来源一键生成。
+
+### 10.1 分镜级外部生成交接（补充 5，2026-10-16）
+
+流程：**设定图集 → 分镜引用设定图+提示词 → 导出分镜清单（给外部工具）→ 外部生成视频放回指定目录 → App 导入 → 按分镜拼接成片**
+
+- 导出目录：`storage/novels/<novelId>/handoff/<episodeId>/`
+  - `manifest.json`（机器读）：每条 = { shotIndex, prompt, dialogue, duration, ratio, resolution, referenceImages[{role,name,file,url}], outputFile }
+  - `storyboard.md`（人读分镜表）
+  - `refs/`（把引用的设定图实体拷入，外部工具直接读本地文件）
+- 回传目录：`storage/videos/novels/<novelId>/shots/<episodeId>/shotNN.mp4`（NN=分镜序号）
+- App 导入：扫描回传目录 → 写回 `episode.screenplay.shots[i].videoUrl`
+- 成片：`compose` 按分镜顺序拼接各 shot 片段（不再循环单段）
+
+> 待定：目录/文件命名需与外部工具一致（见对话确认）。
