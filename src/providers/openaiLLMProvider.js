@@ -14,7 +14,7 @@ export class OpenAILLMProvider extends BaseLLMProvider {
     this.model = config.model || 'gpt-4o-mini'
     this.baseUrl = config.baseUrl || 'https://api.openai.com/v1'
     this.maxRetries = config.maxRetries || 2
-    this.timeout = config.timeout || 60000
+    this.timeout = config.timeout || parseInt(process.env.LLM_TIMEOUT_MS || '', 10) || 600000
   }
 
   async generate(params) {

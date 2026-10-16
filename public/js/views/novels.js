@@ -8,6 +8,9 @@ import { api } from '../api.js'
 import { showToast } from '../app.js'
 
 const STAGES = ['source', 'characters', 'world', 'series', 'episodes', 'assets', 'compose']
+// 长任务（角色/世界观抽取）前端锁：避免重复点击触发多次并发抽取。
+// 后端同名锁会返回 409 兜底。
+const EXTRACT_BUSY = new Set()
 const STAGE_LABEL = {
   source: '来源',
   characters: '角色',
@@ -330,17 +333,18 @@ async function tabCharacters({ body, novel, id, refresh }) {
     }).join('')
     return blocks || '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">（未抽取到字段，可用启发式引擎先跑通或换 LLM）</div>'
   }
+  const cBusy = EXTRACT_BUSY.has('c:' + id)
   body.innerHTML = `
     <section class="card" style="padding:16px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <h3 style="margin:0;">角色 ${lk ? '<span style="font-size:12px;color:#d97706;">（已锁定）</span>' : ''}</h3>
         <div style="display:flex;gap:6px;align-items:center;">
           <label style="font-size:12px;color:var(--text-secondary);">引擎</label>
-          <select id="nvExtractProvider" class="form-input" style="padding:4px;" ${lk ? 'disabled' : ''}>
+          <select id="nvExtractProvider" class="form-input" style="padding:4px;" ${lk || cBusy ? 'disabled' : ''}>
             <option value="llm">LLM（真实）</option>
             <option value="heuristic">启发式（离线）</option>
           </select>
-          <button id="nvExtract" class="btn btn-primary btn-sm" ${lk ? 'disabled' : ''}>生成角色（新备选）</button>
+          <button id="nvExtract" class="btn btn-primary btn-sm" ${lk || cBusy ? 'disabled' : ''}>${cBusy ? '生成中…（角色）' : '生成角色（新备选）'}</button>
         </div>
       </div>
       <div id="nvLlmPicker" style="margin-top:8px;"></div>
@@ -367,14 +371,20 @@ async function tabCharacters({ body, novel, id, refresh }) {
   mountLlmPicker(body.querySelector('#nvLlmPicker'), id, refresh)
 
   body.querySelector('#nvExtract')?.addEventListener('click', async () => {
+    const key = 'c:' + id
+    if (EXTRACT_BUSY.has(key)) { showToast('角色抽取正在进行中，请稍候', 'info'); return }
+    EXTRACT_BUSY.add(key)
     const provider = body.querySelector('#nvExtractProvider').value
+    refresh() // 立即置灰按钮，防止重复点击
     try {
       const r = unwrap(await api.extractNovelCharacters(id, { provider, minFreq: 1 }))
       if (r && r.degraded) showToast('LLM 调用失败，已回退启发式：结果可能为空/粗糙，请检查「模型」是否可用', 'error')
       else showToast('已生成角色备选', 'success')
-      refresh()
     } catch (err) {
       showToast(err.message, 'error')
+    } finally {
+      EXTRACT_BUSY.delete(key)
+      refresh()
     }
   })
   body.querySelectorAll('[data-cset]').forEach((b) => b.addEventListener('click', async () => {
@@ -428,17 +438,18 @@ async function tabWorld({ body, novel, id, refresh }) {
       </div>
     </details>`
   }
+  const wBusy = EXTRACT_BUSY.has('w:' + id)
   body.innerHTML = `
     <section class="card" style="padding:16px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <h3 style="margin:0;">世界观 ${lk ? '<span style="font-size:12px;color:#d97706;">（已锁定）</span>' : ''}</h3>
         <div style="display:flex;gap:6px;align-items:center;">
           <label style="font-size:12px;color:var(--text-secondary);">引擎</label>
-          <select id="nvWorldProvider" class="form-input" style="padding:4px;" ${lk ? 'disabled' : ''}>
+          <select id="nvWorldProvider" class="form-input" style="padding:4px;" ${lk || wBusy ? 'disabled' : ''}>
             <option value="llm">LLM（真实）</option>
             <option value="heuristic">启发式（离线）</option>
           </select>
-          <button id="nvWorld" class="btn btn-primary btn-sm" ${lk ? 'disabled' : ''}>生成世界观（新备选）</button>
+          <button id="nvWorld" class="btn btn-primary btn-sm" ${lk || wBusy ? 'disabled' : ''}>${wBusy ? '生成中…（世界观）' : '生成世界观（新备选）'}</button>
         </div>
       </div>
       <div id="nvLlmPicker" style="margin-top:8px;"></div>
@@ -471,14 +482,20 @@ async function tabWorld({ body, novel, id, refresh }) {
   mountLlmPicker(body.querySelector('#nvLlmPicker'), id, refresh)
 
   body.querySelector('#nvWorld')?.addEventListener('click', async () => {
+    const key = 'w:' + id
+    if (EXTRACT_BUSY.has(key)) { showToast('世界观抽取正在进行中，请稍候', 'info'); return }
+    EXTRACT_BUSY.add(key)
     const provider = body.querySelector('#nvWorldProvider').value
+    refresh() // 立即置灰按钮，防止重复点击
     try {
       const r = unwrap(await api.extractNovelWorld(id, { provider }))
       if (r && r.degraded) showToast('LLM 调用失败，已回退启发式：结果可能为空/粗糙，请检查「模型」是否可用', 'error')
       else showToast('已生成世界观备选', 'success')
-      refresh()
     } catch (err) {
       showToast(err.message, 'error')
+    } finally {
+      EXTRACT_BUSY.delete(key)
+      refresh()
     }
   })
   body.querySelectorAll('[data-wset]').forEach((b) => b.addEventListener('click', async () => {

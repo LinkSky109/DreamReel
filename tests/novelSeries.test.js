@@ -13,6 +13,7 @@ import { heuristicExtract as worldHeuristicExtract, mergeEntities } from '../src
 import { groupChunks } from '../src/utils/textChunking.js'
 import { getLLMProviderByPref } from '../src/providers/llmProviderFactory.js'
 import { parseJsonLoose } from '../src/utils/jsonParse.js'
+import { tryAcquire, release, isLocked } from '../src/utils/asyncLock.js'
 import { CARD_SCHEMA, CARD_FIELDS, CHARACTER_FIELDS } from '../src/models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_ATTRIBUTES } from '../src/models/WorldEntity.js'
 import config from '../src/config/index.js'
@@ -593,6 +594,18 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     const salv = parseJsonLoose('{"characters":[{"name":"甲"},{"name":"乙"},{"name":"丙')
     assert.equal(salv.characters.length, 2)
     assert.equal(salv.characters[0].name, '甲')
+  })
+
+  it('asyncLock 阻止并发获取、可释放复用', () => {
+    const k = 'novel:' + Math.random().toString(36).slice(2)
+    assert.equal(isLocked(k), false)
+    assert.ok(tryAcquire(k).ok)
+    assert.equal(tryAcquire(k).ok, false)
+    assert.ok(isLocked(k))
+    release(k)
+    assert.equal(isLocked(k), false)
+    assert.ok(tryAcquire(k).ok)
+    release(k)
   })
 
   it('HTTP: 400 / 404 语义', async () => {

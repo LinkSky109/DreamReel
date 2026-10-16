@@ -28,6 +28,7 @@ import { selectWorldSet, listWorldSets } from '../services/worldbuildingService.
 import { CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
 import { optionalClampInt } from '../utils/coerce.js'
+import { tryAcquire, release } from '../utils/asyncLock.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
 import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats } from '../services/novelAssetService.js'
 import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
@@ -112,6 +113,11 @@ router.get('/:id/chunks', (req, res) => {
 
 // 角色抽取
 router.post('/:id/extract', async (req, res) => {
+  const lockKey = `extract:characters:${req.params.id}`
+  const got = tryAcquire(lockKey)
+  if (!got.ok) {
+    return res.status(409).json({ success: false, error: '该小说的角色抽取正在进行中，请等待完成后再试' })
+  }
   try {
     const body = req.body || {}
     const result = await extractCharacters(req.params.id, {
@@ -126,6 +132,8 @@ router.post('/:id/extract', async (req, res) => {
     res.json({ success: true, data: { provider: result.provider, degraded: /fallback/.test(result.provider), characters: listCharacters(req.params.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
+  } finally {
+    release(lockKey)
   }
 })
 
@@ -412,6 +420,11 @@ router.post('/:id/episodes/:eid/shots/import', (req, res) => {
 
 // 抽取世界观（世界规则/力量/种族/势力/事件/装备/文化…）+ 关系
 router.post('/:id/world/extract', async (req, res) => {
+  const lockKey = `extract:world:${req.params.id}`
+  const got = tryAcquire(lockKey)
+  if (!got.ok) {
+    return res.status(409).json({ success: false, error: '该小说的世界观抽取正在进行中，请等待完成后再试' })
+  }
   try {
     const body = req.body || {}
     const result = await extractWorld(req.params.id, {
@@ -424,6 +437,8 @@ router.post('/:id/world/extract', async (req, res) => {
     res.json({ success: true, data: { provider: result.provider, degraded: /fallback/.test(result.provider), entities: result.entities, summary: result.summary } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
+  } finally {
+    release(lockKey)
   }
 })
 

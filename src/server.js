@@ -182,9 +182,14 @@ export default app
 // Start server only when run directly (not when imported for testing)
 const isMainModule = import.meta.url === `file://${process.argv[1]}`
 if (isMainModule) {
-  app.listen(config.port, () => {
+  const server = app.listen(config.port, () => {
     logger.info(`DreamReel API server running on port ${config.port}`)
     logger.info(`Environment: ${config.env}`)
     logger.info(`Health check: http://localhost:${config.port}/health`)
   })
+  // 角色/世界观抽取是一次性长任务（确认后不再修改），单个请求可能持续数分钟。
+  // 关闭 socket 空闲超时与请求超时，避免长抽取被中断。
+  server.timeout = 0
+  server.requestTimeout = 0
+  server.headersTimeout = 10 * 60 * 1000
 }
