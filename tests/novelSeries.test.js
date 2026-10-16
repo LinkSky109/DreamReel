@@ -12,6 +12,7 @@ import { heuristicExtract, mergeCharacters } from '../src/services/characterExtr
 import { heuristicExtract as worldHeuristicExtract, mergeEntities } from '../src/services/worldbuildingService.js'
 import { groupChunks } from '../src/utils/textChunking.js'
 import { getLLMProviderByPref } from '../src/providers/llmProviderFactory.js'
+import { parseJsonLoose } from '../src/utils/jsonParse.js'
 import { CARD_SCHEMA, CARD_FIELDS, CHARACTER_FIELDS } from '../src/models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_ATTRIBUTES } from '../src/models/WorldEntity.js'
 import config from '../src/config/index.js'
@@ -583,6 +584,15 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.equal(res.status, 200)
     assert.ok(res.body.data.url)
     assert.equal(res.body.data.hasVideo, true)
+  })
+
+  it('parseJsonLoose 容忍代码块/前后说明/尾逗号/单引号/截断数组', () => {
+    assert.deepEqual(parseJsonLoose('```json\n{"a":1,}\n```'), { a: 1 })
+    assert.deepEqual(parseJsonLoose('好的，结果如下：{"characters":[{"name":"张三"}]} 以上'), { characters: [{ name: '张三' }] })
+    assert.deepEqual(parseJsonLoose("{'name':'李四'}"), { name: '李四' })
+    const salv = parseJsonLoose('{"characters":[{"name":"甲"},{"name":"乙"},{"name":"丙')
+    assert.equal(salv.characters.length, 2)
+    assert.equal(salv.characters[0].name, '甲')
   })
 
   it('HTTP: 400 / 404 语义', async () => {

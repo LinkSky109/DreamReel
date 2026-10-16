@@ -1,3 +1,5 @@
+import { parseJsonLoose } from '../utils/jsonParse.js'
+
 /**
  * LLM Provider 基类 — 用于剧本生成等文本任务
  */
@@ -20,20 +22,11 @@ export class BaseLLMProvider {
   }
 
   /**
-   * 生成结构化 JSON（自动重试解析）
+   * 生成结构化 JSON（宽松解析：容忍代码块/前后说明/尾逗号/单引号等）
    */
   async generateJSON(params) {
     const result = await this.generate(params)
-    try {
-      // 优先匹配代码块中的 JSON，其次匹配裸 JSON 对象
-      const codeBlockMatch = result.content.match(/```(?:json)?\s*([\s\S]*?)```/)
-      const jsonStr = codeBlockMatch
-        ? codeBlockMatch[1]
-        : result.content.trim()
-      return { data: JSON.parse(jsonStr), raw: result.content }
-    } catch (error) {
-      throw new Error(`Failed to parse LLM response as JSON: ${error.message}`)
-    }
+    return { data: parseJsonLoose(result.content), raw: result.content }
   }
 }
 

@@ -144,15 +144,23 @@ export async function extractWorld(novelId, opts = {}) {
     const groups = groupChunks(useChunks, { chunkSize, maxChars })
     for (let gi = 0; gi < groups.length; gi++) {
       const { sample, titles } = groups[gi]
-      try {
-        const { data } = await llm.generateJSON(buildWorldPrompt(sample))
-        if (data && Array.isArray(data.entities)) {
-          raw.push(...data.entities)
-          okChunks++
+      let data = null
+      let lastErr = null
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          data = (await llm.generateJSON(buildWorldPrompt(sample))).data
+          break
+        } catch (error) {
+          lastErr = error
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
         }
-      } catch {
+      }
+      if (data && Array.isArray(data.entities)) {
+        raw.push(...data.entities)
+        okChunks++
+      } else if (lastErr) {
         // 单个分片失败不影响其它分片
-        logger.warn(`世界观分片 ${gi + 1}（${titles[0] || ''}…）失败，跳过`)
+        logger.warn(`世界观分片 ${gi + 1}（${titles[0] || ''}…）失败，跳过：${String(lastErr.message).slice(0, 120)}`)
       }
     }
     logger.info(`世界观 LLM 抽取完成：${okChunks}/${groups.length} 个分片成功，累计 ${raw.length} 实体`)

@@ -172,14 +172,22 @@ async function llmExtractAll(llm, useChunks, { chunkSize, maxChars }) {
   const groups = groupChunks(useChunks, { chunkSize, maxChars, format: (c) => `【${c.chapterTitle}】\n${c.text}\n` })
   for (let gi = 0; gi < groups.length; gi++) {
     const { sample, titles } = groups[gi]
-    try {
-      const { data } = await llm.generateJSON(buildLLMPrompt(sample))
-      if (data && Array.isArray(data.characters)) {
-        all.push(...data.characters)
-        ok++
+    let data = null
+    let lastErr = null
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        data = (await llm.generateJSON(buildLLMPrompt(sample))).data
+        break
+      } catch (error) {
+        lastErr = error
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
       }
-    } catch {
-      logger.warn(`角色分片 ${gi + 1}（${titles[0] || ''}…）失败，跳过`)
+    }
+    if (data && Array.isArray(data.characters)) {
+      all.push(...data.characters)
+      ok++
+    } else if (lastErr) {
+      logger.warn(`角色分片 ${gi + 1}（${titles[0] || ''}…）失败，跳过：${String(lastErr.message).slice(0, 120)}`)
     }
   }
   return { all, ok, groups: groups.length }

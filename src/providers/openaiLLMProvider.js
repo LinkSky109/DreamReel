@@ -1,4 +1,5 @@
 import { BaseLLMProvider } from './baseLLMProvider.js'
+import { parseJsonLoose } from '../utils/jsonParse.js'
 import logger from '../utils/logger.js'
 
 /**
@@ -99,13 +100,7 @@ export class OpenAILLMProvider extends BaseLLMProvider {
     })
 
     try {
-      // 尝试提取 JSON（处理可能的 markdown 代码块包裹）
-      let jsonStr = result.content
-      const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
-      if (jsonMatch) {
-        jsonStr = jsonMatch[1]
-      }
-      const data = JSON.parse(jsonStr.trim())
+      const data = parseJsonLoose(result.content)
       return { data, raw: result.content, usage: result.usage }
     } catch (parseError) {
       logger.error('Failed to parse OpenAI JSON response:', parseError.message)
