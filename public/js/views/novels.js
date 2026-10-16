@@ -44,7 +44,7 @@ const DEFAULT_CARD_FIELDS = [
   { key: 'voice', label: '声线描述', group: 'media' }, { key: 'growth', label: '成长轨迹', group: 'media' },
 ]
 
-const state = { novelId: null, tab: 'stage', worldType: 'all', artCategory: 'all' }
+const state = { novelId: null, tab: 'stage', worldType: 'all', artCategory: 'all', shotEpisodeId: null }
 
 function esc(s) {
   const d = document.createElement('div')
@@ -633,6 +633,38 @@ async function tabEpisode({ body, novel, id, refresh }) {
   const lkAssets = locked(novel, 'assets')
   const lkCompose = locked(novel, 'compose')
 
+  let panel = ''
+  if (state.shotEpisodeId) {
+    const [shots, assetData] = await Promise.all([
+      api.listEpisodeShots(id, state.shotEpisodeId).then(unwrap).catch(() => []),
+      api.listNovelAssets(id).then(unwrap).catch(() => ({ assets: [] })),
+    ])
+    const assets = (assetData && assetData.assets) || []
+    panel = `
+      <section class="card" style="padding:16px;margin-bottom:14px;border:1px solid #7c3aed;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <h3 style="margin:0;">分镜 / 外部生成</h3>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button id="nvShotAuto" class="btn btn-sm">自动匹配参考图</button>
+            <button id="nvShotExport" class="btn btn-sm btn-primary">导出分镜清单</button>
+            <button id="nvShotImport" class="btn btn-sm">导入回传视频</button>
+            <button id="nvShotClose" class="btn btn-sm">收起</button>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">流程：导出 manifest+refs → 外部工具逐分镜生成 → 放回 <code>/storage/videos/novels/&lt;id&gt;/shots/&lt;eid&gt;/shotNN.mp4</code> → 导入 → 成片按分镜拼接</div>
+        <div style="display:grid;gap:8px;margin-top:10px;">
+          ${shots.length ? shots.map((s) => {
+            const refs = s.referenceImages || []
+            return `<div style="border:1px solid var(--border-color);border-radius:6px;padding:8px;">
+              <div style="font-size:13px;"><b>#${esc(s.index)}</b> <span style="color:var(--text-secondary);">${esc(s.duration)}s</span> ${s.videoUrl ? '<span style="color:#16a34a;">· ✅已回传</span>' : ''}</div>
+              <div style="font-size:11px;color:var(--text-secondary);margin:4px 0;">${esc(s.description || '')}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">${assets.length ? assets.map((a) => `<label style="font-size:11px;${a.imageUrl ? '' : 'opacity:.5;'}"><input type="checkbox" data-shotsel="${esc(s.index)}" data-url="${esc(a.imageUrl || '')}" ${refs.includes(a.imageUrl) ? 'checked' : ''} ${a.imageUrl ? '' : 'disabled'}> ${esc(a.name)}</label>`).join('') : '<span style="font-size:11px;color:var(--text-secondary);">（设定图集为空，先去「设定图集」生成）</span>'}</div>
+            </div>`
+          }).join('') : '<div style="color:var(--text-secondary);">该集暂无分镜，先点「剧本」生成。</div>'}
+        </div>
+      </section>`
+  }
+
   body.innerHTML = `
     <section class="card" style="padding:16px;margin-bottom:14px;">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -643,6 +675,7 @@ async function tabEpisode({ body, novel, id, refresh }) {
         <span style="font-size:12px;color:var(--text-secondary);">单集：剧本 ${lkScript ? '锁定' : '可改'} / 资产 ${lkAssets ? '锁定' : '可改'} / 成片 ${lkCompose ? '锁定' : '可改'}</span>
       </div>
     </section>
+    ${panel}
     <div style="display:grid;gap:8px;">
       ${episodes.length ? episodes.slice(0, 40).map((e) => `
         <div class="card" style="padding:10px;border:1px solid var(--border-color);">
@@ -650,6 +683,7 @@ async function tabEpisode({ body, novel, id, refresh }) {
             <div style="font-size:13px;"><b>#${esc(e.episodeNo)}</b> ${esc(e.title)} <span style="color:var(--text-secondary);font-size:12px;">· ${esc(e.targetSeconds)}s · ${esc(e.status)}${e.screenplay ? ` · ${esc(e.screenplay.totalSeconds)}s` : ''}</span></div>
             <div style="display:flex;gap:6px;">
               <button class="btn btn-sm" data-script="${esc(e.id)}" ${lkScript ? 'disabled' : ''}>剧本</button>
+              <button class="btn btn-sm" data-shots="${esc(e.id)}">分镜</button>
               <button class="btn btn-sm" data-assets="${esc(e.id)}" ${lkAssets ? 'disabled' : ''}>资产</button>
               <button class="btn btn-sm" data-compose="${esc(e.id)}" ${lkCompose ? 'disabled' : ''}>成片</button>
               <button class="btn btn-sm" data-handoff="${esc(e.id)}">交接导出</button>
@@ -660,10 +694,15 @@ async function tabEpisode({ body, novel, id, refresh }) {
 
   body.querySelector('#nvSeason')?.addEventListener('change', (ev) => {
     state.seasonId = ev.target.value
+    state.shotEpisodeId = null
     refresh()
   })
   body.querySelectorAll('[data-script]').forEach((b) => b.addEventListener('click', async () => {
     try { await api.generateEpisodeScript(id, b.dataset.script, {}); showToast('剧本已生成', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
+  }))
+  body.querySelectorAll('[data-shots]').forEach((b) => b.addEventListener('click', () => {
+    state.shotEpisodeId = state.shotEpisodeId === b.dataset.shots ? null : b.dataset.shots
+    refresh()
   }))
   body.querySelectorAll('[data-assets]').forEach((b) => b.addEventListener('click', async () => {
     try { await api.generateEpisodeAssets(id, b.dataset.assets, {}); showToast('资产已生成', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
@@ -674,6 +713,29 @@ async function tabEpisode({ body, novel, id, refresh }) {
   body.querySelectorAll('[data-handoff]').forEach((b) => b.addEventListener('click', async () => {
     try { const r = unwrap(await api.exportEpisodeHandoff(id, b.dataset.handoff)); showToast('交接包已导出：' + (r.dir || ''), 'success') } catch (err) { showToast(err.message, 'error') }
   }))
+
+  if (state.shotEpisodeId) {
+    const eid = state.shotEpisodeId
+    body.querySelector('#nvShotClose')?.addEventListener('click', () => { state.shotEpisodeId = null; refresh() })
+    body.querySelector('#nvShotAuto')?.addEventListener('click', async () => {
+      try { const r = unwrap(await api.autoRefsEpisodeShots(id, eid)); showToast(`自动匹配：${r.shotsTouched} 个分镜、新增 ${r.refsAdded} 张参考图`, 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
+    })
+    body.querySelector('#nvShotExport')?.addEventListener('click', async () => {
+      try { const r = unwrap(await api.exportEpisodeShotHandoff(id, eid, {})); showToast(`已导出 ${r.shotCount} 分镜（${r.refCount} 参考图）→ ${r.dir}`, 'success') } catch (err) { showToast(err.message, 'error') }
+    })
+    body.querySelector('#nvShotImport')?.addEventListener('click', async () => {
+      try {
+        const r = unwrap(await api.importEpisodeShotVideos(id, eid, {}))
+        showToast(`导入 ${r.imported.length}/${r.total} 段${r.missing.length ? '（缺：' + r.missing.join(',') + '）' : ''}`, r.missing.length ? 'error' : 'success')
+        refresh()
+      } catch (err) { showToast(err.message, 'error') }
+    })
+    body.querySelectorAll('input[data-shotsel]').forEach((cb) => cb.addEventListener('change', async () => {
+      const index = cb.dataset.shotsel
+      const urls = [...body.querySelectorAll(`input[data-shotsel="${index}"]`)].filter((x) => x.checked && x.dataset.url).map((x) => x.dataset.url)
+      try { await api.setEpisodeShotRefs(id, eid, index, urls); showToast(`分镜 #${index} 参考图已更新`, 'success') } catch (err) { showToast(err.message, 'error') }
+    }))
+  }
 }
 
 // ---------- 风格 / 同步 ----------

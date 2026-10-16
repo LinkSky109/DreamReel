@@ -521,6 +521,11 @@ export const api = {
   deleteNovelAsset: (id, aid) => request(`/novels/${id}/assets/${aid}`, { method: 'DELETE' }),
   generateNovelAsset: (id, aid, data = {}) => request(`/novels/${id}/assets/${aid}/generate`, { method: 'POST', body: data }),
   suggestNovelAssets: (id, data = {}) => request(`/novels/${id}/assets/suggest`, { method: 'POST', body: data }),
+  listEpisodeShots: (id, eid) => request(`/novels/${id}/episodes/${eid}/shots`),
+  autoRefsEpisodeShots: (id, eid) => request(`/novels/${id}/episodes/${eid}/shots/auto-refs`, { method: 'POST', body: {} }),
+  setEpisodeShotRefs: (id, eid, index, referenceImages) => request(`/novels/${id}/episodes/${eid}/shots/${index}/refs`, { method: 'PUT', body: { referenceImages } }),
+  exportEpisodeShotHandoff: (id, eid, data = {}) => request(`/novels/${id}/episodes/${eid}/handoff/shots`, { method: 'POST', body: data }),
+  importEpisodeShotVideos: (id, eid, data = {}) => request(`/novels/${id}/episodes/${eid}/shots/import`, { method: 'POST', body: data }),
 }
 
 export default api

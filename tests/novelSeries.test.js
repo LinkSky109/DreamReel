@@ -14,6 +14,8 @@ import { groupChunks } from '../src/utils/textChunking.js'
 import { getLLMProviderByPref } from '../src/providers/llmProviderFactory.js'
 import { CARD_SCHEMA, CARD_FIELDS, CHARACTER_FIELDS } from '../src/models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_ATTRIBUTES } from '../src/models/WorldEntity.js'
+import config from '../src/config/index.js'
+import ffmpeg from '../src/utils/ffmpeg.js'
 
 const SAMPLE = `第1章 起点
 一秒记住【奇书网】本站域名
@@ -33,6 +35,9 @@ describe('Sprint 19 小说 → 角色流水线', () => {
       } catch {
         /* ignore */
       }
+      try { fs.rmSync(path.join(config.storage.path, 'videos', 'novels', id), { recursive: true, force: true }) } catch { /* ignore */ }
+      try { fs.rmSync(path.join(config.storage.path, 'images', 'novels', id), { recursive: true, force: true }) } catch { /* ignore */ }
+      try { fs.rmSync(path.join(config.storage.path, 'exports', 'novels', id), { recursive: true, force: true }) } catch { /* ignore */ }
       delete storageService.data.novelProjects?.[id]
       for (const c of storageService.listNovelChunks(id)) delete storageService.data.novelChunks[c.id]
       for (const c of storageService.listNovelCharacters(id)) delete storageService.data.novelCharacters[c.id]
@@ -524,6 +529,60 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     res = await request(app).delete(`/api/novels/${id}/assets/${aid}`)
     assert.equal(res.status, 200)
     assert.equal(res.body.data.deleted, true)
+  })
+
+  it('HTTP: 分镜外部生成交接（导出清单 → 回传导入 → 分镜拼接成片）', async () => {
+    let res = await request(app).post('/api/novels').send({ title: '分镜交接测试' })
+    const id = res.body.data.id
+    created.push(id)
+    await request(app).post(`/api/novels/${id}/ingest`).send({ sourceType: 'text', text: SAMPLE })
+    await request(app).post(`/api/novels/${id}/series/plan`).send({ episodesPerSeason: 1 })
+    res = await request(app).get(`/api/novels/${id}/episodes`)
+    const eid = res.body.data[0].id
+    await request(app).post(`/api/novels/${id}/episodes/${eid}/script`).send({ provider: 'heuristic' })
+
+    // 一张设定图（mock 图片 provider）
+    res = await request(app).post(`/api/novels/${id}/assets`).send({ category: 'character', name: '张三', prompt: '主角' })
+    const aid = res.body.data.id
+    res = await request(app).post(`/api/novels/${id}/assets/${aid}/generate`).send({})
+    const assetUrl = res.body.data.imageUrl
+
+    // 分镜列表 + 手动挂参考图
+    res = await request(app).get(`/api/novels/${id}/episodes/${eid}/shots`)
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.length >= 4)
+    res = await request(app).put(`/api/novels/${id}/episodes/${eid}/shots/1/refs`).send({ referenceImages: [assetUrl] })
+    assert.equal(res.status, 200)
+    assert.equal(res.body.data.referenceImages.length, 1)
+
+    // 导出清单
+    res = await request(app).post(`/api/novels/${id}/episodes/${eid}/handoff/shots`).send({})
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.shotCount >= 4)
+    const dir = res.body.data.dir
+    assert.ok(fs.existsSync(path.join(dir, 'manifest.json')))
+    assert.ok(fs.existsSync(path.join(dir, 'storyboard.md')))
+    const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'))
+    assert.equal(manifest.schemaVersion, 1)
+    assert.equal(manifest.shots[0].outputFile, 'shot01.mp4')
+    assert.equal(manifest.shots[0].referenceImages.length, 1)
+    assert.ok(fs.existsSync(path.join(dir, manifest.shots[0].referenceImages[0].file)))
+
+    // 模拟外部工具回传前 2 段
+    const uploadDir = path.join(config.storage.path, 'videos', 'novels', id, 'shots', eid)
+    fs.mkdirSync(uploadDir, { recursive: true })
+    await ffmpeg.generatePlaceholder({ outputPath: path.join(uploadDir, 'shot01.mp4'), duration: 1, text: 's1', resolution: '720p' })
+    await ffmpeg.generatePlaceholder({ outputPath: path.join(uploadDir, 'shot02.mp4'), duration: 1, text: 's2', resolution: '720p' })
+    res = await request(app).post(`/api/novels/${id}/episodes/${eid}/shots/import`).send({})
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.imported.length >= 2)
+    assert.ok(res.body.data.missing.length >= 1)
+
+    // 成片：按分镜拼接
+    res = await request(app).post(`/api/novels/${id}/episodes/${eid}/compose`).send({ seconds: 3 })
+    assert.equal(res.status, 200)
+    assert.ok(res.body.data.url)
+    assert.equal(res.body.data.hasVideo, true)
   })
 
   it('HTTP: 400 / 404 语义', async () => {

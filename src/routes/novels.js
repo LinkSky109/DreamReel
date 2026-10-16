@@ -30,6 +30,7 @@ import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/Worl
 import { optionalClampInt } from '../utils/coerce.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
 import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats } from '../services/novelAssetService.js'
+import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
 
 /**
  * 小说 → 剧集 路由（Sprint 19），挂载 /api/novels
@@ -352,6 +353,56 @@ router.post('/:id/episodes/:eid/handoff/import', (req, res) => {
 router.get('/:id/handoff', (req, res) => {
   try {
     res.json({ success: true, data: listHandoff(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// ===== 分镜级外部生成交接（Sprint 29，契约见 ai/docs/external-video-handoff-spec.md） =====
+
+// 分镜列表（含参考图/是否已回传）
+router.get('/:id/episodes/:eid/shots', (req, res) => {
+  try {
+    res.json({ success: true, data: listShots(req.params.id, req.params.eid) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 按分镜文本自动匹配设定图
+router.post('/:id/episodes/:eid/shots/auto-refs', (req, res) => {
+  try {
+    res.json({ success: true, data: autoAttachReferences(req.params.id, req.params.eid) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 手动设置某分镜参考图
+router.put('/:id/episodes/:eid/shots/:index/refs', (req, res) => {
+  try {
+    const { referenceImages } = req.body || {}
+    res.json({ success: true, data: setShotReferences(req.params.id, req.params.eid, req.params.index, referenceImages) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 导出分镜清单（manifest.json + refs/ + storyboard.md + TOOL_GUIDE.md）
+router.post('/:id/episodes/:eid/handoff/shots', async (req, res) => {
+  try {
+    const data = await exportShotHandoff(req.params.id, req.params.eid, req.body || {})
+    res.json({ success: true, data })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 导入回传视频（扫描回传目录 → 写回 shot.videoUrl）
+router.post('/:id/episodes/:eid/shots/import', (req, res) => {
+  try {
+    const { dir } = req.body || {}
+    res.json({ success: true, data: importShotVideos(req.params.id, req.params.eid, { dir }) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
