@@ -755,6 +755,43 @@ async function tabEpisode({ body, novel, id, refresh }) {
   const lkAssets = locked(novel, 'assets')
   const lkCompose = locked(novel, 'compose')
 
+  // 单集列表分页/搜索（一季可达 200+ 集，不能一次全渲染）
+  const PAGE_SIZE = 20
+  const q = String(state.epQuery || '').trim()
+  const filtered = q
+    ? episodes.filter((e) => String(e.episodeNo) === q || String(e.title || '').includes(q))
+    : episodes
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const epPage = Math.min(Math.max(1, state.epPage || 1), totalPages)
+  state.epPage = epPage
+  const pageItems = filtered.slice((epPage - 1) * PAGE_SIZE, epPage * PAGE_SIZE)
+  // 每集完成度徽标：剧本 / 资产 / 成片
+  const epBadges = (e) => {
+    const hasScript = !!(e.screenplay && (e.screenplay.shots || []).length)
+    const hasAsset = !!(e.assets && e.assets.image && e.assets.image.url)
+    const v = (e.assets && e.assets.video) || {}
+    const hasVideo = !!v.url
+    const vidErr = !!v.error
+    const mk = (ok, err, label) =>
+      ok ? `<span style="color:#16a34a;">${label}✓</span>` : err ? `<span style="color:#dc2626;" title="${esc(String(v.error).slice(0, 120))}">${label}✗</span>` : `<span style="color:var(--text-secondary);">${label}—</span>`
+    return `<span style="font-size:11px;">${mk(hasScript, false, '剧本')} ${mk(hasAsset, false, '资产')} ${mk(hasVideo, vidErr, '成片')}</span>`
+  }
+  // 单集操作统一加“生成中…”+禁用，避免慢操作期间重复点击
+  const runEpAction = async (btn, label, fn, okMsg) => {
+    const old = btn.textContent
+    ;[...body.querySelectorAll('button,input')].forEach((x) => { x.disabled = true })
+    btn.textContent = label
+    try {
+      const r = await fn()
+      showToast(typeof okMsg === 'function' ? okMsg(r) : okMsg, 'success')
+    } catch (err) {
+      showToast(err.message, 'error')
+    } finally {
+      btn.textContent = old
+      refresh()
+    }
+  }
+
   let panel = ''
   if (state.shotEpisodeId) {
     const [shots, assetData] = await Promise.all([
@@ -798,42 +835,77 @@ async function tabEpisode({ body, novel, id, refresh }) {
       </div>
     </section>
     ${panel}
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 12px;">
+      <input id="nvEpSearch" class="form-input" style="padding:4px;max-width:220px;" placeholder="搜集号 或 标题关键词" value="${esc(state.epQuery || '')}" />
+      <button id="nvEpSearchBtn" class="btn btn-sm">筛选</button>
+      ${q ? '<button id="nvEpClear" class="btn btn-sm">清空</button>' : ''}
+      <span style="font-size:12px;color:var(--text-secondary);">共 ${esc(filtered.length)} 集 · 第 ${esc(epPage)}/${esc(totalPages)} 页</span>
+      <button id="nvEpPrev" class="btn btn-sm" ${epPage <= 1 ? 'disabled' : ''}>上一页</button>
+      <button id="nvEpNext" class="btn btn-sm" ${epPage >= totalPages ? 'disabled' : ''}>下一页</button>
+    </div>
     <div style="display:grid;gap:8px;">
-      ${episodes.length ? episodes.slice(0, 40).map((e) => `
+      ${pageItems.length ? pageItems.map((e) => `
         <div class="card" style="padding:10px;border:1px solid var(--border-color);">
           <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;">
-            <div style="font-size:13px;"><b>#${esc(e.episodeNo)}</b> ${esc(e.title)} <span style="color:var(--text-secondary);font-size:12px;">· ${esc(e.targetSeconds)}s · ${esc(e.status)}${e.screenplay ? ` · ${esc(e.screenplay.totalSeconds)}s` : ''}</span></div>
+            <div style="font-size:13px;min-width:260px;"><b>#${esc(e.episodeNo)}</b> ${esc(e.title)} <span style="color:var(--text-secondary);font-size:12px;">· ${esc(e.targetSeconds)}s${e.screenplay ? ` · 已成片 ${esc(e.screenplay.totalSeconds)}s` : ''}</span><div style="margin-top:3px;">${epBadges(e)}</div></div>
             <div style="display:flex;gap:6px;">
-              <button class="btn btn-sm" data-script="${esc(e.id)}" ${lkScript ? 'disabled' : ''}>剧本</button>
-              <button class="btn btn-sm" data-shots="${esc(e.id)}">分镜</button>
-              <button class="btn btn-sm" data-assets="${esc(e.id)}" ${lkAssets ? 'disabled' : ''}>资产</button>
-              <button class="btn btn-sm" data-compose="${esc(e.id)}" ${lkCompose ? 'disabled' : ''}>成片</button>
+              <button class="btn btn-sm" data-script="${esc(e.id)}" ${lkScript ? 'disabled' : ''}>${e.screenplay ? '重生成剧本' : '生成剧本'}</button>
+              <button class="btn btn-sm" data-shots="${esc(e.id)}">分镜${(e.screenplay && (e.screenplay.shots || []).length) ? '（' + (e.screenplay.shots || []).length + '）' : ''}</button>
+              <button class="btn btn-sm" data-assets="${esc(e.id)}" ${lkAssets ? 'disabled' : ''}>生成资产</button>
+              <button class="btn btn-sm" data-compose="${esc(e.id)}" ${lkCompose ? 'disabled' : ''}>合成成片</button>
               <button class="btn btn-sm" data-handoff="${esc(e.id)}">交接导出</button>
             </div>
           </div>
-        </div>`).join('') : '<div style="color:var(--text-secondary);">该季暂无集，请先在「分季分集」规划</div>'}
+        </div>`).join('') : `<div style="color:var(--text-secondary);">${episodes.length ? '没有匹配的集' : '该季暂无集，请先在「分季分集」规划'}</div>`}
     </div>`
 
   body.querySelector('#nvSeason')?.addEventListener('change', (ev) => {
     state.seasonId = ev.target.value
     state.shotEpisodeId = null
+    state.epPage = 1
+    state.epQuery = ''
     refresh()
   })
-  body.querySelectorAll('[data-script]').forEach((b) => b.addEventListener('click', async () => {
-    try { await api.generateEpisodeScript(id, b.dataset.script, {}); showToast('剧本已生成', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
+  body.querySelector('#nvEpSearchBtn')?.addEventListener('click', () => {
+    state.epQuery = body.querySelector('#nvEpSearch')?.value || ''
+    state.epPage = 1
+    refresh()
+  })
+  body.querySelector('#nvEpSearch')?.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') {
+      state.epQuery = ev.target.value || ''
+      state.epPage = 1
+      refresh()
+    }
+  })
+  body.querySelector('#nvEpClear')?.addEventListener('click', () => {
+    state.epQuery = ''
+    state.epPage = 1
+    refresh()
+  })
+  body.querySelector('#nvEpPrev')?.addEventListener('click', () => { state.epPage = Math.max(1, (state.epPage || 1) - 1); refresh() })
+  body.querySelector('#nvEpNext')?.addEventListener('click', () => { state.epPage = (state.epPage || 1) + 1; refresh() })
+
+  body.querySelectorAll('[data-script]').forEach((b) => b.addEventListener('click', () => {
+    runEpAction(b, '生成中…', () => api.generateEpisodeScript(id, b.dataset.script, {}).then(unwrap), (r) => `剧本已生成（${((r && r.shots) || []).length} 分镜）`)
   }))
   body.querySelectorAll('[data-shots]').forEach((b) => b.addEventListener('click', () => {
     state.shotEpisodeId = state.shotEpisodeId === b.dataset.shots ? null : b.dataset.shots
     refresh()
   }))
-  body.querySelectorAll('[data-assets]').forEach((b) => b.addEventListener('click', async () => {
-    try { await api.generateEpisodeAssets(id, b.dataset.assets, {}); showToast('资产已生成', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
+  body.querySelectorAll('[data-assets]').forEach((b) => b.addEventListener('click', () => {
+    runEpAction(b, '生成中…', async () => {
+      const r = unwrap(await api.generateEpisodeAssets(id, b.dataset.assets, {}))
+      const v = (r && r.assets && r.assets.video) || {}
+      if (v.error) throw new Error('资产部分完成，但视频生成失败：' + String(v.error).slice(0, 120))
+      return r
+    }, '资产已生成')
   }))
-  body.querySelectorAll('[data-compose]').forEach((b) => b.addEventListener('click', async () => {
-    try { await api.composeEpisode(id, b.dataset.compose, {}); showToast('成片完成', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
+  body.querySelectorAll('[data-compose]').forEach((b) => b.addEventListener('click', () => {
+    runEpAction(b, '合成中…', () => api.composeEpisode(id, b.dataset.compose, {}).then(unwrap), (r) => `成片完成（${(r && r.fileName) || ''}）`)
   }))
-  body.querySelectorAll('[data-handoff]').forEach((b) => b.addEventListener('click', async () => {
-    try { const r = unwrap(await api.exportEpisodeHandoff(id, b.dataset.handoff)); showToast('交接包已导出：' + (r.dir || ''), 'success') } catch (err) { showToast(err.message, 'error') }
+  body.querySelectorAll('[data-handoff]').forEach((b) => b.addEventListener('click', () => {
+    runEpAction(b, '导出中…', () => api.exportEpisodeHandoff(id, b.dataset.handoff).then(unwrap), (r) => '交接包已导出：' + ((r && r.dir) || ''))
   }))
 
   if (state.shotEpisodeId) {
