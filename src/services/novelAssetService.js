@@ -8,6 +8,8 @@ import { NovelAssetImage, ASSET_CATEGORIES, ASSET_CATEGORY_LABELS } from '../mod
 import { getNovelProject, writeNovelFile } from './novelProjectService.js'
 import { listCharacters } from './characterExtractionService.js'
 import { listEntities } from './worldbuildingService.js'
+import { clampInt } from '../utils/coerce.js'
+import { runPool } from '../utils/pool.js'
 
 /**
  * 设定图集（Sprint 28）
@@ -160,6 +162,44 @@ export async function generateAssetImage(novelId, assetId, opts = {}) {
  * 从已抽取的角色/世界观生成候选设定图（仅草稿，不含图）。
  * opts: { categories?: string[] }
  */
+/**
+ * 批量生成设定图（分批、并发、可续跑）。
+ * 图片生成较慢（单张约 1 分钟）且走付费 provider，故必须分批 + 限并发，前端循环调用。
+ * opts: { limit?, concurrency?, categories?, userId? }
+ */
+export async function bulkGenerateImages(novelId, opts = {}) {
+  assertNovel(novelId)
+  const limit = clampInt(opts.limit, 4, 1, 24)
+  const concurrency = clampInt(opts.concurrency, 2, 1, 6)
+  const cats = Array.isArray(opts.categories) && opts.categories.length ? new Set(opts.categories) : null
+  const pick = (a) => !a.imageUrl && a.status !== 'generated' && (!cats || cats.has(a.category))
+  const todo = storageService.listNovelAssetImages(novelId).filter(pick).slice(0, limit)
+  let ok = 0
+  let failed = 0
+  await runPool(
+    todo,
+    async (a) => {
+      try {
+        const r = await generateAssetImage(novelId, a.id, { userId: opts.userId })
+        if (r && r.imageUrl) ok++
+        else failed++
+      } catch {
+        failed++
+      }
+    },
+    concurrency
+  )
+  const all = storageService.listNovelAssetImages(novelId)
+  return {
+    processed: todo.length,
+    ok,
+    failed,
+    total: all.length,
+    withImages: all.filter((a) => a.imageUrl).length,
+    remaining: all.filter(pick).length,
+  }
+}
+
 export function suggestAssets(novelId, opts = {}) {
   assertNovel(novelId)
   const categoryFilter = Array.isArray(opts.categories) && opts.categories.length ? new Set(opts.categories) : null

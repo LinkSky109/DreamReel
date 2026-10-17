@@ -519,6 +519,7 @@ export const api = {
   updateNovelModelConfig: (id, data) => request(`/novels/${id}/model-config`, { method: 'PUT', body: data }),
   testNovelModelConfig: (id, data) => request(`/novels/${id}/model-config/test`, { method: 'POST', body: data }),
   listNovelAssets: (id, category) => request(`/novels/${id}/assets${category ? `?category=${category}` : ''}`),
+  bulkGenerateAssets: (id, data = {}) => request(`/novels/${id}/assets/bulk-generate`, { method: 'POST', body: data }),
   createNovelAsset: (id, data) => request(`/novels/${id}/assets`, { method: 'POST', body: data }),
   updateNovelAsset: (id, aid, data) => request(`/novels/${id}/assets/${aid}`, { method: 'PATCH', body: data }),
   deleteNovelAsset: (id, aid) => request(`/novels/${id}/assets/${aid}`, { method: 'DELETE' }),

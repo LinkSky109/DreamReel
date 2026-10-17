@@ -33,7 +33,7 @@ import { getJobs } from '../services/extractionStatus.js'
 import { extractAll } from '../services/combinedExtractionService.js'
 import { bulkGenerate } from '../services/bulkEpisodeService.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
-import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats } from '../services/novelAssetService.js'
+import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, bulkGenerateImages } from '../services/novelAssetService.js'
 import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
 
 /**
@@ -625,6 +625,22 @@ router.get('/:id/assets', (req, res) => {
 })
 
 // 从角色/世界观导入候选草稿（不生成图）
+// 设定图批量出图（分批、限并发、可续跑）：前端循环调用直到 remaining=0
+router.post('/:id/assets/bulk-generate', async (req, res) => {
+  try {
+    const body = req.body || {}
+    const r = await bulkGenerateImages(req.params.id, {
+      limit: optionalClampInt(body.limit, 1, 24),
+      concurrency: optionalClampInt(body.concurrency, 1, 6),
+      categories: Array.isArray(body.categories) ? body.categories : undefined,
+      userId: req.user?.id,
+    })
+    res.json({ success: true, data: r })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
 router.post('/:id/assets/suggest', (req, res) => {
   try {
     const { categories } = req.body || {}

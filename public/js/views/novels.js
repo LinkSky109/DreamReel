@@ -657,9 +657,14 @@ async function tabArt({ body, id, refresh }) {
     <section class="card" style="padding:16px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <h3 style="margin:0;">设定图集 <span style="font-size:12px;color:var(--text-secondary);">（为图生视频准备成套设定图）</span></h3>
-        <button id="nvArtSuggest" class="btn btn-sm">从角色/世界观导入候选</button>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <span id="nvArtBulkInfo" style="font-size:12px;color:#7c3aed;"></span>
+          <button id="nvArtBulk" class="btn btn-sm">本类批量出图</button>
+          <button id="nvArtSuggest" class="btn btn-sm">从角色/世界观导入候选</button>
+        </div>
       </div>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">共 ${assets.length} · 已出图 ${esc(stats.generated || 0)} · 失败 ${esc(stats.failed || 0)} · ${ASSET_CATEGORIES.map(([k, l]) => `${l} ${esc((stats.byCategory && stats.byCategory[k]) || 0)}`).join(' · ')}</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">批量出图按「当前类别」逐张生成（单张约 1 分钟、走付费 provider）；分批续跑，可随时停。</div>
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-sm ${active === 'all' ? 'btn-primary' : ''}" data-acat="all">全部 ${assets.length}</button>
         ${ASSET_CATEGORIES.map(([k, l]) => `<button class="btn btn-sm ${active === k ? 'btn-primary' : ''}" data-acat="${k}">${l} ${esc((stats.byCategory && stats.byCategory[k]) || 0)}</button>`).join('')}
@@ -690,6 +695,28 @@ async function tabArt({ body, id, refresh }) {
       showToast('已新增', 'success')
       refresh()
     } catch (err) { showToast(err.message, 'error') }
+  })
+  body.querySelector('#nvArtBulk')?.addEventListener('click', async () => {
+    const btn = body.querySelector('#nvArtBulk')
+    const info = body.querySelector('#nvArtBulkInfo')
+    const cats = state.artCategory && state.artCategory !== 'all' ? [state.artCategory] : undefined
+    const old = btn.textContent
+    ;[...body.querySelectorAll('button,input,select')].forEach((x) => { x.disabled = true })
+    btn.textContent = '出图中…'
+    try {
+      let guard = 0
+      for (;;) {
+        const r = unwrap(await api.bulkGenerateAssets(id, { categories: cats, onlyMissing: true, limit: 3, concurrency: 2 }))
+        if (info) info.textContent = `已出图 ${r.withImages}/${r.total}（本轮 ${r.ok} 成功 / ${r.failed} 失败）`
+        if (r.remaining <= 0 || r.processed === 0 || ++guard > 400) break
+      }
+      showToast('批量出图完成', 'success')
+    } catch (err) {
+      showToast(err.message, 'error')
+    } finally {
+      btn.textContent = old
+      refresh()
+    }
   })
   body.querySelector('#nvArtSuggest')?.addEventListener('click', async () => {
     try {
