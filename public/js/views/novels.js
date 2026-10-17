@@ -793,6 +793,7 @@ async function tabEpisode({ body, novel, id, refresh }) {
   const seasonId = state.seasonId && seasons.some((s) => s.id === state.seasonId) ? state.seasonId : seasons[0]?.id
   state.seasonId = seasonId
   const episodes = seasonId ? await api.listNovelEpisodes(id, seasonId).then(unwrap).catch(() => []) : []
+  const seasonAssets = seasonId ? await api.seasonAssetSubset(id, seasonId).then(unwrap).catch(() => null) : null
   const lkScript = locked(novel, 'episodes')
   const lkAssets = locked(novel, 'assets')
   const lkCompose = locked(novel, 'compose')
@@ -915,6 +916,13 @@ async function tabEpisode({ body, novel, id, refresh }) {
         <button id="nvBulkAssets" class="btn btn-sm" ${lkAssets ? 'disabled' : ''}>本季批量生成资产</button>
         <span id="nvBulkInfo" style="font-size:12px;color:#7c3aed;"></span>
       </div>
+      ${seasonAssets ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:8px;border-top:1px dashed var(--border-color);padding-top:8px;">
+        本季设定图子集：涉及 <b>${esc(seasonAssets.subsetCount)}</b> 张（已出图 ${esc(seasonAssets.withImages)} · 待出 <b style="color:#d97706;">${esc(seasonAssets.remaining)}</b>）／全书共 ${esc(seasonAssets.totalAssets)} 张
+        <span style="flex:1;"></span>
+        <button id="nvSeasonAssetGen" class="btn btn-sm" style="margin-left:8px;">生成本季涉及的设定图</button>
+        <span id="nvSeasonAssetInfo" style="font-size:12px;color:#7c3aed;margin-left:6px;"></span>
+      </div>` : ''}
+      </div>
     </section>
     ${panel}
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 12px;">
@@ -965,6 +973,29 @@ async function tabEpisode({ body, novel, id, refresh }) {
   }
   body.querySelector('#nvBulkScript')?.addEventListener('click', () => runBulk(body.querySelector('#nvBulkScript'), 'script'))
   body.querySelector('#nvBulkAssets')?.addEventListener('click', () => runBulk(body.querySelector('#nvBulkAssets'), 'assets'))
+
+  // 生成本季「涉及的」设定图（只在本季子集内出图）
+  body.querySelector('#nvSeasonAssetGen')?.addEventListener('click', async () => {
+    const btn = body.querySelector('#nvSeasonAssetGen')
+    const info = body.querySelector('#nvSeasonAssetInfo')
+    const old = btn.textContent
+    ;[...body.querySelectorAll('button,input,select')].forEach((x) => { x.disabled = true })
+    btn.textContent = '出图中…'
+    try {
+      let guard = 0
+      for (;;) {
+        const r = unwrap(await api.bulkGenerateSeasonAssets(id, seasonId, { limit: 3, concurrency: 2 }))
+        if (info) info.textContent = `本季 ${r.withImages}/${r.subsetCount}（本轮 ${r.ok} 成功 / ${r.failed} 失败）`
+        if (r.remaining <= 0 || r.processed === 0 || ++guard > 200) break
+      }
+      showToast('本季涉及的设定图已生成', 'success')
+    } catch (err) {
+      showToast(err.message, 'error')
+    } finally {
+      btn.textContent = old
+      refresh()
+    }
+  })
 
   body.querySelector('#nvSeason')?.addEventListener('change', (ev) => {
     state.seasonId = ev.target.value

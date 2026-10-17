@@ -32,6 +32,7 @@ import { tryAcquire, release } from '../utils/asyncLock.js'
 import { getJobs } from '../services/extractionStatus.js'
 import { extractAll } from '../services/combinedExtractionService.js'
 import { bulkGenerate } from '../services/bulkEpisodeService.js'
+import { seasonAssetSubset, bulkGenerateSeasonAssets } from '../services/seasonAssetService.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
 import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, bulkGenerateImages } from '../services/novelAssetService.js'
 import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
@@ -276,6 +277,30 @@ router.get('/:id/seasons', (req, res) => {
   try {
     getNovelProject(req.params.id)
     res.json({ success: true, data: listSeasons(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 本季「设定图子集」：一季真正用得到的设定图（分镜已引用 + 本季正文出现的角色/实体）
+router.get('/:id/seasons/:sid/assets', (req, res) => {
+  try {
+    res.json({ success: true, data: seasonAssetSubset(req.params.id, req.params.sid) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 只为本季涉及的设定图批量出图（分批、限并发、可续跑）
+router.post('/:id/seasons/:sid/assets/bulk-generate', async (req, res) => {
+  try {
+    const body = req.body || {}
+    const r = await bulkGenerateSeasonAssets(req.params.id, req.params.sid, {
+      limit: optionalClampInt(body.limit, 1, 12),
+      concurrency: optionalClampInt(body.concurrency, 1, 4),
+      userId: req.user?.id,
+    })
+    res.json({ success: true, data: r })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
