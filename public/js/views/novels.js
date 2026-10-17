@@ -757,17 +757,33 @@ async function tabArt({ body, id, refresh }) {
 // ---------- 分季分集 ----------
 async function tabSeries({ body, novel, id, refresh }) {
   const lk = locked(novel, 'series')
-  const [seasons, episodes] = await Promise.all([
+  const [seasons, episodes, est] = await Promise.all([
     api.listNovelSeasons(id).then(unwrap).catch(() => []),
     api.listNovelEpisodes(id).then(unwrap).catch(() => []),
+    api.seriesEstimate(id).then(unwrap).catch(() => null),
   ])
+  const hrs = (s) => (s / 3600).toFixed(1)
+  const estLine = est
+    ? (() => {
+        const planned = est.plannedSeconds
+        const cur = est.supportSeconds[est.charsPerSecond] || est.supportSeconds['4.5']
+        const diff = cur - planned
+        const okColor = Math.abs(diff) / (planned || 1) < 0.08 ? '#16a34a' : '#d97706'
+        return `<div style="margin-top:8px;font-size:12px;color:var(--text-secondary);border-top:1px dashed var(--border-color);padding-top:8px;">
+          正文 ${(est.totalChars / 1e6).toFixed(2)}M 字｜规划 <b>${hrs(planned)}h</b>｜按 <b>${est.charsPerSecond} 字/秒</b> 可支撑 <b style="color:${okColor};">${hrs(cur)}h</b>
+          （${diff >= 0 ? '多 ' : '差 '}${hrs(Math.abs(diff))}h，${Math.abs(diff) / (planned || 1) < 0.08 ? '基本吻合' : '偏差偏大'}）
+          · 参考：4 字/秒 ${hrs(est.supportSeconds[4])}h ／ 5 字/秒 ${hrs(est.supportSeconds[5])}h
+        </div>`
+      })()
+    : ''
   body.innerHTML = `
     <section class="card" style="padding:16px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <h3 style="margin:0;">分季分集 ${lk ? '<span style="font-size:12px;color:#d97706;">（已锁定）</span>' : ''}</h3>
         <button id="nvPlan" class="btn btn-primary btn-sm" ${lk ? 'disabled' : ''}>规划（1章≥1集，每季≥200集）</button>
       </div>
-      <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">季 ${esc(seasons.length)} · 集 ${esc(episodes.length)}（每集目标 90s，85–95s）</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">季 ${esc(seasons.length)} · 集 ${esc(episodes.length)}（每集目标 90s，85–95s，语速 4.5 字/秒）</div>
+      ${estLine}
     </section>
     <div style="display:grid;gap:8px;">
       ${seasons.length ? seasons.slice(0, 30).map((s) => `

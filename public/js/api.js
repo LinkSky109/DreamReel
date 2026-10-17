@@ -503,6 +503,7 @@ export const api = {
   selectNovelWorldSet: (id, setId) => request(`/novels/${id}/world/select`, { method: 'POST', body: { setId } }),
   // 分季分集 + 单集
   planNovelSeries: (id, data = {}) => request(`/novels/${id}/series/plan`, { method: 'POST', body: data }),
+  seriesEstimate: (id) => request(`/novels/${id}/series/estimate`),
   listNovelSeasons: (id) => request(`/novels/${id}/seasons`),
   listNovelEpisodes: (id, seasonId) => request(`/novels/${id}/episodes${seasonId ? `?seasonId=${seasonId}` : ''}`),
   bulkGenerateSeason: (id, sid, data = {}) => request(`/novels/${id}/seasons/${sid}/bulk`, { method: 'POST', body: data }),

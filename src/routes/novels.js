@@ -17,6 +17,7 @@ import {
   listSeasons,
   listEpisodes,
   checkConsistency,
+  seriesEstimate,
 } from '../services/seriesPlannerService.js'
 import { generateEpisodeScript, getEpisodeScript } from '../services/episodeScriptService.js'
 import { generateEpisodeAssets, getEpisodeAssets } from '../services/episodeAssetService.js'
@@ -262,6 +263,16 @@ router.post('/:id/characters/:cid/states', (req, res) => {
 // ===== 分季分集 + 剧本（Sprint 21） =====
 
 // 规划：章节 → 集 → 季
+// 分季分集时长估算（正文可支撑 vs 已规划）
+router.get('/:id/series/estimate', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: seriesEstimate(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
 router.post('/:id/series/plan', (req, res) => {
   try {
     const { episodeSeconds, episodesPerSeason, charsPerSecond, maxChapters } = req.body || {}

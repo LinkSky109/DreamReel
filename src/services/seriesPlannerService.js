@@ -12,7 +12,8 @@ import { listChunks } from './novelChunkService.js'
 
 const DEFAULT_EPISODE_SECONDS = 90
 const DEFAULT_EPISODES_PER_SEASON = 200
-const DEFAULT_CHARS_PER_SECOND = 5
+// 中文旁白语速：约 4.2–4.5 字/秒（250–270 字/分）。原来取 5 偏快，会让每集内容不足目标时长。
+const DEFAULT_CHARS_PER_SECOND = 4.5
 
 export function estimateSeconds(text, charsPerSecond = DEFAULT_CHARS_PER_SECOND) {
   return Math.max(DEFAULT_EPISODE_SECONDS, Math.round((text ? text.length : 0) / charsPerSecond))
@@ -124,6 +125,32 @@ export function planSeries(novelId, opts = {}) {
 
 export function listSeasons(novelId) {
   return storageService.listSeasons(novelId).sort((a, b) => a.seasonNo - b.seasonNo)
+}
+
+/**
+ * 分季分集「时长估算」：正文可支撑时长 vs 已规划时长，供页面校验是否匹配。
+ */
+export function seriesEstimate(novelId, opts = {}) {
+  const chunks = listChunks(novelId)
+  const totalChars = chunks.reduce((a, c) => a + (c.text || '').length, 0)
+  const eps = storageService.listEpisodes(novelId)
+  const plannedSeconds = eps.reduce((a, e) => a + (e.targetSeconds || DEFAULT_EPISODE_SECONDS), 0)
+  const charsPerSecond = opts.charsPerSecond || DEFAULT_CHARS_PER_SECOND
+  const episodeSeconds = opts.episodeSeconds || DEFAULT_EPISODE_SECONDS
+  const supportSeconds = {}
+  for (const cps of [4, 4.5, 5]) supportSeconds[cps] = Math.round(totalChars / cps)
+  return {
+    chapters: chunks.length,
+    totalChars,
+    seasons: storageService.listSeasons(novelId).length,
+    episodes: eps.length,
+    episodeSeconds,
+    charsPerSecond,
+    plannedSeconds,
+    supportSeconds,
+    // 当前语速下，正文可支撑的集数（按每集目标时长）
+    supportEpisodes: Math.round(totalChars / charsPerSecond / episodeSeconds),
+  }
 }
 
 export function listEpisodes(novelId, seasonId) {
