@@ -42,15 +42,17 @@ function normalizeTotal(script, target) {
   return script
 }
 
-function buildScriptPrompt(text, target) {
+function buildScriptPrompt(text, target, style = {}) {
+  const styleText = [style.name, style.visual, style.narration].filter((x) => typeof x === 'string' && x).join('；')
   return {
     systemPrompt: '你是影视分镜编剧。只输出 JSON，不要解释。',
     userPrompt: `把下面小说片段改编为**一集**分镜剧本。目标成片时长 ${target} 秒（允许 85–95）。严格输出 JSON：
 {"shots":[{"index":1,"description":"画面","dialogue":"台词或旁白","duration":秒}]}
 各 shot 的 duration 之和应约等于 ${target}。
-
+${styleText ? `\n全书统一风格（画面与旁白都必须保持一致的基调，画面描述里要体现该视觉风格）：${styleText}。\n` : ''}
 片段：
 ${text.slice(0, 6000)}`,
+    options: { temperature: 0.6, maxTokens: 4000 },
   }
 }
 
@@ -69,7 +71,7 @@ export async function generateEpisodeScript(novelId, episodeId, opts = {}) {
   if (configured && opts.provider !== 'heuristic') {
     try {
       const llm = getLLMProvider()
-      const { data } = await llm.generateJSON(buildScriptPrompt(text, target))
+      const { data } = await llm.generateJSON(buildScriptPrompt(text, target, project.style || {}))
       if (data && Array.isArray(data.shots) && data.shots.length) {
         screenplay = {
           shots: data.shots.map((s, i) => ({

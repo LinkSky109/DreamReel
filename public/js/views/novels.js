@@ -857,9 +857,17 @@ async function tabSync({ body, novel, id, refresh }) {
   const manifest = await api.getNovelManifest(id).then(unwrap).catch(() => ({ files: [] }))
   body.innerHTML = `
     <section class="card" style="padding:16px;margin-bottom:14px;">
-      <h3 style="margin-top:0;">全书风格</h3>
-      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">${novel.style && novel.style.name ? `${esc(novel.style.name)}｜${esc(novel.style.visual || '')}` : '（未生成）'}</div>
-      <button id="nvStyle" class="btn btn-sm">生成风格（LLM）</button>
+      <h3 style="margin-top:0;">全书风格（贯穿：设定图集 → 剧本 → 分镜/资产）</h3>
+      ${novel.style && novel.style.name
+        ? `<table style="font-size:13px;border-collapse:collapse;margin-bottom:8px;">
+             <tr><td style="color:#7c3aed;padding:2px 10px 2px 0;">风格名</td><td>${esc(novel.style.name)}</td></tr>
+             <tr><td style="color:#7c3aed;padding:2px 10px 2px 0;">画面/色调</td><td>${esc(novel.style.visual || '')}</td></tr>
+             <tr><td style="color:#7c3aed;padding:2px 10px 2px 0;">叙事基调</td><td>${esc(novel.style.narration || '')}</td></tr>
+             <tr><td style="color:#7c3aed;padding:2px 10px 2px 0;">配乐情绪</td><td>${esc(novel.style.music || '')}</td></tr>
+             <tr><td style="color:#7c3aed;padding:2px 10px 2px 0;">来源</td><td>${esc(novel.style.provider || '')}${novel.style.scope ? ' · ' + esc(novel.style.scope) : ''}</td></tr>
+           </table>`
+        : '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">（未生成）— 生成一次即可，后续设定图集/剧本/分镜会自动沿用，保证风格一致</div>'}
+      <button id="nvStyle" class="btn btn-sm">${novel.style && novel.style.name ? '重新生成风格（LLM）' : '生成风格（LLM）'}</button>
     </section>
     <section class="card" style="padding:16px;">
       <h3 style="margin-top:0;">剧集包 / 同步</h3>
