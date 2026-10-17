@@ -140,10 +140,9 @@ export async function extractAll(novelId, opts = {}) {
   }
   for (const e of entities) e.mentions = countOccurrences(fullText, e.name)
 
-  // 写角色（清理旧数据，与单抽取一致）
-  if (storageService.data.novelCharacters) {
-    for (const c of storageService.listNovelCharacters(novelId)) delete storageService.data.novelCharacters[c.id]
-  }
+  // 不删除历史角色/实体：集合按 id 引用稳定记录；删除会让旧集合全部悬空（选中即空）。
+
+  // 写角色（新增）
   const savedChars = characters.map((c) =>
     storageService.createNovelCharacter(
       new NovelCharacter({ novelId, name: c.name, kind: c.kind, aliases: c.aliases, description: c.description, card: c.card, provider })
@@ -158,10 +157,7 @@ export async function extractAll(novelId, opts = {}) {
     characterIds: savedChars.map((c) => c.id),
   })
 
-  // 写世界观（清理旧数据）
-  if (storageService.data.novelWorldEntities) {
-    for (const e of storageService.listWorldEntities(novelId)) delete storageService.data.novelWorldEntities[e.id]
-  }
+  // 写世界观（新增）
   const savedEntities = entities.map((e) =>
     storageService.createWorldEntity(
       new WorldEntity({ novelId, type: e.type, name: e.name, aliases: e.aliases, description: e.description, attributes: e.attributes, relations: e.relations, mentions: e.mentions, provider })

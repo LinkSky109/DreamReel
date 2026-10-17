@@ -181,10 +181,7 @@ export async function extractWorld(novelId, opts = {}) {
     e.mentions = countOccurrences(fullText, e.name)
   }
 
-  // 清理旧实体
-  if (storageService.data.novelWorldEntities) {
-    for (const e of storageService.listWorldEntities(novelId)) delete storageService.data.novelWorldEntities[e.id]
-  }
+  // 不删除历史实体：集合按 id 引用稳定记录；删除会让旧集合全部悬空（选中即显示空）。
 
   const saved = merged.map((e) =>
     storageService.createWorldEntity(
@@ -230,18 +227,22 @@ export function selectWorldSet(novelId, setId) {
   return updateNovelProject(novelId, { selectedWorldSet: setId })
 }
 
-/** 备选集合列表（含实体数） */
+/** 备选集合列表（含实体数 + 仍存在的记录数） */
 export function listWorldSets(novelId) {
-  const project = getNovelProject(novelId)
+  const project = storageService.getNovelProject(novelId)
+  const live = new Set(storageService.listWorldEntities(novelId).map((e) => e.id))
   return (project?.worldSets || [])
     .map((sid) => {
       const set = storageService.getWorldSet(sid)
-      return set ? { id: set.id, provider: set.provider, createdAt: set.createdAt, count: set.entityIds.length, selected: sid === project.selectedWorldSet } : null
+      if (!set) return null
+      const liveCount = (set.entityIds || []).filter((x) => live.has(x)).length
+      return { id: set.id, provider: set.provider, createdAt: set.createdAt, count: set.entityIds.length, live: liveCount, selected: sid === project.selectedWorldSet }
     })
     .filter(Boolean)
 }
 
-export function listEntities(novelId, type) {
+/** 当前生效集合内的实体（未选定则全部）——避免历史集合污染统计 */
+function currentEntities(novelId) {
   const project = storageService.getNovelProject(novelId)
   let list = storageService.listWorldEntities(novelId)
   const setId = project && project.selectedWorldSet
@@ -252,12 +253,18 @@ export function listEntities(novelId, type) {
       list = list.filter((e) => ids.has(e.id))
     }
   }
-  return (type ? list.filter((e) => e.type === type) : list).sort((a, b) => (b.mentions || 0) - (a.mentions || 0))
+  return list
+}
+
+export function listEntities(novelId, type) {
+  const list = currentEntities(novelId)
+  const filtered = type ? list.filter((e) => e.type === type) : list
+  return filtered.sort((a, b) => (b.mentions || 0) - (a.mentions || 0))
 }
 
 /** 关系（解析 target 到实体 id） */
 export function listRelations(novelId) {
-  const entities = storageService.listWorldEntities(novelId)
+  const entities = currentEntities(novelId)
   const byName = new Map(entities.map((e) => [e.name, e.id]))
   const out = []
   for (const e of entities) {
@@ -269,7 +276,7 @@ export function listRelations(novelId) {
 }
 
 export function summarize(novelId) {
-  const entities = storageService.listWorldEntities(novelId)
+  const entities = currentEntities(novelId)
   const byType = {}
   for (const t of WORLD_TYPES) byType[t] = 0
   for (const e of entities) byType[e.type] = (byType[e.type] || 0) + 1

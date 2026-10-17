@@ -106,6 +106,19 @@ ${sampleText}
   }
 }
 
+/** 把模型返回的任意值转成可读文本（避免把数组/对象 String() 成 [object Object]） */
+function toCardText(v) {
+  if (v === null || v === undefined) return ''
+  if (Array.isArray(v)) return v.map(toCardText).filter(Boolean).join('、')
+  if (typeof v === 'object') {
+    return Object.entries(v)
+      .map(([k, val]) => `${k} ${toCardText(val)}`)
+      .filter(Boolean)
+      .join('；')
+  }
+  return String(v)
+}
+
 /** 归一化单个角色对象 */
 function normalizeOne(raw) {
   const name = raw && raw.name ? String(raw.name).trim() : ''
@@ -114,7 +127,7 @@ function normalizeOne(raw) {
   const card = {}
   const src = (raw.card && typeof raw.card === 'object') ? raw.card : {}
   for (const field of CARD_FIELDS) {
-    if (src[field] !== undefined && src[field] !== null) card[field] = String(src[field])
+    if (src[field] !== undefined && src[field] !== null) card[field] = toCardText(src[field])
   }
   return {
     name,
@@ -233,12 +246,8 @@ export async function extractCharacters(novelId, opts = {}) {
     logger.info(`启发式抽取角色 ${characters.length} 个`)
   }
 
-  // 清理旧角色
-  if (storageService.data.novelCharacters) {
-    for (const c of storageService.listNovelCharacters(novelId)) {
-      delete storageService.data.novelCharacters[c.id]
-    }
-  }
+  // 不删除历史角色：集合按 id 引用稳定记录；删除会让旧集合全部悬空（选中即显示空）。
+  // 每次抽取新增记录 + 新建集合并选中，历史备选集仍可回看。
 
   const saved = characters.map((c) =>
     storageService.createNovelCharacter(
@@ -299,11 +308,16 @@ export function listCharacters(novelId) {
   return all
 }
 
-/** 备选集合列表（含字符数） */
+/** 备选集合列表（含字符数 + 仍存在的记录数） */
 export function listCharacterSets(novelId) {
   const project = storageService.getNovelProject(novelId)
-  return (project?.characterSets || []).map((sid) => {
-    const set = storageService.getCharacterSet(sid)
-    return set ? { id: set.id, provider: set.provider, createdAt: set.createdAt, count: set.characterIds.length, selected: sid === project.selectedCharacterSet } : null
-  }).filter(Boolean)
+  const live = new Set(storageService.listNovelCharacters(novelId).map((c) => c.id))
+  return (project?.characterSets || [])
+    .map((sid) => {
+      const set = storageService.getCharacterSet(sid)
+      if (!set) return null
+      const liveCount = (set.characterIds || []).filter((x) => live.has(x)).length
+      return { id: set.id, provider: set.provider, createdAt: set.createdAt, count: set.characterIds.length, live: liveCount, selected: sid === project.selectedCharacterSet }
+    })
+    .filter(Boolean)
 }

@@ -611,6 +611,15 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     release(k)
   })
 
+  it('mergeCharacters 把数组/对象字段转为可读文本（不再出现 [object Object]）', () => {
+    const merged = mergeCharacters([
+      { name: '甲', card: { relations: [{ target: '乙', kind: '盟友' }], abilities: ['枪', '刀'] } },
+    ])
+    assert.ok(!merged[0].card.relations.includes('[object Object]'), merged[0].card.relations)
+    assert.ok(merged[0].card.relations.includes('乙'))
+    assert.equal(merged[0].card.abilities, '枪、刀')
+  })
+
   it('runPool 保序且并发受限', async () => {
     let active = 0
     let maxActive = 0

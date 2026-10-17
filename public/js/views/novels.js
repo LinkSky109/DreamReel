@@ -115,6 +115,18 @@ function esc(s) {
   d.textContent = s === null || s === undefined ? '' : String(s)
   return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
+// 把数组/对象字段渲染成可读文本（否则会显示 [object Object]）
+function fmtVal(v) {
+  if (v === null || v === undefined) return ''
+  if (Array.isArray(v)) return v.map(fmtVal).filter(Boolean).join('、')
+  if (typeof v === 'object') {
+    return Object.entries(v)
+      .map(([k, val]) => `${k} ${fmtVal(val)}`)
+      .filter(Boolean)
+      .join('；')
+  }
+  return String(v)
+}
 function unwrap(res) {
   return res && res.data !== undefined ? res.data : res
 }
@@ -390,7 +402,7 @@ async function tabCharacters({ body, novel, id, refresh }) {
       const rows = fields.filter((f) => f.group === g && card[f.key])
       if (!rows.length) return ''
       return `<div style="margin-top:6px;"><span style="font-size:12px;color:#7c3aed;">${esc(groups[g])}</span>
-        ${rows.map((f) => `<div style="font-size:12px;color:var(--text-secondary);"><b>${esc(f.label)}</b>：${esc(card[f.key])}</div>`).join('')}</div>`
+        ${rows.map((f) => `<div style="font-size:12px;color:var(--text-secondary);"><b>${esc(f.label)}</b>：${esc(fmtVal(card[f.key]))}</div>`).join('')}</div>`
     }).join('')
     return blocks || '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">（未抽取到字段，可用启发式引擎先跑通或换 LLM）</div>'
   }
@@ -412,7 +424,7 @@ async function tabCharacters({ body, novel, id, refresh }) {
       <div id="nvLlmPicker" style="margin-top:8px;"></div>
       <div id="nvExtractStatus"></div>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">字段 ${fields.length} 项 · 修订率 ${((stats.revisionRate || 0) * 100).toFixed(1)}% · 已通过 ${esc(stats.approved || 0)} / ${esc(chars.length)}</div>
-      ${sets.length ? `<div style="margin-top:10px;font-size:12px;">备选集合：${sets.map((s) => `<button class="btn btn-sm ${s.selected ? 'btn-primary' : ''}" data-cset="${esc(s.id)}" ${lk ? 'disabled' : ''}>${s.count} 个 · ${esc(s.provider)}${s.selected ? '（当前）' : ''}</button>`).join(' ')}</div>` : ''}
+      ${sets.length ? `<div style="margin-top:10px;font-size:12px;">备选集合：${sets.map((s) => `<button class="btn btn-sm ${s.selected ? 'btn-primary' : ''}" data-cset="${esc(s.id)}" ${lk || s.live === 0 ? 'disabled' : ''} title="${s.live === 0 ? '该备选的数据已被早期版本清除，无法恢复' : ''}">${s.count} 个 · ${esc(s.provider)}${s.selected ? '（当前）' : ''}${s.live === 0 ? '（已失效）' : ''}</button>`).join(' ')}</div>` : ''}
     </section>
     <div style="display:grid;gap:10px;">
       ${chars.length ? chars.map((c) => `
@@ -515,7 +527,7 @@ async function tabWorld({ body, novel, id, refresh }) {
       <summary style="font-size:13px;cursor:pointer;"><b>[${esc(typeLabel[e.type] || e.type)}]</b> ${esc(e.name)} <span style="color:var(--text-secondary);font-size:12px;">x${esc(e.mentions || 0)}</span>${(e.aliases || []).length ? ` <span style="color:var(--text-secondary);font-size:12px;">${esc(e.aliases.join('/'))}</span>` : ''}</summary>
       <div style="margin-top:6px;">
         ${e.description ? `<div style="font-size:12px;color:var(--text-secondary);">${esc(e.description)}</div>` : ''}
-        ${rows.length ? `<table style="font-size:12px;border-collapse:collapse;margin-top:4px;">${rows.map(([k, v]) => `<tr><td style="color:#7c3aed;padding:2px 8px 2px 0;vertical-align:top;">${esc(labels[k] || k)}</td><td style="color:var(--text-secondary);">${esc(v)}</td></tr>`).join('')}</table>` : '<div style="font-size:12px;color:var(--text-secondary);">（无结构化属性）</div>'}
+        ${rows.length ? `<table style="font-size:12px;border-collapse:collapse;margin-top:4px;">${rows.map(([k, v]) => `<tr><td style="color:#7c3aed;padding:2px 8px 2px 0;vertical-align:top;">${esc(labels[k] || k)}</td><td style="color:var(--text-secondary);">${esc(fmtVal(v))}</td></tr>`).join('')}</table>` : '<div style="font-size:12px;color:var(--text-secondary);">（无结构化属性）</div>'}
         ${rels.length ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">关系：${rels.join('、')}</div>` : ''}
       </div>
     </details>`
@@ -541,7 +553,7 @@ async function tabWorld({ body, novel, id, refresh }) {
         ${Object.entries(typeLabel).map(([k, l]) => `${esc(l)} ${esc(byType[k] || 0)}`).join(' · ')}
       </div>
       ${(summary.missingCoreTypes || []).length ? `<div style="font-size:12px;color:#d97706;margin-top:4px;">缺失核心类型：${esc(summary.missingCoreTypes.join('、'))}（可换引擎或增大章节范围）</div>` : ''}
-      ${sets.length ? `<div style="margin-top:10px;font-size:12px;">备选集合：${sets.map((s) => `<button class="btn btn-sm ${s.selected ? 'btn-primary' : ''}" data-wset="${esc(s.id)}" ${lk ? 'disabled' : ''}>${s.count} 实体 · ${esc(s.provider)}${s.selected ? '（当前）' : ''}</button>`).join(' ')}</div>` : ''}
+      ${sets.length ? `<div style="margin-top:10px;font-size:12px;">备选集合：${sets.map((s) => `<button class="btn btn-sm ${s.selected ? 'btn-primary' : ''}" data-wset="${esc(s.id)}" ${lk || s.live === 0 ? 'disabled' : ''} title="${s.live === 0 ? '该备选的数据已被早期版本清除，无法恢复' : ''}">${s.count} 实体 · ${esc(s.provider)}${s.selected ? '（当前）' : ''}${s.live === 0 ? '（已失效）' : ''}</button>`).join(' ')}</div>` : ''}
       ${typeKeys.length ? `<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-sm ${activeType === 'all' ? 'btn-primary' : ''}" data-wtype="all">全部 ${esc(entities.length)}</button>
         ${typeKeys.map((k) => `<button class="btn btn-sm ${activeType === k ? 'btn-primary' : ''}" data-wtype="${esc(k)}">${esc(typeLabel[k])} ${esc(byType[k])}</button>`).join('')}
