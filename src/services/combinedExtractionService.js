@@ -12,7 +12,7 @@ import { WorldEntity } from '../models/WorldEntity.js'
 import { getLLMProviderByPref } from '../providers/llmProviderFactory.js'
 import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
-import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
+import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable, recomputeNovelCounts } from './novelProjectService.js'
 import { listChunks } from './novelChunkService.js'
 import { runGroups } from './extractionStatus.js'
 import { generateJSONWithRetry } from '../utils/llmRetry.js'
@@ -173,6 +173,7 @@ export async function extractAll(novelId, opts = {}) {
     worldSets: [...(project.worldSets || []), worldSet.id],
     selectedWorldSet: worldSet.id,
   })
+  recomputeNovelCounts(novelId) // 修正 counts（章节/角色/实体/季/集）
 
   return {
     project: getNovelProject(novelId),

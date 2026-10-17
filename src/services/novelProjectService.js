@@ -44,6 +44,31 @@ export function updateNovelProject(id, patch = {}) {
   return storageService.updateNovelProject(project)
 }
 
+/**
+ * 从实际数据重算 counts（章节/角色/实体/季/集）。
+ * 增量更新一旦被覆盖（如数据清理）就会漂移，导致页面显示「章 0」等；用本函数纠正。
+ * 角色/实体按“当前选中集合”计数，避免历史集合虚高。
+ */
+export function recomputeNovelCounts(id) {
+  const project = getNovelProject(id)
+  const liveC = new Set(storageService.listNovelCharacters(id).map((c) => c.id))
+  const liveW = new Set(storageService.listWorldEntities(id).map((e) => e.id))
+  const setC = project.selectedCharacterSet ? storageService.getCharacterSet(project.selectedCharacterSet) : null
+  const setW = project.selectedWorldSet ? storageService.getWorldSet(project.selectedWorldSet) : null
+  const characters = setC ? (setC.characterIds || []).filter((x) => liveC.has(x)).length : liveC.size
+  const worldEntities = setW ? (setW.entityIds || []).filter((x) => liveW.has(x)).length : liveW.size
+  return updateNovelProject(id, {
+    counts: {
+      ...project.counts,
+      chapters: storageService.listNovelChunks(id).length,
+      characters,
+      worldEntities,
+      seasons: storageService.listSeasons(id).length,
+      episodes: storageService.listEpisodes(id).length,
+    },
+  })
+}
+
 export function stageIndex(stage) {
   return STAGES.indexOf(stage)
 }

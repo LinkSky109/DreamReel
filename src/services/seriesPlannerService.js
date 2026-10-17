@@ -1,7 +1,7 @@
 import { storageService } from './storageService.js'
 import { Season } from '../models/Season.js'
 import { Episode } from '../models/Episode.js'
-import { getNovelProject, updateNovelProject, writeNovelFile, readNovelFile, assertEditable } from './novelProjectService.js'
+import { getNovelProject, updateNovelProject, writeNovelFile, readNovelFile, assertEditable, recomputeNovelCounts } from './novelProjectService.js'
 import { listChunks } from './novelChunkService.js'
 
 /**
@@ -117,6 +117,7 @@ export function planSeries(novelId, opts = {}) {
   updateNovelProject(novelId, {
     counts: { ...project.counts, seasons: seasons.length, episodes: totalEpisodes },
   })
+  recomputeNovelCounts(novelId)
 
   return { seasons: seasons.length, episodes: totalEpisodes, episodesPerSeason, episodeSeconds }
 }
