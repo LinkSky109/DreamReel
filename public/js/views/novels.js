@@ -651,7 +651,15 @@ async function tabArt({ body, id, refresh }) {
     </div>`
 
   body.querySelectorAll('img[data-media]').forEach(async (img) => {
-    try { img.src = await api.mediaObjectUrl(img.dataset.media) } catch { /* 未登录/无权限则保持占位 */ }
+    try {
+      img.src = await api.mediaObjectUrl(img.dataset.media)
+    } catch {
+      // 未登录 / 无权限：媒体目录受保护会返回 401，明确提示而不是留空白（否则看起来像“没出图”）
+      const hint = document.createElement('div')
+      hint.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;color:var(--text-secondary);padding:6px;'
+      hint.textContent = '图片需登录后查看（右上角「登录」）'
+      img.replaceWith(hint)
+    }
   })
   body.querySelectorAll('[data-acat]').forEach((b) => b.addEventListener('click', () => {
     state.artCategory = b.dataset.acat
