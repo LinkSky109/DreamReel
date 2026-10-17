@@ -74,7 +74,7 @@ export function heuristicExtract(chunks, { minFreq = 6, maxCharacters = 40 } = {
 }
 
 /** 角色卡字段说明（按大类） */
-function cardFieldGuide() {
+export function cardFieldGuide() {
   const groups = new Map()
   for (const f of CARD_SCHEMA) {
     if (!groups.has(f.group)) groups.set(f.group, [])

@@ -51,7 +51,7 @@ export function heuristicExtract(text, { minFreq = 2, max = 120 } = {}) {
 }
 
 /** 类型 + 专属属性字段说明 */
-function worldTypeGuide() {
+export function worldTypeGuide() {
   return WORLD_TYPES.filter((t) => t !== 'other')
     .map((t) => {
       const attrs = (WORLD_ATTRIBUTES[t] || []).map((a) => a.key).join('/')

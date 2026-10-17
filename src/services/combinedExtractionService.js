@@ -7,8 +7,8 @@
 import logger from '../utils/logger.js'
 import { generateId } from '../utils/idGenerator.js'
 import { storageService } from './storageService.js'
-import { NovelCharacter, CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
-import { WorldEntity, WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
+import { NovelCharacter } from '../models/NovelCharacter.js'
+import { WorldEntity } from '../models/WorldEntity.js'
 import { getLLMProviderByPref } from '../providers/llmProviderFactory.js'
 import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
@@ -16,23 +16,8 @@ import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable } f
 import { listChunks } from './novelChunkService.js'
 import { runGroups } from './extractionStatus.js'
 import { generateJSONWithRetry } from '../utils/llmRetry.js'
-import { mergeCharacters, heuristicExtract as heuristicCharacters } from './characterExtractionService.js'
-import { mergeEntities, heuristicExtract as heuristicWorld } from './worldbuildingService.js'
-
-function cardFieldGuide() {
-  const groups = new Map()
-  for (const f of CARD_SCHEMA) {
-    if (!groups.has(f.group)) groups.set(f.group, [])
-    groups.get(f.group).push(`${f.key} ${f.label}`)
-  }
-  return [...groups.entries()].map(([g, fields]) => `- ${CARD_GROUPS[g] || g}：${fields.join('、')}`).join('\n')
-}
-
-function worldTypeGuide() {
-  return WORLD_TYPES.filter((t) => t !== 'other')
-    .map((t) => `- ${t}（${WORLD_TYPE_LABELS[t]}）：${(WORLD_ATTRIBUTES[t] || []).map((a) => a.key).join('/') || '无固定字段'}`)
-    .join('\n')
-}
+import { mergeCharacters, heuristicExtract as heuristicCharacters, cardFieldGuide } from './characterExtractionService.js'
+import { mergeEntities, heuristicExtract as heuristicWorld, worldTypeGuide } from './worldbuildingService.js'
 
 function countOccurrences(text, name) {
   if (!name) return 0
