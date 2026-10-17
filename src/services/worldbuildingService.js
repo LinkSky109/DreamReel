@@ -132,7 +132,7 @@ export async function extractWorld(novelId, opts = {}) {
   const chunkSize = clampInt(opts.chunkSize, 16, 1, 100)
   const maxChars = clampInt(opts.maxChars, 24000, 200, 64000)
   const useChunks = chunks.slice(0, maxChapters)
-  const concurrency = optionalClampInt(opts.concurrency, 1, 128) ?? (parseInt(process.env.EXTRACT_CONCURRENCY || '', 10) || 64)
+  const concurrency = optionalClampInt(opts.concurrency, 1, 128) ?? (parseInt(process.env.EXTRACT_CONCURRENCY || '', 10) || 32)
   const fullText = useChunks.map((c) => c.text).join('\n')
 
   const llm = getLLMProviderByPref(project.providerPreferences?.llm || null, opts.userId ?? null)
