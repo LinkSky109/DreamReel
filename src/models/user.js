@@ -28,8 +28,13 @@ export class User {
    * 验证密码
    */
   verifyPassword(password) {
+    if (!this.salt || !this.passwordHash) return false // 旧数据/未设密码：直接判定失败，避免 scrypt 抛错
     const hash = crypto.scryptSync(password, this.salt, 64).toString('hex')
-    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(this.passwordHash, 'hex'))
+    try {
+      return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(this.passwordHash, 'hex'))
+    } catch {
+      return false
+    }
   }
 
   /**
