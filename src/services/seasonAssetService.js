@@ -13,6 +13,7 @@ import { listEntities } from './worldbuildingService.js'
 import { clampInt } from '../utils/coerce.js'
 import { runPool } from '../utils/pool.js'
 import { generateAssetImage } from './novelAssetService.js'
+import { isGenericName } from '../utils/nameFilters.js'
 
 export function seasonAssetSubset(novelId, seasonId) {
   const season = storageService.getSeason(seasonId)
@@ -33,11 +34,11 @@ export function seasonAssetSubset(novelId, seasonId) {
   const mentionedNames = new Set()
   if (text) {
     for (const c of listCharacters(novelId)) {
-      if (c.name && c.name.length >= 2 && text.includes(c.name)) mentionedNames.add(c.name)
+      if (c.name && !isGenericName(c.name) && text.includes(c.name)) mentionedNames.add(c.name)
       for (const al of c.aliases || []) if (al && al.length >= 2 && text.includes(al)) mentionedNames.add(c.name)
     }
     for (const e of listEntities(novelId)) {
-      if (e.name && e.name.length >= 2 && text.includes(e.name)) mentionedNames.add(e.name)
+      if (e.name && !isGenericName(e.name) && text.includes(e.name)) mentionedNames.add(e.name)
       for (const al of e.aliases || []) if (al && al.length >= 2 && text.includes(al)) mentionedNames.add(e.name)
     }
   }

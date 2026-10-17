@@ -35,7 +35,7 @@ import { extractAll } from '../services/combinedExtractionService.js'
 import { bulkGenerate } from '../services/bulkEpisodeService.js'
 import { seasonAssetSubset, bulkGenerateSeasonAssets } from '../services/seasonAssetService.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
-import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, bulkGenerateImages } from '../services/novelAssetService.js'
+import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
 import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
 
 /**
@@ -662,6 +662,15 @@ router.get('/:id/assets', (req, res) => {
 
 // 从角色/世界观导入候选草稿（不生成图）
 // 设定图批量出图（分批、限并发、可续跑）：前端循环调用直到 remaining=0
+// 归一化设定图：按名称重绑 sourceId 到当前角色/实体；泛名/重名加类别前缀
+router.post('/:id/assets/normalize', (req, res) => {
+  try {
+    res.json({ success: true, data: normalizeAssets(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
 router.post('/:id/assets/bulk-generate', async (req, res) => {
   try {
     const body = req.body || {}

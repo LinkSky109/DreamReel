@@ -6,6 +6,7 @@ import { storageService } from './storageService.js'
 import { getNovelProject, novelDir } from './novelProjectService.js'
 import { generateEpisodeScript } from './episodeScriptService.js'
 import { ASSET_CATEGORY_LABELS } from '../models/NovelAssetImage.js'
+import { isGenericName } from '../utils/nameFilters.js'
 
 /**
  * 分镜级「外部生成」交接（Sprint 29）
@@ -200,7 +201,7 @@ export function autoAttachReferences(novelId, episodeId, opts = {}) {
   const episode = getEpisodeOrThrow(novelId, episodeId)
   const shots = episode.screenplay?.shots || []
   const maxPerShot = Number(opts.maxPerShot) > 0 ? Number(opts.maxPerShot) : 6
-  const assets = storageService.listNovelAssetImages(novelId).filter((a) => a.imageUrl && a.name && a.name.length >= 2)
+  const assets = storageService.listNovelAssetImages(novelId).filter((a) => a.imageUrl && a.name && !isGenericName(a.name))
 
   // 来源 id → 别名表（角色/世界观实体都收）
   const aliasById = new Map()

@@ -10,6 +10,7 @@ import { listCharacters } from './characterExtractionService.js'
 import { listEntities } from './worldbuildingService.js'
 import { clampInt } from '../utils/coerce.js'
 import { runPool } from '../utils/pool.js'
+import { isGenericName } from '../utils/nameFilters.js'
 
 /**
  * 设定图集（Sprint 28）
@@ -198,6 +199,43 @@ export async function bulkGenerateImages(novelId, opts = {}) {
     withImages: all.filter((a) => a.imageUrl).length,
     remaining: all.filter(pick).length,
   }
+}
+
+/**
+ * 归一化设定图：把 sourceId 按名称重绑到当前角色/实体；泛名或重名加「类别·」前缀使其更具体。
+ * 解决：重抽后 sourceId 全部失效、以及"人类/绝望"这类泛名导致误关联。
+ */
+export function normalizeAssets(novelId) {
+  const byName = new Map()
+  for (const c of listCharacters(novelId)) if (c.name) byName.set(c.name, { id: c.id, source: 'character' })
+  for (const e of listEntities(novelId)) if (e.name) byName.set(e.name, { id: e.id, source: 'entity' })
+
+  const assets = storageService.listNovelAssetImages(novelId)
+  const nameCount = {}
+  for (const a of assets) nameCount[a.name] = (nameCount[a.name] || 0) + 1
+
+  let relinked = 0
+  let renamed = 0
+  for (const a of assets) {
+    const hit = byName.get(a.name)
+    if (hit && a.sourceId !== hit.id) {
+      a.sourceId = hit.id
+      a.source = hit.source
+      relinked++
+    }
+    if (isGenericName(a.name) || nameCount[a.name] > 1) {
+      const label = ASSET_CATEGORY_LABELS[a.category] || a.category
+      const nn = `${label}·${a.name}`
+      if (nn !== a.name) {
+        a.name = nn
+        renamed++
+      }
+    }
+    a.updatedAt = new Date().toISOString()
+    storageService.updateNovelAssetImage(a)
+  }
+  persistIndex(novelId)
+  return { total: assets.length, relinked, renamed }
 }
 
 export function suggestAssets(novelId, opts = {}) {
