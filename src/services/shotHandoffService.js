@@ -233,8 +233,26 @@ export function autoAttachReferences(novelId, episodeId, opts = {}) {
     if (refs.size !== before) shotsTouched++
     s.referenceImages = [...refs]
   }
-  storageService._flush() // 批量操作后立即落盘（save 为 debounce，避免调用方退出丢数据）
+
+  // 兜底：仍无参考图的分镜，继承本集"主导参考图"（多半是同一场景/氛围），
+  // 让图生视频 100% 有视觉锚点。opts.fallback === false 可关闭。
+  if (opts.fallback !== false) {
+    const counts = new Map()
+    for (const s of shots) for (const u of s.referenceImages || []) counts.set(u, (counts.get(u) || 0) + 1)
+    const dominant = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+    if (dominant) {
+      for (const s of shots) {
+        if (!(s.referenceImages || []).length) {
+          s.referenceImages = [dominant]
+          refsAdded++
+          shotsTouched++
+        }
+      }
+    }
+  }
+
   storageService.updateEpisode(episode)
+  storageService._flush() // 批量操作后立即落盘（save 为 debounce，避免调用方退出丢数据）
   return { episodeId, shots: shots.length, shotsTouched, refsAdded, maxPerShot }
 }
 
