@@ -189,26 +189,51 @@ export function importShotVideos(novelId, episodeId, opts = {}) {
 /**
  * 按分镜文本自动匹配设定图（名称出现在 shot 文案中即挂上）
  */
-export function autoAttachReferences(novelId, episodeId) {
+/**
+ * 按分镜文本自动匹配设定图（参考图）。
+ * 改进点：
+ *  - 命名词表 = 设定图名称 + 其来源角色/实体的别名（同一事物的不同称呼也能匹配到）
+ *  - 命中按“名称长度”排序（越长越具体，优先），每个分镜最多 maxPerShot 张，避免一屏塞满
+ *  - 只增不删：手动配过的参考图保留
+ */
+export function autoAttachReferences(novelId, episodeId, opts = {}) {
   const episode = getEpisodeOrThrow(novelId, episodeId)
   const shots = episode.screenplay?.shots || []
+  const maxPerShot = Number(opts.maxPerShot) > 0 ? Number(opts.maxPerShot) : 6
   const assets = storageService.listNovelAssetImages(novelId).filter((a) => a.imageUrl && a.name && a.name.length >= 2)
+
+  // 来源 id → 别名表（角色/世界观实体都收）
+  const aliasById = new Map()
+  for (const c of storageService.listNovelCharacters(novelId)) aliasById.set(c.id, [c.name, ...(c.aliases || [])])
+  for (const e of storageService.listWorldEntities(novelId)) aliasById.set(e.id, [e.name, ...(e.aliases || [])])
+
+  const keywords = assets.map((a) => ({
+    url: a.imageUrl,
+    names: [...new Set([a.name, ...(aliasById.get(a.sourceId) || [])])].filter((n) => n && n.length >= 2),
+  }))
+
   let shotsTouched = 0
   let refsAdded = 0
   for (const s of shots) {
-    const text = `${s.description || ''} ${s.dialogue || ''} ${s.narration || ''}`
+    const text = `${s.description || ''} ${s.dialogue || ''}`
     const refs = new Set(s.referenceImages || [])
-    for (const a of assets) {
-      if (text.includes(a.name) && !refs.has(a.imageUrl)) {
-        refs.add(a.imageUrl)
-        refsAdded++
-      }
+    const before = refs.size
+    const hits = []
+    for (const k of keywords) {
+      if (refs.has(k.url)) continue
+      const hit = k.names.find((n) => text.includes(n))
+      if (hit) hits.push({ url: k.url, len: hit.length })
     }
-    if (refs.size !== (s.referenceImages || []).length) shotsTouched++
+    hits.sort((a, b) => b.len - a.len)
+    for (const h of hits.slice(0, Math.max(0, maxPerShot - refs.size))) {
+      refs.add(h.url)
+      refsAdded++
+    }
+    if (refs.size !== before) shotsTouched++
     s.referenceImages = [...refs]
   }
   storageService.updateEpisode(episode)
-  return { episodeId, shots: shots.length, shotsTouched, refsAdded }
+  return { episodeId, shots: shots.length, shotsTouched, refsAdded, maxPerShot }
 }
 
 /** 手动设置某分镜的参考图 */

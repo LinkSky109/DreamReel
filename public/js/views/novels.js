@@ -883,6 +883,10 @@ async function tabEpisode({ body, novel, id, refresh }) {
           ${seasons.map((s) => `<option value="${esc(s.id)}" ${s.id === seasonId ? 'selected' : ''}>${esc(s.title)}（${esc(s.episodeCount)} 集）</option>`).join('') || '<option>（无季）</option>'}
         </select>
         <span style="font-size:12px;color:var(--text-secondary);">单集：剧本 ${lkScript ? '锁定' : '可改'} / 资产 ${lkAssets ? '锁定' : '可改'} / 成片 ${lkCompose ? '锁定' : '可改'}</span>
+        <span style="flex:1;"></span>
+        <button id="nvBulkScript" class="btn btn-sm" ${lkScript ? 'disabled' : ''}>本季批量生成剧本</button>
+        <button id="nvBulkAssets" class="btn btn-sm" ${lkAssets ? 'disabled' : ''}>本季批量生成资产</button>
+        <span id="nvBulkInfo" style="font-size:12px;color:#7c3aed;"></span>
       </div>
     </section>
     ${panel}
@@ -909,6 +913,31 @@ async function tabEpisode({ body, novel, id, refresh }) {
           </div>
         </div>`).join('') : `<div style="color:var(--text-secondary);">${episodes.length ? '没有匹配的集' : '该季暂无集，请先在「分季分集」规划'}</div>`}
     </div>`
+
+  // 本季批量：分批循环调用直到 remaining=0（可中断/续跑），实时显示进度
+  const runBulk = async (btn, task) => {
+    const info = body.querySelector('#nvBulkInfo')
+    const old = btn.textContent
+    ;[...body.querySelectorAll('button,input,select')].forEach((x) => { x.disabled = true })
+    btn.textContent = '批量中…'
+    try {
+      let guard = 0
+      for (;;) {
+        const r = unwrap(await api.bulkGenerateSeason(id, seasonId, { task, onlyMissing: true, limit: 8, concurrency: 4 }))
+        if (info) info.textContent = `${task === 'assets' ? '资产' : '剧本'} ${r.done}/${r.total}（本轮 ${r.ok} 成功 / ${r.failed} 失败）`
+        if (r.remaining <= 0 || r.processed === 0 || ++guard > 400) break
+      }
+      showToast(`本季批量${task === 'assets' ? '资产' : '剧本'}完成`, 'success')
+    } catch (err) {
+      showToast(err.message, 'error')
+    } finally {
+      btn.textContent = old
+      if (info) info.textContent = ''
+      refresh()
+    }
+  }
+  body.querySelector('#nvBulkScript')?.addEventListener('click', () => runBulk(body.querySelector('#nvBulkScript'), 'script'))
+  body.querySelector('#nvBulkAssets')?.addEventListener('click', () => runBulk(body.querySelector('#nvBulkAssets'), 'assets'))
 
   body.querySelector('#nvSeason')?.addEventListener('change', (ev) => {
     state.seasonId = ev.target.value

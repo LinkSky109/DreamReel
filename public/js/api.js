@@ -505,6 +505,7 @@ export const api = {
   planNovelSeries: (id, data = {}) => request(`/novels/${id}/series/plan`, { method: 'POST', body: data }),
   listNovelSeasons: (id) => request(`/novels/${id}/seasons`),
   listNovelEpisodes: (id, seasonId) => request(`/novels/${id}/episodes${seasonId ? `?seasonId=${seasonId}` : ''}`),
+  bulkGenerateSeason: (id, sid, data = {}) => request(`/novels/${id}/seasons/${sid}/bulk`, { method: 'POST', body: data }),
   generateEpisodeScript: (id, eid, data = {}) => request(`/novels/${id}/episodes/${eid}/script`, { method: 'POST', body: data }),
   generateEpisodeAssets: (id, eid, data = {}) => request(`/novels/${id}/episodes/${eid}/assets`, { method: 'POST', body: data }),
   composeEpisode: (id, eid, data = {}) => request(`/novels/${id}/episodes/${eid}/compose`, { method: 'POST', body: data }),

@@ -31,6 +31,7 @@ import { optionalClampInt } from '../utils/coerce.js'
 import { tryAcquire, release } from '../utils/asyncLock.js'
 import { getJobs } from '../services/extractionStatus.js'
 import { extractAll } from '../services/combinedExtractionService.js'
+import { bulkGenerate } from '../services/bulkEpisodeService.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
 import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats } from '../services/novelAssetService.js'
 import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
@@ -280,6 +281,23 @@ router.get('/:id/seasons', (req, res) => {
   }
 })
 
+// 单集批量生成（按季、分批、可续跑）：前端循环调用直到 remaining=0
+router.post('/:id/seasons/:sid/bulk', async (req, res) => {
+  try {
+    const body = req.body || {}
+    const r = await bulkGenerate(req.params.id, req.params.sid, {
+      task: body.task,
+      limit: optionalClampInt(body.limit, 1, 50),
+      concurrency: optionalClampInt(body.concurrency, 1, 8),
+      onlyMissing: body.onlyMissing,
+      userId: req.user?.id,
+    })
+    res.json({ success: true, data: r })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
 // 集列表（可按 seasonId 过滤）
 router.get('/:id/episodes', (req, res) => {
   try {
@@ -429,7 +447,7 @@ router.get('/:id/episodes/:eid/shots', (req, res) => {
 // 按分镜文本自动匹配设定图
 router.post('/:id/episodes/:eid/shots/auto-refs', (req, res) => {
   try {
-    res.json({ success: true, data: autoAttachReferences(req.params.id, req.params.eid) })
+    res.json({ success: true, data: autoAttachReferences(req.params.id, req.params.eid, req.body || {}) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
