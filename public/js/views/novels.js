@@ -127,6 +127,31 @@ function fmtVal(v) {
   }
   return String(v)
 }
+// 把 root 内所有 [data-media] 的图片/视频用带 token 的 fetch 载入（受保护媒体 <img>/<video> 无法自带 Authorization）。
+// 失败（未登录/无权限）时给出可见提示，而不是留白。
+function mediaHint(text) {
+  const d = document.createElement('div')
+  d.style.cssText = 'font-size:11px;color:var(--text-secondary);'
+  d.textContent = text || '需登录查看'
+  return d
+}
+async function loadMedia(root) {
+  const tasks = []
+  root.querySelectorAll('img[data-media]').forEach((img) => {
+    if (img.dataset.loaded) return
+    tasks.push(
+      api.mediaObjectUrl(img.dataset.media).then((u) => { img.src = u; img.dataset.loaded = '1' }).catch(() => img.replaceWith(mediaHint('图片需登录后查看')))
+    )
+  })
+  root.querySelectorAll('video[data-media]').forEach((v) => {
+    if (v.dataset.loaded) return
+    tasks.push(
+      api.mediaObjectUrl(v.dataset.media).then((u) => { v.src = u; v.dataset.loaded = '1' }).catch(() => v.insertAdjacentElement('afterend', mediaHint('视频需登录后查看')))
+    )
+  })
+  await Promise.all(tasks)
+}
+
 function unwrap(res) {
   return res && res.data !== undefined ? res.data : res
 }
@@ -650,17 +675,7 @@ async function tabArt({ body, id, refresh }) {
       ${filtered.length ? filtered.map(card).join('') : '<div style="color:var(--text-secondary);">暂无设定图。点「从角色/世界观导入候选」，或手动新增。</div>'}
     </div>`
 
-  body.querySelectorAll('img[data-media]').forEach(async (img) => {
-    try {
-      img.src = await api.mediaObjectUrl(img.dataset.media)
-    } catch {
-      // 未登录 / 无权限：媒体目录受保护会返回 401，明确提示而不是留空白（否则看起来像“没出图”）
-      const hint = document.createElement('div')
-      hint.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;color:var(--text-secondary);padding:6px;'
-      hint.textContent = '图片需登录后查看（右上角「登录」）'
-      img.replaceWith(hint)
-    }
-  })
+  loadMedia(body) // 设定图缩略图（带 token 载入；未登录时给出可见提示）
   body.querySelectorAll('[data-acat]').forEach((b) => b.addEventListener('click', () => {
     state.artCategory = b.dataset.acat
     refresh()
@@ -798,7 +813,16 @@ async function tabEpisode({ body, novel, id, refresh }) {
       api.listEpisodeShots(id, state.shotEpisodeId).then(unwrap).catch(() => []),
       api.listNovelAssets(id).then(unwrap).catch(() => ({ assets: [] })),
     ])
-    const assets = (assetData && assetData.assets) || []
+    const assetsWithImg = ((assetData && assetData.assets) || []).filter((a) => a.imageUrl)
+    const CATS = [...new Set(assetsWithImg.map((a) => a.category))]
+    const returned = shots.filter((s) => s.videoUrl).length
+    const refd = shots.filter((s) => (s.referenceImages || []).length).length
+    const active = shots.find((s) => s.index === state.shotAddFor) || null
+    const activeRefs = active ? active.referenceImages || [] : []
+    // 供搜索/类别过滤使用（picker 里按需渲染，避免 573 资产 × N 分镜的 DOM 爆炸）
+    window.__nvAssets = assetsWithImg
+    window.__nvActiveRefs = activeRefs
+    window.__nvShotRefs = Object.fromEntries(shots.map((s) => [s.index, s.referenceImages || []]))
     panel = `
       <section class="card" style="padding:16px;margin-bottom:14px;border:1px solid #7c3aed;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
@@ -810,17 +834,44 @@ async function tabEpisode({ body, novel, id, refresh }) {
             <button id="nvShotClose" class="btn btn-sm">收起</button>
           </div>
         </div>
-        <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">流程：导出 manifest+refs → 外部工具逐分镜生成 → 放回 <code>/storage/videos/novels/&lt;id&gt;/shots/&lt;eid&gt;/shotNN.mp4</code> → 导入 → 成片按分镜拼接</div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">分镜 <b>${shots.length}</b> · 已回传 <b>${returned}</b> · 已配参考图 <b>${refd}</b> · 图集可用 <b>${assetsWithImg.length}</b></div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">流程：导出 manifest+refs → 外部工具逐分镜生成 → 放回 <code>/storage/videos/novels/&lt;id&gt;/shots/&lt;eid&gt;/shotNN.mp4</code> → 导入 → 成片按分镜拼接</div>
         <div style="display:grid;gap:8px;margin-top:10px;">
           ${shots.length ? shots.map((s) => {
             const refs = s.referenceImages || []
             return `<div style="border:1px solid var(--border-color);border-radius:6px;padding:8px;">
-              <div style="font-size:13px;"><b>#${esc(s.index)}</b> <span style="color:var(--text-secondary);">${esc(s.duration)}s</span> ${s.videoUrl ? '<span style="color:#16a34a;">· ✅已回传</span>' : ''}</div>
+              <div style="font-size:13px;"><b>#${esc(s.index)}</b> <span style="color:var(--text-secondary);">${esc(s.duration)}s</span> ${
+                s.videoUrl ? '<span style="color:#16a34a;">· ✅已回传</span>' : '<span style="color:var(--text-secondary);">· 待生成</span>'
+              }</div>
               <div style="font-size:11px;color:var(--text-secondary);margin:4px 0;">${esc(s.description || '')}</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">${assets.length ? assets.map((a) => `<label style="font-size:11px;${a.imageUrl ? '' : 'opacity:.5;'}"><input type="checkbox" data-shotsel="${esc(s.index)}" data-url="${esc(a.imageUrl || '')}" ${refs.includes(a.imageUrl) ? 'checked' : ''} ${a.imageUrl ? '' : 'disabled'}> ${esc(a.name)}</label>`).join('') : '<span style="font-size:11px;color:var(--text-secondary);">（设定图集为空，先去「设定图集」生成）</span>'}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                <span style="font-size:11px;color:var(--text-secondary);">参考图(${refs.length})</span>
+                ${refs.map((u) => `<span style="position:relative;display:inline-block;">
+                  <img data-media="${esc(u)}" title="${esc(u)}" style="width:64px;height:44px;object-fit:cover;border-radius:4px;border:1px solid var(--border-color);display:block;" />
+                  <button class="btn" data-refdel="${esc(s.index)}" data-refurl="${esc(u)}" title="移除" style="position:absolute;top:-7px;right:-7px;padding:0 5px;font-size:10px;line-height:16px;border-radius:8px;">×</button>
+                </span>`).join('')}
+                <button class="btn btn-sm" data-refadd="${esc(s.index)}">＋添加参考图</button>
+              </div>
+              ${s.videoUrl ? `<video data-media="${esc(s.videoUrl)}" controls preload="metadata" style="max-width:320px;margin-top:8px;border-radius:4px;border:1px solid var(--border-color);"></video>` : ''}
             </div>`
           }).join('') : '<div style="color:var(--text-secondary);">该集暂无分镜，先点「剧本」生成。</div>'}
         </div>
+        ${active ? `
+          <div class="card" style="margin-top:10px;border:1px solid #7c3aed;padding:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+              <b>为分镜 #${esc(active.index)} 选择参考图</b>
+              <button class="btn btn-sm" id="nvRefClose">完成</button>
+            </div>
+            <div style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap;">
+              <input id="nvRefSearch" class="form-input" style="padding:4px;max-width:200px;" placeholder="搜索名称/类别" />
+              <select id="nvRefCat" class="form-input" style="padding:4px;max-width:170px;">
+                <option value="">全部类别</option>
+                ${CATS.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
+              </select>
+              <span style="font-size:11px;color:var(--text-secondary);align-self:center;">已选 ${activeRefs.length} 张（点缩略图切换）</span>
+            </div>
+            <div id="nvRefGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px;max-height:340px;overflow:auto;"></div>
+          </div>` : ''}
       </section>`
   }
 
@@ -910,7 +961,8 @@ async function tabEpisode({ body, novel, id, refresh }) {
 
   if (state.shotEpisodeId) {
     const eid = state.shotEpisodeId
-    body.querySelector('#nvShotClose')?.addEventListener('click', () => { state.shotEpisodeId = null; refresh() })
+    loadMedia(body) // 分镜参考图缩略图 / 回传视频预览（带 token 载入）
+    body.querySelector('#nvShotClose')?.addEventListener('click', () => { state.shotEpisodeId = null; state.shotAddFor = null; refresh() })
     body.querySelector('#nvShotAuto')?.addEventListener('click', async () => {
       try { const r = unwrap(await api.autoRefsEpisodeShots(id, eid)); showToast(`自动匹配：${r.shotsTouched} 个分镜、新增 ${r.refsAdded} 张参考图`, 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
     })
@@ -924,11 +976,50 @@ async function tabEpisode({ body, novel, id, refresh }) {
         refresh()
       } catch (err) { showToast(err.message, 'error') }
     })
-    body.querySelectorAll('input[data-shotsel]').forEach((cb) => cb.addEventListener('change', async () => {
-      const index = cb.dataset.shotsel
-      const urls = [...body.querySelectorAll(`input[data-shotsel="${index}"]`)].filter((x) => x.checked && x.dataset.url).map((x) => x.dataset.url)
-      try { await api.setEpisodeShotRefs(id, eid, index, urls); showToast(`分镜 #${index} 参考图已更新`, 'success') } catch (err) { showToast(err.message, 'error') }
+    // 打开“为该分镜添加参考图”的选择器
+    body.querySelectorAll('[data-refadd]').forEach((b) => b.addEventListener('click', () => {
+      const idx = Number(b.dataset.refadd)
+      state.shotAddFor = state.shotAddFor === idx ? null : idx
+      refresh()
     }))
+    // 移除某张参考图
+    body.querySelectorAll('[data-refdel]').forEach((b) => b.addEventListener('click', async () => {
+      const idx = Number(b.dataset.refdel)
+      const url = b.dataset.refurl
+      const shot = (window.__nvShotRefs || {})[idx] || []
+      const urls = shot.filter((u) => u !== url)
+      try { await api.setEpisodeShotRefs(id, eid, idx, urls); showToast(`已移除分镜 #${idx} 的 1 张参考图`, 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
+    }))
+    body.querySelector('#nvRefClose')?.addEventListener('click', () => { state.shotAddFor = null; refresh() })
+    // 参考图选择器：按搜索/类别过滤 + 点击切换（按需渲染，避免上百张全量 DOM）
+    const grid = body.querySelector('#nvRefGrid')
+    if (grid) {
+      const all = window.__nvAssets || []
+      const refs = new Set(window.__nvActiveRefs || [])
+      const idx = state.shotAddFor
+      const renderGrid = () => {
+        const kw = (body.querySelector('#nvRefSearch')?.value || '').trim()
+        const cat = body.querySelector('#nvRefCat')?.value || ''
+        const list = all.filter((a) => (!cat || a.category === cat) && (!kw || (a.name || '').includes(kw) || (a.category || '').includes(kw))).slice(0, 120)
+        grid.innerHTML = list.length
+          ? list.map((a) => `<label style="cursor:pointer;text-align:center;font-size:10px;border:2px solid ${refs.has(a.imageUrl) ? '#7c3aed' : 'transparent'};border-radius:6px;padding:2px;">
+              <img data-media="${esc(a.imageUrl)}" style="width:100%;height:64px;object-fit:cover;border-radius:4px;display:block;" title="${esc(a.name)}" />
+              <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(a.name)}</span>
+              <input type="checkbox" data-reftoggle="${esc(a.imageUrl)}" ${refs.has(a.imageUrl) ? 'checked' : ''} style="margin-top:2px;" />
+            </label>`).join('')
+          : '<div style="font-size:12px;color:var(--text-secondary);">无匹配资产</div>'
+        loadMedia(grid)
+        grid.querySelectorAll('input[data-reftoggle]').forEach((cb) => cb.addEventListener('change', async () => {
+          if (cb.checked) refs.add(cb.dataset.reftoggle)
+          else refs.delete(cb.dataset.reftoggle)
+          try { await api.setEpisodeShotRefs(id, eid, idx, [...refs]) } catch (err) { showToast(err.message, 'error') }
+          renderGrid()
+        }))
+      }
+      body.querySelector('#nvRefSearch')?.addEventListener('input', renderGrid)
+      body.querySelector('#nvRefCat')?.addEventListener('change', renderGrid)
+      renderGrid()
+    }
   }
 }
 
