@@ -676,6 +676,19 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.equal(results[0].data, 0)
   })
 
+  it('注册后能立即登录（密码哈希必须落盘，防 User.toJSON 丢字段导致永远登录失败）', async () => {
+    const { authService } = await import('../src/services/authService.js')
+    const { storageService } = await import('../src/services/storageService.js')
+    const email = `t${Date.now()}@example.com`
+    const reg = authService.register({ username: `u${Date.now()}`, email, password: 'secret123' })
+    assert.ok(reg.token, '注册应返回 token')
+    const raw = Object.values(storageService.data.users).find((u) => u.email === email)
+    assert.ok(raw.passwordHash && raw.salt, '存储中必须包含 passwordHash/salt')
+    const login = authService.login({ email, password: 'secret123' })
+    assert.ok(login.token, '注册后应能用同密码登录')
+    assert.throws(() => authService.login({ email, password: 'wrongpass' }))
+  })
+
   it('HTTP: 400 / 404 语义', async () => {
     let res = await request(app).get('/api/novels/does-not-exist')
     assert.equal(res.status, 404)

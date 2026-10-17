@@ -58,7 +58,21 @@ export class AuthService {
       salt,
     })
 
-    storageService.data.users[user.id] = user
+    // 注意：User.toJSON() 有意排除 passwordHash/salt（避免接口泄漏），
+    // 而 storageService.save() 用 JSON.stringify 会把实例按 toJSON 序列化 → 会导致哈希根本没落盘、
+    // 之后永远登录失败（scrypt 收到 undefined salt）。这里显式以包含凭据的纯对象存储。
+    storageService.data.users[user.id] = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      passwordHash,
+      salt,
+      defaultProviderPreferences: user.defaultProviderPreferences,
+      preferenceTags: user.preferenceTags,
+      scoreStyle: user.scoreStyle,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    }
     storageService.save()
 
     logger.info(`User registered: ${username}`)
