@@ -29,6 +29,8 @@ import { CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
 import { optionalClampInt } from '../utils/coerce.js'
 import { tryAcquire, release } from '../utils/asyncLock.js'
+import { getJobs } from '../services/extractionStatus.js'
+import { extractAll } from '../services/combinedExtractionService.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
 import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats } from '../services/novelAssetService.js'
 import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
@@ -126,10 +128,57 @@ router.post('/:id/extract', async (req, res) => {
       chunkSize: optionalClampInt(body.chunkSize, 1, 100),
       maxChars: optionalClampInt(body.maxChars, 200, 64000),
       minFreq: optionalClampInt(body.minFreq, 1, 1000),
+      concurrency: optionalClampInt(body.concurrency, 1, 16),
       userId: req.user?.id,
     })
     ensureCards(req.params.id)
     res.json({ success: true, data: { provider: result.provider, degraded: /fallback/.test(result.provider), characters: listCharacters(req.params.id) } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  } finally {
+    release(lockKey)
+  }
+})
+
+// 抽取进度（角色/世界观/合并）— 前端轮询展示每个分片状态
+router.get('/:id/extract/status', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: getJobs(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 角色 + 世界观「一次抽取」（同一分片一次调用，保证命名一致）
+router.post('/:id/extract-all', async (req, res) => {
+  const lockKey = `extract:both:${req.params.id}`
+  const got = tryAcquire(lockKey)
+  if (!got.ok) {
+    return res.status(409).json({ success: false, error: '该小说的合并抽取正在进行中，请等待完成后再试' })
+  }
+  try {
+    const body = req.body || {}
+    const result = await extractAll(req.params.id, {
+      provider: body.provider,
+      maxChapters: optionalClampInt(body.maxChapters, 1, 100000),
+      chunkSize: optionalClampInt(body.chunkSize, 1, 100),
+      maxChars: optionalClampInt(body.maxChars, 200, 64000),
+      minFreq: optionalClampInt(body.minFreq, 1, 1000),
+      concurrency: optionalClampInt(body.concurrency, 1, 16),
+      userId: req.user?.id,
+    })
+    ensureCards(req.params.id)
+    res.json({
+      success: true,
+      data: {
+        provider: result.provider,
+        degraded: /fallback/.test(result.provider),
+        characters: listCharacters(req.params.id),
+        entities: listEntities(req.params.id),
+        summary: summarize(req.params.id),
+      },
+    })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   } finally {
@@ -432,6 +481,7 @@ router.post('/:id/world/extract', async (req, res) => {
       maxChapters: optionalClampInt(body.maxChapters, 1, 100000),
       chunkSize: optionalClampInt(body.chunkSize, 1, 100),
       maxChars: optionalClampInt(body.maxChars, 200, 64000),
+      concurrency: optionalClampInt(body.concurrency, 1, 16),
       userId: req.user?.id,
     })
     res.json({ success: true, data: { provider: result.provider, degraded: /fallback/.test(result.provider), entities: result.entities, summary: result.summary } })

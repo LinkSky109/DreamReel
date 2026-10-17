@@ -7,6 +7,7 @@ import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
 import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
 import { listChunks } from './novelChunkService.js'
+import { runGroups } from './extractionStatus.js'
 
 /** 常见姓氏（启发式用） */
 const SURNAMES =
@@ -166,31 +167,32 @@ export function mergeCharacters(list) {
   return merged.map(({ _tokens, ...c }) => c)
 }
 
-async function llmExtractAll(llm, useChunks, { chunkSize, maxChars }) {
-  const all = []
-  let ok = 0
+async function llmExtractAll(llm, useChunks, { chunkSize, maxChars, concurrency, novelId }) {
   const groups = groupChunks(useChunks, { chunkSize, maxChars, format: (c) => `【${c.chapterTitle}】\n${c.text}\n` })
-  for (let gi = 0; gi < groups.length; gi++) {
-    const { sample, titles } = groups[gi]
-    let data = null
-    let lastErr = null
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        data = (await llm.generateJSON(buildLLMPrompt(sample))).data
-        break
-      } catch (error) {
-        lastErr = error
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
+  const { results } = await runGroups({
+    novelId,
+    kind: 'characters',
+    groups,
+    concurrency,
+    call: async (g, i) => {
+      let data = null
+      let lastErr = null
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          data = (await llm.generateJSON(buildLLMPrompt(g.sample))).data
+          break
+        } catch (error) {
+          lastErr = error
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
+        }
       }
-    }
-    if (data && Array.isArray(data.characters)) {
-      all.push(...data.characters)
-      ok++
-    } else if (lastErr) {
-      logger.warn(`角色分片 ${gi + 1}（${titles[0] || ''}…）失败，跳过：${String(lastErr.message).slice(0, 120)}`)
-    }
-  }
-  return { all, ok, groups: groups.length }
+      if (data && Array.isArray(data.characters)) return { ok: true, data: data.characters }
+      if (lastErr) logger.warn(`角色分片 ${i + 1}（${g.titles[0] || ''}…）失败，跳过：${String(lastErr.message).slice(0, 120)}`)
+      return { ok: false, error: lastErr ? lastErr.message : 'no characters' }
+    },
+  })
+  const oks = results.filter((r) => r && r.ok)
+  return { all: oks.flatMap((r) => r.data), ok: oks.length, groups: groups.length }
 }
 
 /**
@@ -208,6 +210,7 @@ export async function extractCharacters(novelId, opts = {}) {
   const chunkSize = clampInt(opts.chunkSize, 16, 1, 100)
   const maxChars = clampInt(opts.maxChars, 24000, 200, 64000)
   const minFreq = optionalClampInt(opts.minFreq, 1, 1000)
+  const concurrency = optionalClampInt(opts.concurrency, 1, 16) ?? (parseInt(process.env.EXTRACT_CONCURRENCY || '', 10) || 4)
   const useChunks = chunks.slice(0, maxChapters)
   const llm = getLLMProviderByPref(project.providerPreferences?.llm || null, opts.userId ?? null)
   const useLLM = opts.provider ? opts.provider === 'llm' : llm.name !== 'mock'
@@ -217,7 +220,7 @@ export async function extractCharacters(novelId, opts = {}) {
   if (useLLM) {
     provider = 'llm'
     try {
-      const { all, ok, groups } = await llmExtractAll(llm, useChunks, { chunkSize, maxChars })
+      const { all, ok, groups } = await llmExtractAll(llm, useChunks, { chunkSize, maxChars, concurrency, novelId })
       logger.info(`LLM 抽取角色：${ok}/${groups} 个分片成功，原始 ${all.length} 条`)
       if (ok === 0) throw new Error('全部分片失败')
       characters = mergeCharacters(all)

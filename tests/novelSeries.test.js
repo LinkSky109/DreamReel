@@ -14,6 +14,8 @@ import { groupChunks } from '../src/utils/textChunking.js'
 import { getLLMProviderByPref } from '../src/providers/llmProviderFactory.js'
 import { parseJsonLoose } from '../src/utils/jsonParse.js'
 import { tryAcquire, release, isLocked } from '../src/utils/asyncLock.js'
+import { runPool } from '../src/utils/pool.js'
+import { runGroups } from '../src/services/extractionStatus.js'
 import { CARD_SCHEMA, CARD_FIELDS, CHARACTER_FIELDS } from '../src/models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_ATTRIBUTES } from '../src/models/WorldEntity.js'
 import config from '../src/config/index.js'
@@ -382,7 +384,8 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.ok(groups.length >= 4)
     const big = groupChunks([{ chapterTitle: '超长', text: 'y'.repeat(20000) }], { chunkSize: 8, maxChars: 8000 })
     assert.equal(big.length, 1)
-    assert.equal(big[0].sample.length, 8000)
+    // 章节原子性：单章超限也不切成两片，整章保留
+    assert.ok(big[0].sample.includes('y'.repeat(20000)))
   })
 
   it('mergeCharacters 处理群体标记与长描述优先', () => {
@@ -606,6 +609,43 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.equal(isLocked(k), false)
     assert.ok(tryAcquire(k).ok)
     release(k)
+  })
+
+  it('runPool 保序且并发受限', async () => {
+    let active = 0
+    let maxActive = 0
+    const out = await runPool(
+      [1, 2, 3, 4, 5, 6],
+      async (x) => {
+        active++
+        maxActive = Math.max(maxActive, active)
+        await new Promise((r) => setTimeout(r, 10))
+        active--
+        return x * 2
+      },
+      2
+    )
+    assert.deepEqual(out, [2, 4, 6, 8, 10, 12])
+    assert.ok(maxActive <= 2, `并发未受限: ${maxActive}`)
+  })
+
+  it('runGroups 记录每片状态（成功/失败/运行中）', async () => {
+    const groups = [{ titles: ['a'] }, { titles: ['b'] }, { titles: ['c'] }]
+    const { job, results } = await runGroups({
+      novelId: 't-' + Math.random().toString(36).slice(2),
+      kind: 'both',
+      groups,
+      concurrency: 2,
+      call: async (g, i) => (i === 1 ? { ok: false, error: 'boom' } : { ok: true, data: i }),
+    })
+    assert.equal(job.total, 3)
+    assert.equal(job.done, 2)
+    assert.equal(job.failed, 1)
+    assert.equal(job.running, 0)
+    assert.ok(job.finishedAt)
+    assert.equal(job.tasks[1].status, 'failed')
+    assert.equal(job.tasks[1].error, 'boom')
+    assert.equal(results[0].data, 0)
   })
 
   it('HTTP: 400 / 404 语义', async () => {

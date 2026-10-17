@@ -5,7 +5,7 @@
  * @param {{chunkSize?:number, maxChars?:number, format?:(c:object)=>string}} opts
  * @returns {Array<{sample:string, titles:string[]}>}
  */
-export function groupChunks(chunks, { chunkSize = 8, maxChars = 8000, format } = {}) {
+export function groupChunks(chunks, { chunkSize = 16, maxChars = 24000, format } = {}) {
   const fmt = format || ((c) => `【${c.chapterTitle}】\n${c.text}`)
   const groups = []
   let i = 0
@@ -14,8 +14,9 @@ export function groupChunks(chunks, { chunkSize = 8, maxChars = 8000, format } =
     const titles = []
     while (i < chunks.length) {
       const piece = fmt(chunks[i])
+      // 章节原子性：加入会超限就先收尾；绝不把一章切成两片（单章超限时整章自成一片）
       if (sample && (sample.length + piece.length > maxChars || titles.length >= chunkSize)) break
-      sample += piece.length > maxChars ? piece.slice(0, maxChars) : piece
+      sample += piece
       titles.push(chunks[i].chapterTitle)
       i++
     }

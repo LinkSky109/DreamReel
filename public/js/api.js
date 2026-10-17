@@ -481,6 +481,8 @@ export const api = {
   ingestNovel: (id, data) => request(`/novels/${id}/ingest`, { method: 'POST', body: data }),
   listNovelChunks: (id) => request(`/novels/${id}/chunks`),
   extractNovelCharacters: (id, data = {}) => request(`/novels/${id}/extract`, { method: 'POST', body: data }),
+  extractNovelAll: (id, data = {}) => request(`/novels/${id}/extract-all`, { method: 'POST', body: data }),
+  novelExtractStatus: (id) => request(`/novels/${id}/extract/status`),
   listNovelCharacters: (id) => request(`/novels/${id}/characters`),
   patchNovelCharacter: (id, cid, patch) =>
     request(`/novels/${id}/characters/${cid}`, { method: 'PATCH', body: patch }),

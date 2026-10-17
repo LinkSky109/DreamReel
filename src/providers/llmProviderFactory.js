@@ -20,7 +20,7 @@ export const LLM_MODEL_CATALOG = [
     { id: 'gpt-4o-mini', name: 'GPT-4o Mini', default: false },
   ] },
   { id: 'opencode', name: 'OpenCode (本地服务)', vendor: 'OpenCode', strengths: ['多供应商统一', '本地服务'], default: false, models: [
-    { id: 'opencode/glm-5.3-flash-free', name: 'GLM-5.3 Flash（免费）', default: true },
+    { id: 'opencode/deepseek-v4.1-flash-free', name: 'DeepSeek V4.1 Flash（免费·快）', default: true },
   ] },
 ]
 
@@ -132,7 +132,7 @@ export async function getLLMModelCatalogLive() {
       .map((m) => ({ id: `${m.providerID}/${m.modelID}`, name: m.name || m.modelID }))
       .filter((m) => m.id.includes('/'))
     if (models.length) {
-      oc.models = models.map((m) => ({ ...m, default: m.id === 'opencode/glm-5.3-flash-free' }))
+      oc.models = models.map((m) => ({ ...m, default: m.id === 'opencode/deepseek-v4.1-flash-free' }))
     }
   } catch {
     // 服务未启动/超时 → 保留静态目录

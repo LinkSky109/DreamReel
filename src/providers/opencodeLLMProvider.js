@@ -23,7 +23,7 @@ export class OpencodeLLMProvider extends BaseLLMProvider {
     // 注意：全局 LLM_MODEL（如 gpt-4o-mini）不含 "/"，不应覆盖 opencode 模型。
     const resolved = typeof config.model === 'string' && config.model.includes('/') ? config.model : ''
     this.model =
-      resolved || config.opencodeModel || process.env.OPENCODE_MODEL || 'opencode/glm-5.3-flash-free'
+      resolved || config.opencodeModel || process.env.OPENCODE_MODEL || 'opencode/deepseek-v4.1-flash-free'
     this.baseUrl = config.opencodeBaseUrl || process.env.OPENCODE_BASE_URL || ''
     this.password = config.opencodePassword || process.env.OPENCODE_PASSWORD || ''
     this.timeout = config.timeout || parseInt(process.env.LLM_TIMEOUT_MS || '', 10) || 600000

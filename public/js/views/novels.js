@@ -11,6 +11,67 @@ const STAGES = ['source', 'characters', 'world', 'series', 'episodes', 'assets',
 // 长任务（角色/世界观抽取）前端锁：避免重复点击触发多次并发抽取。
 // 后端同名锁会返回 409 兜底。
 const EXTRACT_BUSY = new Set()
+
+// 抽取进度轮询：每 2s 拉一次，逐片展示状态；无进行中任务时自动停止。
+let STATUS_TIMER = null
+let STATUS_NOVEL = null
+
+function renderJobs(jobs) {
+  const kinds = [
+    ['both', '合并（角色+世界观）'],
+    ['characters', '角色'],
+    ['world', '世界观'],
+  ]
+  const blocks = kinds
+    .map(([k, label]) => {
+      const j = jobs && jobs[k]
+      if (!j) return ''
+      const chips = (j.tasks || [])
+        .map((t) => {
+          const color =
+            t.status === 'done' ? '#16a34a' : t.status === 'failed' ? '#dc2626' : t.status === 'running' ? '#d97706' : 'var(--text-secondary)'
+          const mark = t.status === 'done' ? '✓' : t.status === 'failed' ? '✗' : t.status === 'running' ? '…' : '·'
+          const ms = t.ms ? ` ${(t.ms / 1000).toFixed(1)}s` : ''
+          return `<span title="${esc(t.error || '')}" style="font-size:11px;color:${color};border:1px solid ${color};border-radius:4px;padding:1px 5px;margin:2px;display:inline-block;">${mark} ${esc(t.label)}${ms}</span>`
+        })
+        .join('')
+      const settled = (j.done || 0) + (j.failed || 0)
+      const pct = j.total ? Math.round((settled / j.total) * 100) : 0
+      const tail = j.finishedAt ? '已结束' : `进行中… ${pct}%`
+      return `<div style="margin-top:6px;">
+        <div style="font-size:12px;">${label}：完成 ${j.done}/${j.total} · 失败 ${j.failed} · 运行中 ${j.running} · ${tail}</div>
+        <div style="margin-top:2px;">${chips}</div>
+      </div>`
+    })
+    .join('')
+  return blocks
+    ? `<div style="border:1px solid var(--border-color);border-radius:6px;padding:8px;margin-top:8px;">${blocks}</div>`
+    : ''
+}
+
+async function pollStatus(id) {
+  try {
+    const jobs = unwrap(await api.novelExtractStatus(id)) || {}
+    const el = document.getElementById('nvExtractStatus')
+    if (el) el.innerHTML = renderJobs(jobs)
+    const active = ['characters', 'world', 'both'].some((k) => jobs[k] && !jobs[k].finishedAt)
+    if (!active && STATUS_TIMER) {
+      clearInterval(STATUS_TIMER)
+      STATUS_TIMER = null
+    }
+    return active
+  } catch {
+    return false
+  }
+}
+
+function startStatusPoll(id) {
+  if (STATUS_TIMER && STATUS_NOVEL === id) return
+  if (STATUS_TIMER) clearInterval(STATUS_TIMER)
+  STATUS_NOVEL = id
+  pollStatus(id)
+  STATUS_TIMER = setInterval(() => pollStatus(id), 2000)
+}
 const STAGE_LABEL = {
   source: '来源',
   characters: '角色',
@@ -345,9 +406,11 @@ async function tabCharacters({ body, novel, id, refresh }) {
             <option value="heuristic">启发式（离线）</option>
           </select>
           <button id="nvExtract" class="btn btn-primary btn-sm" ${lk || cBusy ? 'disabled' : ''}>${cBusy ? '生成中…（角色）' : '生成角色（新备选）'}</button>
+          <button id="nvExtractAll" class="btn btn-sm" ${lk ? 'disabled' : ''}>角色+世界观（一次·一致）</button>
         </div>
       </div>
       <div id="nvLlmPicker" style="margin-top:8px;"></div>
+      <div id="nvExtractStatus"></div>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">字段 ${fields.length} 项 · 修订率 ${((stats.revisionRate || 0) * 100).toFixed(1)}% · 已通过 ${esc(stats.approved || 0)} / ${esc(chars.length)}</div>
       ${sets.length ? `<div style="margin-top:10px;font-size:12px;">备选集合：${sets.map((s) => `<button class="btn btn-sm ${s.selected ? 'btn-primary' : ''}" data-cset="${esc(s.id)}" ${lk ? 'disabled' : ''}>${s.count} 个 · ${esc(s.provider)}${s.selected ? '（当前）' : ''}</button>`).join(' ')}</div>` : ''}
     </section>
@@ -369,17 +432,36 @@ async function tabCharacters({ body, novel, id, refresh }) {
     </div>`
 
   mountLlmPicker(body.querySelector('#nvLlmPicker'), id, refresh)
+  startStatusPoll(id)
 
   body.querySelector('#nvExtract')?.addEventListener('click', async () => {
     const key = 'c:' + id
     if (EXTRACT_BUSY.has(key)) { showToast('角色抽取正在进行中，请稍候', 'info'); return }
     EXTRACT_BUSY.add(key)
     const provider = body.querySelector('#nvExtractProvider').value
+    startStatusPoll(id)
     refresh() // 立即置灰按钮，防止重复点击
     try {
       const r = unwrap(await api.extractNovelCharacters(id, { provider, minFreq: 1 }))
       if (r && r.degraded) showToast('LLM 调用失败，已回退启发式：结果可能为空/粗糙，请检查「模型」是否可用', 'error')
       else showToast('已生成角色备选', 'success')
+    } catch (err) {
+      showToast(err.message, 'error')
+    } finally {
+      EXTRACT_BUSY.delete(key)
+      refresh()
+    }
+  })
+  body.querySelector('#nvExtractAll')?.addEventListener('click', async () => {
+    const key = 'b:' + id
+    if (EXTRACT_BUSY.has(key)) { showToast('合并抽取正在进行中，请稍候', 'info'); return }
+    EXTRACT_BUSY.add(key)
+    startStatusPoll(id)
+    refresh()
+    try {
+      const r = unwrap(await api.extractNovelAll(id, { provider: 'llm' }))
+      if (r && r.degraded) showToast('LLM 调用失败，已回退启发式：结果可能为空/粗糙', 'error')
+      else showToast(`已生成：角色 ${(r.characters || []).length} · 世界观 ${(r.entities || []).length}（命名已对齐）`, 'success')
     } catch (err) {
       showToast(err.message, 'error')
     } finally {
@@ -453,6 +535,7 @@ async function tabWorld({ body, novel, id, refresh }) {
         </div>
       </div>
       <div id="nvLlmPicker" style="margin-top:8px;"></div>
+      <div id="nvExtractStatus"></div>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">
         实体 ${esc(summary.total || 0)} · 关系 ${esc(summary.relations || 0)} ·
         ${Object.entries(typeLabel).map(([k, l]) => `${esc(l)} ${esc(byType[k] || 0)}`).join(' · ')}
@@ -480,12 +563,14 @@ async function tabWorld({ body, novel, id, refresh }) {
     </div>`
 
   mountLlmPicker(body.querySelector('#nvLlmPicker'), id, refresh)
+  startStatusPoll(id)
 
   body.querySelector('#nvWorld')?.addEventListener('click', async () => {
     const key = 'w:' + id
     if (EXTRACT_BUSY.has(key)) { showToast('世界观抽取正在进行中，请稍候', 'info'); return }
     EXTRACT_BUSY.add(key)
     const provider = body.querySelector('#nvWorldProvider').value
+    startStatusPoll(id)
     refresh() // 立即置灰按钮，防止重复点击
     try {
       const r = unwrap(await api.extractNovelWorld(id, { provider }))

@@ -30,7 +30,7 @@ const config = {
     model: process.env.LLM_MODEL || 'gpt-4o-mini',
     baseUrl: process.env.OPENAI_BASE_URL || '',
     // OpenCode（开发阶段 LLM 来源）：本地 OpenCode 2.x 服务
-    opencodeModel: process.env.OPENCODE_MODEL || 'opencode/glm-5.3-flash-free',
+    opencodeModel: process.env.OPENCODE_MODEL || 'opencode/deepseek-v4.1-flash-free',
     opencodeBaseUrl: process.env.OPENCODE_BASE_URL || '',
     opencodePassword: process.env.OPENCODE_PASSWORD || '',
     // 单次 LLM 调用超时（毫秒）。角色/世界观抽取为一次性长任务（确认后不改），

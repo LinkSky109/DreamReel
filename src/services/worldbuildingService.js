@@ -4,9 +4,10 @@ import { getLLMProviderByPref } from '../providers/llmProviderFactory.js'
 import { storageService } from './storageService.js'
 import { WorldEntity, WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES, WORLD_CORE_TYPES, attributeKeysFor } from '../models/WorldEntity.js'
 import { groupChunks } from '../utils/textChunking.js'
-import { clampInt } from '../utils/coerce.js'
+import { clampInt, optionalClampInt } from '../utils/coerce.js'
 import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
 import { listChunks } from './novelChunkService.js'
+import { runGroups } from './extractionStatus.js'
 
 /**
  * 世界观设定集（Sprint 25 / 扩展）
@@ -131,6 +132,7 @@ export async function extractWorld(novelId, opts = {}) {
   const chunkSize = clampInt(opts.chunkSize, 16, 1, 100)
   const maxChars = clampInt(opts.maxChars, 24000, 200, 64000)
   const useChunks = chunks.slice(0, maxChapters)
+  const concurrency = optionalClampInt(opts.concurrency, 1, 16) ?? (parseInt(process.env.EXTRACT_CONCURRENCY || '', 10) || 4)
   const fullText = useChunks.map((c) => c.text).join('\n')
 
   const llm = getLLMProviderByPref(project.providerPreferences?.llm || null, opts.userId ?? null)
@@ -142,27 +144,31 @@ export async function extractWorld(novelId, opts = {}) {
     provider = 'llm'
     let okChunks = 0
     const groups = groupChunks(useChunks, { chunkSize, maxChars })
-    for (let gi = 0; gi < groups.length; gi++) {
-      const { sample, titles } = groups[gi]
-      let data = null
-      let lastErr = null
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          data = (await llm.generateJSON(buildWorldPrompt(sample))).data
-          break
-        } catch (error) {
-          lastErr = error
-          if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
+    const { results } = await runGroups({
+      novelId,
+      kind: 'world',
+      groups,
+      concurrency,
+      call: async (g, i) => {
+        let data = null
+        let lastErr = null
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            data = (await llm.generateJSON(buildWorldPrompt(g.sample))).data
+            break
+          } catch (error) {
+            lastErr = error
+            if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
+          }
         }
-      }
-      if (data && Array.isArray(data.entities)) {
-        raw.push(...data.entities)
-        okChunks++
-      } else if (lastErr) {
-        // 单个分片失败不影响其它分片
-        logger.warn(`世界观分片 ${gi + 1}（${titles[0] || ''}…）失败，跳过：${String(lastErr.message).slice(0, 120)}`)
-      }
-    }
+        if (data && Array.isArray(data.entities)) return { ok: true, data: data.entities }
+        if (lastErr) logger.warn(`世界观分片 ${i + 1}（${g.titles[0] || ''}…）失败，跳过：${String(lastErr.message).slice(0, 120)}`)
+        return { ok: false, error: lastErr ? lastErr.message : 'no entities' }
+      },
+    })
+    const oks = results.filter((r) => r && r.ok)
+    okChunks = oks.length
+    raw = oks.flatMap((r) => r.data)
     logger.info(`世界观 LLM 抽取完成：${okChunks}/${groups.length} 个分片成功，累计 ${raw.length} 实体`)
     if (okChunks === 0) {
       logger.warn('世界观 LLM 全部分片失败，回退启发式')
