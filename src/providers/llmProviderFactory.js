@@ -9,12 +9,17 @@ import { resolveProviderConfig, buildMergedConfig, isProviderConfigured } from '
 const PROVIDER_MAP = {
   mock: MockLLMProvider,
   openai: OpenAILLMProvider,
+  deepseek: OpenAILLMProvider,
   opencode: OpencodeLLMProvider,
 }
 
 // LLM 模型元数据目录
 export const LLM_MODEL_CATALOG = [
   { id: 'mock', name: 'Mock LLM', vendor: '本地', strengths: ['测试', '离线'], default: true, models: [{ id: 'mock', name: 'Mock', default: true }] },
+  { id: 'deepseek', name: 'DeepSeek 官方 API', vendor: 'DeepSeek (深度求索)', strengths: ['中文强', '结构化输出好', '官方直连'], default: false, models: [
+    { id: 'deepseek-chat', name: 'DeepSeek Chat', default: true },
+    { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner', default: false },
+  ] },
   { id: 'openai', name: 'OpenAI GPT', vendor: 'OpenAI (美)', strengths: ['通用能力强', '英文优秀'], default: false, models: [
     { id: 'gpt-4o', name: 'GPT-4o', default: true },
     { id: 'gpt-4o-mini', name: 'GPT-4o Mini', default: false },
@@ -36,7 +41,8 @@ export function getLLMProvider() {
     logger.warn(`Unknown LLM provider: ${providerName}, falling back to mock`)
     activeProvider = new MockLLMProvider(config.llm)
   } else {
-    activeProvider = new ProviderClass(config.llm)
+    // 用 buildMergedConfig 注入该供应商对应的凭据/端点（如 deepseek 用 DEEPSEEK_*）
+    activeProvider = new ProviderClass(buildMergedConfig('llm', providerName))
   }
 
   logger.info(`LLM provider initialized: ${activeProvider.name}`)

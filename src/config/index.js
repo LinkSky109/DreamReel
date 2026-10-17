@@ -33,6 +33,10 @@ const config = {
     opencodeModel: process.env.OPENCODE_MODEL || 'opencode/deepseek-v4.1-flash-free',
     opencodeBaseUrl: process.env.OPENCODE_BASE_URL || '',
     opencodePassword: process.env.OPENCODE_PASSWORD || '',
+    // DeepSeek 官方 API（OpenAI 兼容）：https://api-docs.deepseek.com/zh-cn/
+    deepseekApiKey: process.env.DEEPSEEK_API_KEY || '',
+    deepseekBaseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+    deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
     // 单次 LLM 调用超时（毫秒）。角色/世界观抽取为一次性长任务（确认后不改），
     // 默认放宽到 10 分钟。
     timeout: parseInt(process.env.LLM_TIMEOUT_MS || '', 10) || 600000,

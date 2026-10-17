@@ -9,10 +9,11 @@ import logger from '../utils/logger.js'
 export class OpenAILLMProvider extends BaseLLMProvider {
   constructor(config) {
     super(config)
-    this.name = 'openai'
+    // DeepSeek 官方 API 与 OpenAI 协议兼容，复用本 Provider，仅名称/默认端点不同
+    this.name = config.provider === 'deepseek' ? 'deepseek' : 'openai'
     this.apiKey = config.apiKey
-    this.model = config.model || 'gpt-4o-mini'
-    this.baseUrl = config.baseUrl || 'https://api.openai.com/v1'
+    this.model = config.model || (this.name === 'deepseek' ? 'deepseek-chat' : 'gpt-4o-mini')
+    this.baseUrl = config.baseUrl || (this.name === 'deepseek' ? 'https://api.deepseek.com' : 'https://api.openai.com/v1')
     this.maxRetries = config.maxRetries || 2
     this.timeout = config.timeout || parseInt(process.env.LLM_TIMEOUT_MS || '', 10) || 600000
   }

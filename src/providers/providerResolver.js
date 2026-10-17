@@ -39,6 +39,8 @@ export function isProviderConfigured(stage, providerName) {
     switch (providerName) {
       case 'openai':
         return !!config.llm.apiKey
+      case 'deepseek':
+        return !!config.llm.deepseekApiKey
       case 'opencode':
         // 本地 OpenCode 2.x 服务（服务发现或 baseUrl）；无需外部 key
         return true
@@ -121,11 +123,15 @@ export function resolveProviderConfig(stage, projectId = null, userId = null) {
   // 3. 全局默认
   const globalProvider = config[stage]?.provider
   if (globalProvider && isProviderConfigured(stage, globalProvider)) {
-    // opencode 的默认模型与 OpenAI 系不同名，避免把 LLM_MODEL（如 gpt-4o-mini）误当 opencode 模型
+    // 各供应商默认模型名不同，避免把 LLM_MODEL（如 gpt-4o-mini）误当其它供应商的模型
     const globalModel =
-      stage === 'llm' && globalProvider === 'opencode'
-        ? config.llm?.opencodeModel || null
-        : config[stage]?.model || null
+      stage !== 'llm'
+        ? config[stage]?.model || null
+        : globalProvider === 'opencode'
+          ? config.llm?.opencodeModel || null
+          : globalProvider === 'deepseek'
+            ? config.llm?.deepseekModel || null
+            : config[stage]?.model || null
     return {
       provider: globalProvider,
       model: globalModel,
@@ -158,6 +164,16 @@ export function buildMergedConfig(stage, providerName, prefConfig = {}, model = 
     ...baseConfig,
     ...prefConfig,
     provider: providerName,
+  }
+  // 各供应商的凭据/端点分开放，避免互相覆盖（如 OpenAI 的 baseUrl 被 DeepSeek 用到）
+  if (stage === 'llm') {
+    if (providerName === 'deepseek') {
+      merged.apiKey = config.llm.deepseekApiKey
+      merged.baseUrl = config.llm.deepseekBaseUrl
+      if (!model) merged.model = config.llm.deepseekModel
+    } else if (providerName === 'opencode') {
+      if (!model) merged.model = config.llm.opencodeModel
+    }
   }
   if (model) {
     merged.model = model
