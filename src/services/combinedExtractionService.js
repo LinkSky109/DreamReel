@@ -84,7 +84,7 @@ export async function extractAll(novelId, opts = {}) {
   const chunkSize = clampInt(opts.chunkSize, 16, 1, 100)
   const maxChars = clampInt(opts.maxChars, 24000, 200, 64000)
   const minFreq = optionalClampInt(opts.minFreq, 1, 1000)
-  const concurrency = optionalClampInt(opts.concurrency, 1, 16) ?? (parseInt(process.env.EXTRACT_CONCURRENCY || '', 10) || 4)
+  const concurrency = optionalClampInt(opts.concurrency, 1, 128) ?? (parseInt(process.env.EXTRACT_CONCURRENCY || '', 10) || 64)
   const useChunks = chunks.slice(0, maxChapters)
   const fullText = useChunks.map((c) => c.text).join('\n')
 

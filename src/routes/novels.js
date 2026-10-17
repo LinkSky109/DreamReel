@@ -128,7 +128,7 @@ router.post('/:id/extract', async (req, res) => {
       chunkSize: optionalClampInt(body.chunkSize, 1, 100),
       maxChars: optionalClampInt(body.maxChars, 200, 64000),
       minFreq: optionalClampInt(body.minFreq, 1, 1000),
-      concurrency: optionalClampInt(body.concurrency, 1, 16),
+      concurrency: optionalClampInt(body.concurrency, 1, 128),
       userId: req.user?.id,
     })
     ensureCards(req.params.id)
@@ -165,7 +165,7 @@ router.post('/:id/extract-all', async (req, res) => {
       chunkSize: optionalClampInt(body.chunkSize, 1, 100),
       maxChars: optionalClampInt(body.maxChars, 200, 64000),
       minFreq: optionalClampInt(body.minFreq, 1, 1000),
-      concurrency: optionalClampInt(body.concurrency, 1, 16),
+      concurrency: optionalClampInt(body.concurrency, 1, 128),
       userId: req.user?.id,
     })
     ensureCards(req.params.id)
@@ -481,7 +481,7 @@ router.post('/:id/world/extract', async (req, res) => {
       maxChapters: optionalClampInt(body.maxChapters, 1, 100000),
       chunkSize: optionalClampInt(body.chunkSize, 1, 100),
       maxChars: optionalClampInt(body.maxChars, 200, 64000),
-      concurrency: optionalClampInt(body.concurrency, 1, 16),
+      concurrency: optionalClampInt(body.concurrency, 1, 128),
       userId: req.user?.id,
     })
     res.json({ success: true, data: { provider: result.provider, degraded: /fallback/.test(result.provider), entities: result.entities, summary: result.summary } })
