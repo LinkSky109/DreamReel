@@ -39,6 +39,7 @@ export async function bulkGenerate(novelId, seasonId, opts = {}) {
     concurrency
   )
 
+  storageService._flush() // 批量操作后立即落盘（save 为 debounce，避免调用方退出丢数据）
   const nowAll = storageService.listEpisodes(novelId, seasonId)
   const doneCount = nowAll.filter(isDone).length
   return {

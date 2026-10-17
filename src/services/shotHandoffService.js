@@ -233,6 +233,7 @@ export function autoAttachReferences(novelId, episodeId, opts = {}) {
     if (refs.size !== before) shotsTouched++
     s.referenceImages = [...refs]
   }
+  storageService._flush() // 批量操作后立即落盘（save 为 debounce，避免调用方退出丢数据）
   storageService.updateEpisode(episode)
   return { episodeId, shots: shots.length, shotsTouched, refsAdded, maxPerShot }
 }
