@@ -620,6 +620,25 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.equal(merged[0].card.abilities, '枪、刀')
   })
 
+  it('mergeCharacters 不再因“别名交集”误合并不同角色（防传递塌缩）', () => {
+    const merged = mergeCharacters([
+      { name: '血瞳', aliases: ['血瞳大人'], card: {} },
+      { name: '丽儿', aliases: ['血瞳大人'], card: {} },
+    ])
+    assert.equal(merged.length, 2)
+    assert.deepEqual(merged.map((c) => c.name).sort(), ['丽儿', '血瞳'])
+  })
+
+  it('mergeCharacters 主名=别名时合并，且别名数量有上限', () => {
+    const merged = mergeCharacters([
+      { name: '血瞳', aliases: [], card: {} },
+      { name: '血瞳大人', aliases: ['血瞳'], card: {} },
+    ])
+    assert.equal(merged.length, 1)
+    const many = mergeCharacters([{ name: '甲', aliases: Array.from({ length: 30 }, (_, i) => 'a' + i), card: {} }])
+    assert.ok(many[0].aliases.length <= 8, `别名未受限: ${many[0].aliases.length}`)
+  })
+
   it('runPool 保序且并发受限', async () => {
     let active = 0
     let maxActive = 0
