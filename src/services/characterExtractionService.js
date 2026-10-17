@@ -8,6 +8,7 @@ import { clampInt, optionalClampInt } from '../utils/coerce.js'
 import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
 import { listChunks } from './novelChunkService.js'
 import { runGroups } from './extractionStatus.js'
+import { generateJSONWithRetry } from '../utils/llmRetry.js'
 
 /** 常见姓氏（启发式用） */
 const SURNAMES =
@@ -177,14 +178,10 @@ async function llmExtractAll(llm, useChunks, { chunkSize, maxChars, concurrency,
     call: async (g, i) => {
       let data = null
       let lastErr = null
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          data = (await llm.generateJSON(buildLLMPrompt(g.sample))).data
-          break
-        } catch (error) {
-          lastErr = error
-          if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
-        }
+      try {
+        data = (await generateJSONWithRetry(llm, buildLLMPrompt(g.sample))).data
+      } catch (error) {
+        lastErr = error
       }
       if (data && Array.isArray(data.characters)) return { ok: true, data: data.characters }
       if (lastErr) logger.warn(`角色分片 ${i + 1}（${g.titles[0] || ''}…）失败，跳过：${String(lastErr.message).slice(0, 120)}`)

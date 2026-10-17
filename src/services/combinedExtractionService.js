@@ -15,6 +15,7 @@ import { clampInt, optionalClampInt } from '../utils/coerce.js'
 import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
 import { listChunks } from './novelChunkService.js'
 import { runGroups } from './extractionStatus.js'
+import { generateJSONWithRetry } from '../utils/llmRetry.js'
 import { mergeCharacters, heuristicExtract as heuristicCharacters } from './characterExtractionService.js'
 import { mergeEntities, heuristicExtract as heuristicWorld } from './worldbuildingService.js'
 
@@ -106,14 +107,10 @@ export async function extractAll(novelId, opts = {}) {
       call: async (g, i) => {
         let data = null
         let lastErr = null
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          try {
-            data = (await llm.generateJSON(buildCombinedPrompt(g.sample))).data
-            break
-          } catch (error) {
-            lastErr = error
-            if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
-          }
+        try {
+          data = (await generateJSONWithRetry(llm, buildCombinedPrompt(g.sample))).data
+        } catch (error) {
+          lastErr = error
         }
         const cs = data && Array.isArray(data.characters) ? data.characters : null
         const es = data && Array.isArray(data.entities) ? data.entities : null

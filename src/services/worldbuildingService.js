@@ -8,6 +8,7 @@ import { clampInt, optionalClampInt } from '../utils/coerce.js'
 import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
 import { listChunks } from './novelChunkService.js'
 import { runGroups } from './extractionStatus.js'
+import { generateJSONWithRetry } from '../utils/llmRetry.js'
 
 /**
  * 世界观设定集（Sprint 25 / 扩展）
@@ -152,14 +153,10 @@ export async function extractWorld(novelId, opts = {}) {
       call: async (g, i) => {
         let data = null
         let lastErr = null
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          try {
-            data = (await llm.generateJSON(buildWorldPrompt(g.sample))).data
-            break
-          } catch (error) {
-            lastErr = error
-            if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
-          }
+        try {
+          data = (await generateJSONWithRetry(llm, buildWorldPrompt(g.sample))).data
+        } catch (error) {
+          lastErr = error
         }
         if (data && Array.isArray(data.entities)) return { ok: true, data: data.entities }
         if (lastErr) logger.warn(`世界观分片 ${i + 1}（${g.titles[0] || ''}…）失败，跳过：${String(lastErr.message).slice(0, 120)}`)
