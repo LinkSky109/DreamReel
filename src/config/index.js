@@ -47,6 +47,12 @@ const config = {
     elevenLabsApiKey: process.env.ELEVENLABS_API_KEY || '',
     defaultVoiceId: process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4Tlv',
     modelId: process.env.ELEVENLABS_MODEL || 'eleven_monolingual_v1',
+    // 火山引擎豆包语音 TTS（大模型语音合成 2.0）
+    volcTtsApiKey: process.env.VOLC_TTS_API_KEY || '',
+    volcTtsBaseUrl: process.env.VOLC_TTS_BASE_URL || 'https://openspeech.bytedance.com',
+    volcTtsResourceId: process.env.VOLC_TTS_RESOURCE_ID || 'seed-tts-2.0',
+    volcTtsSpeaker: process.env.VOLC_TTS_SPEAKER || 'zh_female_vv_uranus_bigtts',
+    volcTtsFormat: process.env.VOLC_TTS_FORMAT || 'mp3',
   },
 
   image: {

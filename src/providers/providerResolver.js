@@ -51,6 +51,8 @@ export function isProviderConfigured(stage, providerName) {
 
   if (stage === 'tts') {
     switch (providerName) {
+      case 'volc':
+        return !!config.tts.volcTtsApiKey
       case 'elevenlabs':
         return !!config.tts.elevenLabsApiKey
       default:
