@@ -1,3 +1,4 @@
+/* eslint-disable eqeqeq -- 本文件大量使用 `x != null` 有意同时判断 null/undefined */
 /**
  * ComfyUI 工作流工具（API 格式）
  *
