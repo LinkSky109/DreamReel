@@ -38,6 +38,30 @@ function urlToAbs(url) {
   return path.resolve(STORAGE_ROOT, url.replace(/^\/storage\//, ''))
 }
 
+/** 确保落盘文件是可拼接的 mp4：若源是 webm/mkv 等，用 ffmpeg 转成 h264/aac mp4 */
+async function ensureMp4(dest) {
+  try {
+    const { stdout } = await execFileAsync(
+      'ffprobe',
+      ['-v', 'error', '-show_entries', 'format=format_name', '-of', 'default=nw=1:nk=1', dest],
+      { timeout: 15000 }
+    )
+    const fmt = String(stdout).trim().toLowerCase()
+    if (/mp4|mov/.test(fmt)) return
+    const tmp = `${dest}.src`
+    fs.renameSync(dest, tmp)
+    await execFileAsync(
+      'ffmpeg',
+      ['-y', '-i', tmp, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', dest],
+      { timeout: 180000 }
+    )
+    fs.unlinkSync(tmp)
+    logger.info(`视频转码为 mp4：${path.basename(dest)}（源 ${fmt}）`)
+  } catch (e) {
+    logger.warn(`视频转 mp4 失败（保留原文件）：${e.message}`)
+  }
+}
+
 async function pollTask(provider, taskId, { timeoutMs = 120000, intervalMs = 2000 } = {}) {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
@@ -241,10 +265,10 @@ export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
       const { taskId } = await videoProvider.generateVideo({
         prompt,
         duration: opts.duration || 5,
-        resolution: opts.resolution || '720p',
+        resolution: opts.resolution || process.env.VIDEO_RESOLUTION || '480p',
         aspectRatio: opts.aspectRatio || '16:9',
       })
-      const status = await pollTask(videoProvider, taskId, { timeoutMs: opts.videoTimeoutMs || 120000 })
+      const status = await pollTask(videoProvider, taskId, { timeoutMs: opts.videoTimeoutMs || 900000 })
       const dest = path.join(MEDIA.videos, novelId, `${episodeId}.mp4`)
       let storedUrl = null
       if (status.status === 'completed' && status.videoUrl) {
@@ -256,7 +280,10 @@ export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
           const srcAbs = urlToAbs(status.videoUrl)
           if (fs.existsSync(srcAbs)) fs.copyFileSync(srcAbs, dest)
         }
-        if (fs.existsSync(dest)) storedUrl = `/storage/videos/novels/${novelId}/${episodeId}.mp4`
+        if (fs.existsSync(dest)) {
+          await ensureMp4(dest) // ComfyUI 常出 webm，统一转成 mp4 以便成片拼接
+          storedUrl = `/storage/videos/novels/${novelId}/${episodeId}.mp4`
+        }
       }
       assets.video = {
         provider: videoProvider.name,
