@@ -105,7 +105,7 @@ function parseSpeaker(dialogue) {
  * 按说话人分段 → 各用其**固定音色**合成 → 拼接为一条配音轨。
  * 这样"同一角色在所有集里都是同一把声音"。返回 { audioUrl, filePath, duration, segments, voices }
  */
-async function synthesizeMultiVoice(novelId, episode, ttsProvider, opts = {}) {
+async function synthesizeMultiVoice(novelId, episode, ttsProvider) {
   const map = ensureVoiceMap(novelId)
   const segs = []
   for (const s of episode.screenplay?.shots || []) {
@@ -199,7 +199,7 @@ export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
       const ttsProvider = getTTSProvider()
       let mixed = null
       try {
-        mixed = await synthesizeMultiVoice(novelId, episode, ttsProvider, opts)
+        mixed = await synthesizeMultiVoice(novelId, episode, ttsProvider)
       } catch (e) {
         logger.warn(`多音色配音失败，回退整段单音色：${e.message}`)
       }
