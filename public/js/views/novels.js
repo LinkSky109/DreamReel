@@ -1129,6 +1129,13 @@ async function tabEpisode({ body, novel, id, refresh }) {
 // ---------- 风格 / 同步 ----------
 async function tabSync({ body, novel, id, refresh }) {
   const manifest = await api.getNovelManifest(id).then(unwrap).catch(() => ({ files: [] }))
+  const voices = await api.listNovelVoices(id).then(unwrap).catch(() => null)
+  const voiceOpts = (cur) => {
+    const cat = (voices && voices.catalog) || []
+    const opts = cat.map((v) => `<option value="${esc(v.id)}" ${cur === v.id ? 'selected' : ''}>${esc(v.name)}（${esc(v.gender)}）</option>`).join('')
+    const known = cat.some((v) => v.id === cur)
+    return `<option value="">（默认）</option>${opts}${cur && !known ? `<option value="${esc(cur)}" selected>自定义：${esc(cur)}</option>` : ''}<option value="__custom__">自定义…</option>`
+  }
   body.innerHTML = `
     <section class="card" style="padding:16px;margin-bottom:14px;">
       <h3 style="margin-top:0;">全书风格（贯穿：设定图集 → 剧本 → 分镜/资产）</h3>
@@ -1143,6 +1150,25 @@ async function tabSync({ body, novel, id, refresh }) {
         : '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">（未生成）— 生成一次即可，后续设定图集/剧本/分镜会自动沿用，保证风格一致</div>'}
       <button id="nvStyle" class="btn btn-sm">${novel.style && novel.style.name ? '重新生成风格（LLM）' : '生成风格（LLM）'}</button>
     </section>
+    <section class="card" style="padding:16px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;">角色音色（固定，跨全集一致）</h3>
+        <button id="nvVoiceReset" class="btn btn-sm">重置为自动分配</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">每个角色固定一把声音；旁白单独一轨。可选内置音色，或选「自定义…」填任意音色 ID（含声音复刻的 <code>S_xxx</code>）。</div>
+      ${voices
+        ? `<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+             <b style="font-size:13px;">旁白</b>
+             <select class="form-input" style="padding:4px;max-width:280px;" data-voice-spk="旁白">${voiceOpts(voices.narrator)}</select>
+           </div>
+           <div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px;max-height:360px;overflow:auto;">
+             ${(voices.characters || []).map((c) => `<div style="display:flex;gap:8px;align-items:center;">
+               <span style="font-size:13px;min-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(c.name)}">${esc(c.name)}${c.gender ? `<span style="color:var(--text-secondary);font-size:11px;">·${esc(c.gender)}</span>` : ''}</span>
+               <select class="form-input" style="padding:4px;flex:1;" data-voice-spk="${esc(c.name)}">${voiceOpts(c.voice)}</select>
+             </div>`).join('') || '<div style="color:var(--text-secondary);">暂无角色</div>'}
+           </div>`
+        : '<div style="font-size:13px;color:var(--text-secondary);margin-top:8px;">（角色音色不可用）</div>'}
+    </section>
     <section class="card" style="padding:16px;">
       <h3 style="margin-top:0;">剧集包 / 同步</h3>
       <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">清单文件数 ${esc((manifest.files || []).length)}</div>
@@ -1155,6 +1181,18 @@ async function tabSync({ body, novel, id, refresh }) {
 
   body.querySelector('#nvStyle')?.addEventListener('click', async () => {
     try { await api.generateNovelStyle(id); showToast('风格已生成', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
+  })
+  body.querySelectorAll('[data-voice-spk]').forEach((sel) => sel.addEventListener('change', async () => {
+    let v = sel.value
+    if (v === '__custom__') {
+      const input = prompt('输入自定义音色 ID（如声音复刻的 S_xxx / ICL_...）', '')
+      if (input === null) { refresh(); return }
+      v = input.trim()
+    }
+    try { await api.setNovelVoice(id, { speaker: sel.dataset.voiceSpk, voice: v }); showToast(`「${sel.dataset.voiceSpk}」音色已保存`, 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
+  }))
+  body.querySelector('#nvVoiceReset')?.addEventListener('click', async () => {
+    try { await api.resetNovelVoices(id); showToast('已重置为自动分配', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
   })
   body.querySelector('#nvSyncLocal')?.addEventListener('click', async () => {
     const targetDir = body.querySelector('#nvSyncDir')?.value?.trim()

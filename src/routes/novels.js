@@ -34,6 +34,7 @@ import { getJobs } from '../services/extractionStatus.js'
 import { extractAll } from '../services/combinedExtractionService.js'
 import { bulkGenerate } from '../services/bulkEpisodeService.js'
 import { seasonAssetSubset, bulkGenerateSeasonAssets } from '../services/seasonAssetService.js'
+import { listVoiceAssignments, setVoice, resetVoices } from '../services/voiceService.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
 import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
 import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
@@ -263,6 +264,31 @@ router.post('/:id/characters/:cid/states', (req, res) => {
 // ===== 分季分集 + 剧本（Sprint 21） =====
 
 // 规划：章节 → 集 → 季
+// 角色音色映射（可自定义；支持任意音色 ID，如声音复刻的 S_xxx）
+router.get('/:id/voices', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: listVoiceAssignments(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+router.put('/:id/voices', (req, res) => {
+  try {
+    const { speaker, voice } = req.body || {}
+    res.json({ success: true, data: setVoice(req.params.id, speaker, voice) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+router.post('/:id/voices/reset', (req, res) => {
+  try {
+    res.json({ success: true, data: resetVoices(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
 // 分季分集时长估算（正文可支撑 vs 已规划）
 router.get('/:id/series/estimate', (req, res) => {
   try {

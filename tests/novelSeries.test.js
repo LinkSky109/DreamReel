@@ -689,6 +689,17 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.throws(() => authService.login({ email, password: 'wrongpass' }))
   })
 
+  it('cleanSpoken 去掉旁白/说话人标签、占位与音效提示', async () => {
+    const { cleanSpoken } = await import('../src/services/episodeAssetService.js')
+    assert.equal(cleanSpoken('旁白：露水。虽然这些露水…'), '露水。虽然这些露水…')
+    assert.equal(cleanSpoken('画外音：你好'), '你好')
+    assert.equal(cleanSpoken('血瞳：跟我走'), '跟我走')
+    assert.equal(cleanSpoken('（无）'), '')
+    assert.equal(cleanSpoken('（音效：风声）'), '')
+    assert.equal(cleanSpoken('旁白：'), '')
+    assert.equal(cleanSpoken('注意：这不是台词标签'), '注意：这不是台词标签')
+  })
+
   it('HTTP: 400 / 404 语义', async () => {
     let res = await request(app).get('/api/novels/does-not-exist')
     assert.equal(res.status, 404)

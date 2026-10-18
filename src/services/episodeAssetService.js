@@ -1,5 +1,7 @@
 import fs from 'fs'
 import path from 'path'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import { getImageProvider } from '../providers/imageProviderFactory.js'
@@ -8,6 +10,10 @@ import { getVideoProvider } from '../providers/videoProviderFactory.js'
 import { storageService } from './storageService.js'
 import { getNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
 import { generateEpisodeScript } from './episodeScriptService.js'
+import { ensureVoiceMap, voiceFor } from './voiceService.js'
+
+const execFileAsync = promisify(execFile)
+const TMP_DIR = path.join(path.resolve(config.storage.path), 'temp')
 
 /**
  * 单集资产生成（Sprint 22 / S22-1）：图 / 音 / 视频。
@@ -21,14 +27,15 @@ import { generateEpisodeScript } from './episodeScriptService.js'
  * 视频 provider 默认 config.video.provider（mock）；配置 VIDEO_PROVIDER=seedance 走火山方舟 Doubao-Seedance。
  */
 
+const STORAGE_ROOT = path.resolve(config.storage.path)
 const MEDIA = {
-  images: path.join(config.storage.path, 'images', 'novels'),
-  videos: path.join(config.storage.path, 'videos', 'novels'),
-  voices: path.join(config.storage.path, 'audio', 'voices', 'novels'),
+  images: path.join(STORAGE_ROOT, 'images', 'novels'),
+  videos: path.join(STORAGE_ROOT, 'videos', 'novels'),
+  voices: path.join(STORAGE_ROOT, 'audio', 'voices', 'novels'),
 }
 
 function urlToAbs(url) {
-  return path.join(config.storage.path, url.replace(/^\/storage\//, ''))
+  return path.resolve(STORAGE_ROOT, url.replace(/^\/storage\//, ''))
 }
 
 async function pollTask(provider, taskId, { timeoutMs = 120000, intervalMs = 2000 } = {}) {
@@ -48,12 +55,105 @@ function buildVideoPrompt(project, episode) {
   return `${styleName}。${visual}。${episode.title}。${shots}`.slice(0, 500)
 }
 
+const NON_NAME_PREFIX = new Set(['注意', '比如', '例如', '因为', '所以', '但是', '不过', '其实', '总之', '于是', '然后', '如果', '只要', '只有', '除了', '关于', '对于', '此时', '突然', '忽然', '接着', '随后', '原来', '终于'])
+
+/**
+ * 清洗「要念出来的台词」：去掉不该被朗读的部分。
+ *  - 开头标签：旁白：/独白：/画外音：/字幕：/内心：…（这些是**标注**，不是台词）
+ *  - 说话人标签：血瞳：/丽儿：（2–4 个汉字的角色名，排除常见连接词）
+ *  - 纯占位：如 （无）（沉默）（音效）
+ *  - 音效/舞台提示括号：如 （音效：风声）（转场）
+ */
+export function cleanSpoken(text) {
+  let t = String(text || '').trim()
+  // 去掉可能的多层开头标签（旁白/独白…）
+  for (let i = 0; i < 3; i += 1) {
+    const before = t
+    t = t.replace(/^\s*(旁白|独白|画外音|画外|内心|心声|字幕|音效|环境音|配乐|OS|V\.?O\.?)\s*[：:]\s*/i, '')
+    if (t === before) break
+  }
+  // 说话人标签（角色名）：2–4 个汉字 + 冒号，排除常见连接词
+  t = t.replace(/^\s*([\u4e00-\u9fa5]{2,4})\s*[：:]\s*/, (m, name) => (NON_NAME_PREFIX.has(name) ? m : ''))
+  // 去掉音效/镜头/转场等提示括号
+  t = t.replace(/[（(【\[]\s*(音效|环境音|配乐|BGM|镜头|转场|字幕|画外音)[^）)】\]]*[）)】\]]/gi, '')
+  // 纯占位整行（如「（无）」「（沉默）」）
+  if (/^[（(【\[]\s*(无|沉默|静默|略|空镜|画面)[^）)】\]]*[）)】\]]\s*$/.test(t)) return ''
+  return t.trim()
+}
+
 function buildNarration(episode) {
   return (episode.screenplay?.shots || [])
-    .map((s) => s.dialogue)
+    .map((s) => cleanSpoken(s.dialogue))
     .filter(Boolean)
     .join('\n')
-    .slice(0, 300)
+    .slice(0, 600)
+}
+
+/** 从台词解析说话人（角色名 → 该角色音色；无标签/旁白 → 旁白音色） */
+function parseSpeaker(dialogue) {
+  const t = String(dialogue || '').trim()
+  const m = t.match(/^\s*([\u4e00-\u9fa5A-Za-z]{2,6})\s*[：:]\s*(.*)$/)
+  if (m) {
+    const label = m[1]
+    const isNarr = /^(旁白|独白|画外音|画外|内心|心声|字幕|OS|V\.?O\.?)$/i.test(label)
+    if (!isNarr && !NON_NAME_PREFIX.has(label)) return label
+  }
+  return '旁白'
+}
+
+/**
+ * 按说话人分段 → 各用其**固定音色**合成 → 拼接为一条配音轨。
+ * 这样"同一角色在所有集里都是同一把声音"。返回 { audioUrl, filePath, duration, segments, voices }
+ */
+async function synthesizeMultiVoice(novelId, episode, ttsProvider, opts = {}) {
+  const map = ensureVoiceMap(novelId)
+  const segs = []
+  for (const s of episode.screenplay?.shots || []) {
+    const text = cleanSpoken(s.dialogue)
+    if (!text) continue
+    const speaker = parseSpeaker(s.dialogue)
+    segs.push({ speaker, text, voice: voiceFor(map, speaker) })
+  }
+  if (!segs.length) return null
+
+  fs.mkdirSync(TMP_DIR, { recursive: true })
+  const files = []
+  const usedVoices = new Set()
+  for (let i = 0; i < segs.length; i += 1) {
+    const r = await ttsProvider.synthesize({ text: segs[i].text, language: 'zh', voice: segs[i].voice })
+    usedVoices.add(segs[i].voice)
+    const srcAbs = r.audioUrl && r.audioUrl.startsWith('/storage/') ? urlToAbs(r.audioUrl) : null
+    if (srcAbs && fs.existsSync(srcAbs)) files.push(srcAbs)
+  }
+  if (!files.length) return null
+
+  const outDir = path.join(MEDIA.voices, novelId)
+  fs.mkdirSync(outDir, { recursive: true })
+  const outPath = path.join(outDir, `${episode.id}.mp3`)
+
+  if (files.length === 1) {
+    fs.copyFileSync(files[0], outPath)
+  } else {
+    const listFile = path.join(TMP_DIR, `${episode.id}_voicelist.txt`)
+    fs.writeFileSync(listFile, files.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join('\n'))
+    await execFileAsync('ffmpeg', ['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', outPath], { timeout: 120000 })
+  }
+
+  let duration = null
+  try {
+    const { stdout } = await execFileAsync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', outPath], { timeout: 10000 })
+    const d = parseFloat(String(stdout).trim())
+    if (Number.isFinite(d) && d > 0) duration = Math.round(d * 10) / 10
+  } catch {
+    /* ignore */
+  }
+  return {
+    audioUrl: `/storage/audio/voices/novels/${novelId}/${episode.id}.mp3`,
+    filePath: outPath,
+    duration,
+    segments: segs.length,
+    voices: [...usedVoices],
+  }
 }
 
 export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
@@ -93,22 +193,39 @@ export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
     }
   }
 
-  // 音：旁白 → audio/voices/novels/<id>/<eid>.<ext>
+  // 音：按说话人分段，各用其固定音色合成后拼接 → audio/voices/novels/<id>/<eid>.mp3
   if (opts.audio !== false) {
     try {
       const ttsProvider = getTTSProvider()
-      const narration = buildNarration(episode) || episode.title
-      const tts = await ttsProvider.synthesize({ text: narration, language: 'zh', voice: opts.voice })
-      const ext = path.extname(tts.audioUrl || '.wav') || '.wav'
-      const dest = path.join(MEDIA.voices, novelId, `${episodeId}${ext}`)
-      fs.mkdirSync(path.dirname(dest), { recursive: true })
-      const srcAbs = tts.audioUrl && tts.audioUrl.startsWith('/storage/') ? urlToAbs(tts.audioUrl) : null
-      if (srcAbs && fs.existsSync(srcAbs)) fs.copyFileSync(srcAbs, dest)
-      assets.audio = {
-        provider: ttsProvider.name,
-        filePath: fs.existsSync(dest) ? dest : null,
-        url: `/storage/audio/voices/novels/${novelId}/${episodeId}${ext}`,
-        duration: tts.duration,
+      let mixed = null
+      try {
+        mixed = await synthesizeMultiVoice(novelId, episode, ttsProvider, opts)
+      } catch (e) {
+        logger.warn(`多音色配音失败，回退整段单音色：${e.message}`)
+      }
+      if (mixed && mixed.audioUrl) {
+        assets.audio = {
+          provider: ttsProvider.name,
+          filePath: mixed.filePath,
+          url: mixed.audioUrl,
+          duration: mixed.duration,
+          segments: mixed.segments,
+          voices: mixed.voices,
+        }
+      } else {
+        const narration = buildNarration(episode) || episode.title
+        const tts = await ttsProvider.synthesize({ text: narration, language: 'zh', voice: opts.voice })
+        const ext = path.extname(tts.audioUrl || '.wav') || '.wav'
+        const dest = path.join(MEDIA.voices, novelId, `${episodeId}${ext}`)
+        fs.mkdirSync(path.dirname(dest), { recursive: true })
+        const srcAbs = tts.audioUrl && tts.audioUrl.startsWith('/storage/') ? urlToAbs(tts.audioUrl) : null
+        if (srcAbs && fs.existsSync(srcAbs)) fs.copyFileSync(srcAbs, dest)
+        assets.audio = {
+          provider: ttsProvider.name,
+          filePath: fs.existsSync(dest) ? dest : null,
+          url: `/storage/audio/voices/novels/${novelId}/${episodeId}${ext}`,
+          duration: tts.duration,
+        }
       }
     } catch (error) {
       logger.warn(`单集音频生成失败：${error.message}`)
