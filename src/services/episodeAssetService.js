@@ -268,7 +268,7 @@ export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
         resolution: opts.resolution || process.env.VIDEO_RESOLUTION || '480p',
         aspectRatio: opts.aspectRatio || '16:9',
       })
-      const status = await pollTask(videoProvider, taskId, { timeoutMs: opts.videoTimeoutMs || 900000 })
+      const status = await pollTask(videoProvider, taskId, { timeoutMs: opts.videoTimeoutMs || 1800000 })
       const dest = path.join(MEDIA.videos, novelId, `${episodeId}.mp4`)
       let storedUrl = null
       if (status.status === 'completed' && status.videoUrl) {
