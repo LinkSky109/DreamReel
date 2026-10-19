@@ -22,6 +22,7 @@ const flag = (n) => args.includes(`--${n}`)
 const limitArg = args.indexOf('--limit')
 const limit = limitArg >= 0 ? parseInt(args[limitArg + 1], 10) : Infinity
 const includeAll = flag('all')
+const retryFallback = flag('retry-fallback')
 const dryRun = flag('dry')
 
 if (!novelId) {
@@ -32,8 +33,21 @@ if (!novelId) {
 getNovelProject(novelId)
 
 const all = storageService.listEpisodes(novelId).sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
-const target = (includeAll ? all : all.filter((e) => e.screenplay && (e.screenplay.shots || []).length)).slice(0, limit)
-console.log(`作品 ${novelId}：候选 ${target.length} 集（共 ${all.length} 集）${dryRun ? '（dry-run）' : ''}`)
+
+// --retry-fallback：只重跑含「回退状态」的集，把它们升级为 LLM 结果
+const fallbackEps = new Set(
+  storageService
+    .listNovelCharacterStates(novelId)
+    .filter((s) => s.source !== 'llm')
+    .map((s) => Number(s.episodeNo))
+)
+
+let candidates = includeAll ? all : all.filter((e) => e.screenplay && (e.screenplay.shots || []).length)
+if (retryFallback) candidates = candidates.filter((e) => fallbackEps.has(Number(e.episodeNo ?? (e.chapterIndex ?? 0) + 1)))
+const target = candidates.slice(0, limit)
+console.log(
+  `作品 ${novelId}：候选 ${target.length} 集（共 ${all.length} 集）${retryFallback ? `｜重跑回退集 ${fallbackEps.size} 集` : ''}${dryRun ? '（dry-run）' : ''}`
+)
 
 const hasState = (episodeNo) =>
   storageService.listNovelCharacterStates(novelId).some((s) => Number(s.episodeNo) === Number(episodeNo))
@@ -46,7 +60,7 @@ const t0 = Date.now()
 
 for (const ep of target) {
   const episodeNo = Number(ep.episodeNo ?? (ep.chapterIndex ?? 0) + 1)
-  if (hasState(episodeNo)) {
+  if (!retryFallback && hasState(episodeNo)) {
     skipped += 1
     continue
   }

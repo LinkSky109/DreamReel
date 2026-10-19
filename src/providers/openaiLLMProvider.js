@@ -46,6 +46,13 @@ export class OpenAILLMProvider extends BaseLLMProvider {
       if (params.options?.frequencyPenalty !== undefined) {
         body.frequency_penalty = params.options.frequencyPenalty
       }
+      // 推理开关：结构化抽取类任务可关闭思考，避免 reasoning_tokens 吃光 max_tokens
+      if (params.options?.thinking !== undefined) {
+        body.thinking = params.options.thinking
+      }
+      if (params.options?.reasoningEffort !== undefined) {
+        body.reasoning_effort = params.options.reasoningEffort
+      }
 
       logger.info(`OpenAI generate: model=${this.model}, maxTokens=${body.max_tokens}`)
 

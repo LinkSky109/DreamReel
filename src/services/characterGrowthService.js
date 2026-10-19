@@ -79,7 +79,7 @@ export function buildAppearanceDirective(novelId, episodeNo, names = null) {
 const STATE_JSON_SCHEMA =
   '{"characters":[{"name":"角色名","appearance":"该集应有外观（发型/衣着/年龄感/明显特征）","equipment":"该集已持有并携带的装备/道具（没有则留空）","injuries":"该集的身体状态/伤势（没有则留空）","abilities":"该集的能力/实力阶段"}]}'
 
-function buildStatePrompt(episode, text, prevStates, presentNames = []) {
+function buildStatePrompt(episode, text, prevStates, presentNames = [], { compact = false } = {}) {
   const nameRule = presentNames.length
     ? `\n【本集出场角色（name 必须逐字使用以下名字，不得改写、不得新增其它角色）】\n${presentNames.join('、')}`
     : ''
@@ -101,12 +101,89 @@ function buildStatePrompt(episode, text, prevStates, presentNames = []) {
     '4. 忠于原文，不确定的字段留空字符串，不要编造。',
     '5. appearance 只写「本集可观察到的外形」（年龄感/发型/衣着/伤痕），不要写身份、称号、背景故事或后期设定。',
     '6. abilities 只写「本集正文或分镜中实际展现的能力」；未展现则留空，严禁引用角色后期才获得的能力。',
+    '7. 每个字段控制在 60 字以内；只输出角色数组，不要解释、不要 markdown。',
     '',
     '【输出】严格 JSON，不要解释：',
     STATE_JSON_SCHEMA,
   ].join('\n')
-  const user = [prevLines, nameRule, '', '【本集标题】' + (episode.title || ''), '【本集正文】', String(text || '').slice(0, 6000)].join('\n')
-  return { systemPrompt: system, userPrompt: user, options: { temperature: 0.3, maxTokens: 3000 } }
+  // 分镜描述常包含原文没有的出场/形象信息（尤其配角），补进上下文可减少角色漏产出
+  const shotLines = (episode.screenplay?.shots || [])
+    .slice(0, compact ? 6 : 10)
+    .map((s, i) => `#${i + 1} ${String(s.description || '').slice(0, compact ? 80 : 140)}`)
+    .filter((x) => x.length > 4)
+    .join('\n')
+  const user = [
+    prevLines,
+    nameRule,
+    '',
+    '【本集标题】' + (episode.title || ''),
+    shotLines ? `【本集分镜】\n${shotLines}` : '',
+    '【本集正文】',
+    String(text || '').slice(0, compact ? 2200 : 4200),
+  ].join('\n')
+  // 结构化抽取不需要深度思考：显式关闭 thinking，避免 reasoning_tokens 吃光 max_tokens
+  // （实测 deepseek-flash 默认会消耗全部预算在 reasoning 上，导致 content 为空）
+  return {
+    systemPrompt: system,
+    userPrompt: user,
+    options: { temperature: 0.2, maxTokens: 4000, thinking: { type: 'disabled' } },
+  }
+}
+
+/** 把数组按 size 分片 */
+function chunk(arr, size) {
+  const out = []
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+  return out
+}
+
+/** 取一组角色在上一集的状态（用于增量） */
+function prevStatesFor(novelId, chars, episodeNo) {
+  return chars
+    .map((c) => {
+      const st = getCharacterStateAt(novelId, c.id, episodeNo - 1) || getCharacterStateAt(novelId, c.id, episodeNo)
+      return st
+        ? { name: c.name, episodeNo: st.episodeNo, appearance: st.appearance, equipment: st.equipment, injuries: st.injuries, abilities: st.abilities }
+        : null
+    })
+    .filter(Boolean)
+}
+
+function normalizeProduced(arr) {
+  return (Array.isArray(arr) ? arr : [])
+    .filter((x) => x && x.name)
+    .map((x) => ({
+      name: String(x.name).trim(),
+      appearance: String(x.appearance || '').slice(0, 120),
+      equipment: String(x.equipment || '').slice(0, 120),
+      injuries: String(x.injuries || '').slice(0, 120),
+      abilities: String(x.abilities || '').slice(0, 120),
+    }))
+}
+
+/**
+ * 一次 LLM 调用（带预算升级）：先 4000，失败再 8000，最后压缩输入重试。
+ * 分片后单次输出量很小，配合预算升级可显著降低「推理吃满 token → 空输出」概率。
+ */
+async function callStateLLM(llm, ep, text, chars, episodeNo, novelId) {
+  const prev = prevStatesFor(novelId, chars, episodeNo)
+  const names = chars.map((c) => c.name)
+  const budgets = [4000, 8000]
+  let lastError = null
+  for (let i = 0; i < budgets.length; i += 1) {
+    try {
+      const prompt = buildStatePrompt(ep, text, prev, names, { compact: i > 0 })
+      prompt.options.maxTokens = budgets[i]
+      const res = await llm.generateJSON(prompt)
+      const arr = normalizeProduced(res.data && res.data.characters)
+      if (arr.length) return arr
+    } catch (error) {
+      lastError = error
+      logger.warn(`角色形象状态 LLM 第 ${i + 1} 次失败（${chars.length} 角色 / maxTokens=${budgets[i]}）：${error.message}`)
+    }
+  }
+  if (lastError) throw lastError
+  return []
 }
 
 /**
@@ -137,48 +214,6 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
   present = present.slice(0, 12)
   if (!present.length) return []
 
-  const prevStates = present
-    .map((c) => {
-      const st = getCharacterStateAt(novelId, c.id, episodeNo - 1) || getCharacterStateAt(novelId, c.id, episodeNo)
-      return st
-        ? { name: c.name, episodeNo: st.episodeNo, appearance: st.appearance, equipment: st.equipment, injuries: st.injuries, abilities: st.abilities }
-        : null
-    })
-    .filter(Boolean)
-
-  let produced = []
-  if (opts.provider !== 'heuristic') {
-    try {
-      const llm = getLLMProvider()
-      const res = await llm.generateJSON(buildStatePrompt(ep, text, prevStates, present.map((c) => c.name)))
-      const arr = res.data && Array.isArray(res.data.characters) ? res.data.characters : []
-      produced = arr
-        .filter((x) => x && x.name)
-        .map((x) => ({
-          name: String(x.name).trim(),
-          appearance: x.appearance || '',
-          equipment: x.equipment || '',
-          injuries: x.injuries || '',
-          abilities: x.abilities || '',
-        }))
-    } catch (error) {
-      logger.warn(`角色形象状态 LLM 失败：${error.message}`)
-    }
-  }
-  // 回退（不使用角色卡 description：它可能是终态，会污染早期集）
-  const fallbackProduced = () =>
-    present.map((c) => {
-      const prev = getCharacterStateAt(novelId, c.id, episodeNo - 1)
-      const card = c.card || {}
-      return {
-        name: c.name,
-        appearance: (prev && prev.appearance) || card.appearance || '',
-        equipment: (prev && prev.equipment) || '',
-        injuries: (prev && prev.injuries) || '',
-        abilities: (prev && prev.abilities) || '',
-      }
-    })
-
   // 名称匹配：支持别名；再退化为「包含」匹配
   const matchChar = (rawName) => {
     const nm = String(rawName || '').trim()
@@ -188,7 +223,6 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
     return present.find((c) => nm.includes(c.name) || c.name.includes(nm)) || null
   }
 
-  let saved = []
   const persist = (list, source) => {
     const out = []
     for (const item of list) {
@@ -205,6 +239,7 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
             injuries: item.injuries,
             abilities: item.abilities,
             chapterTitle: ep.title || '',
+            note: source === 'base' ? 'LLM 未产出，沿用上一集/角色卡（可重跑）' : '',
           },
           { source }
         )
@@ -213,12 +248,74 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
     return out
   }
 
-  if (produced.length) saved = persist(produced, 'llm')
-  if (!saved.length) {
-    // 回退：本集建立/沿用，不做无据升级
-    saved = persist(fallbackProduced(), 'base')
+  const saved = []
+  let degraded = []
+
+  if (opts.provider !== 'heuristic') {
+    const llm = getLLMProvider()
+    // 分片：每片最多 4 个角色，显著降低单次输出量与推理吃满 token 的风险
+    for (const group of chunk(present, 4)) {
+      try {
+        const arr = await callStateLLM(llm, ep, text, group, episodeNo, novelId)
+        const matched = new Set()
+        const groupSaved = persist(arr, 'llm')
+        for (const item of arr) {
+          const c = matchChar(item.name)
+          if (c) matched.add(c.id)
+        }
+        saved.push(...groupSaved)
+        // 分片成功但漏掉个别角色（常见于配角）→ 对这些角色单独再试一次
+        for (const c of group.filter((x) => !matched.has(x.id))) {
+          try {
+            const arr = await callStateLLM(llm, ep, text, [c], episodeNo, novelId)
+            if (arr.length) saved.push(...persist(arr, 'llm'))
+            else degraded.push(c)
+          } catch {
+            degraded.push(c)
+          }
+        }
+      } catch (error) {
+        // 分片失败 → 逐角色降级重试（每片 1 人，输入更小）
+        logger.warn(`分片失败，改为逐角色重试（第${episodeNo}集）：${error.message}`)
+        for (const c of group) {
+          try {
+            const arr = await callStateLLM(llm, ep, text, [c], episodeNo, novelId)
+            saved.push(...persist(arr, 'llm'))
+            if (!arr.length) degraded.push(c)
+          } catch {
+            degraded.push(c)
+          }
+        }
+      }
+    }
+  } else {
+    degraded = [...present]
   }
-  logger.info(`角色形象状态已生成 novel=${novelId} ep=${episodeNo} 角色=${saved.length}`)
+
+  // 仅对真正没拿到 LLM 结果的角色回退（不使用 description：它可能是终态）
+  if (degraded.length) {
+    for (const c of degraded) {
+      const prev = getCharacterStateAt(novelId, c.id, episodeNo - 1)
+      const card = c.card || {}
+      saved.push(
+        ...persist(
+          [
+            {
+              name: c.name,
+              appearance: (prev && prev.appearance) || card.appearance || '',
+              equipment: (prev && prev.equipment) || '',
+              injuries: (prev && prev.injuries) || '',
+              abilities: (prev && prev.abilities) || '',
+            },
+          ],
+          'base'
+        )
+      )
+    }
+  }
+
+  const llmCount = saved.filter((s) => s.source === 'llm').length
+  logger.info(`角色形象状态已生成 novel=${novelId} ep=${episodeNo} 角色=${saved.length}（LLM ${llmCount} / 回退 ${saved.length - llmCount}）`)
   return saved
 }
 
