@@ -11,6 +11,7 @@ import { listEntities } from './worldbuildingService.js'
 import { clampInt } from '../utils/coerce.js'
 import { runPool } from '../utils/pool.js'
 import { isGenericName } from '../utils/nameFilters.js'
+import { deriveCharacterStages } from './characterGrowthService.js'
 
 /**
  * 设定图集（Sprint 28）
@@ -244,16 +245,38 @@ export function suggestAssets(novelId, opts = {}) {
   const categoryFilter = Array.isArray(opts.categories) && opts.categories.length ? new Set(opts.categories) : null
   const existing = new Set(storageService.listNovelAssetImages(novelId).map((a) => a.sourceId).filter(Boolean))
   const drafts = []
-  const push = (category, name, prompt, source, sourceId) => {
+  const push = (category, name, prompt, source, sourceId, meta = {}) => {
     if (!name || existing.has(sourceId)) return
     if (categoryFilter && !categoryFilter.has(category)) return
-    drafts.push({ category, name, prompt, source, sourceId })
+    drafts.push({ category, name, prompt, source, sourceId, ...meta })
   }
 
+  // 角色：优先按「形象时间线」拆成多个阶段（少年期 / 荒漠期 / 终局形态…），
+  // 避免整个作品只有一张终态设定图。没有时间线时回退为静态角色卡。
+  const withStages = opts.stages !== false
   for (const c of listCharacters(novelId)) {
+    const stages = withStages ? deriveCharacterStages(novelId, c.id, { maxStages: opts.maxStages || 8 }) : []
+    if (stages.length) {
+      for (const st of stages) {
+        const desc = [
+          st.appearance,
+          st.equipment ? `装备：${st.equipment}` : '',
+          st.injuries ? `伤势：${st.injuries}` : '',
+          st.abilities ? `能力：${st.abilities}` : '',
+        ]
+          .filter(Boolean)
+          .join('；')
+        push('character', `${c.name}·第${st.episodeNo}集`, desc, 'character', `${c.id}:ep${st.episodeNo}`, {
+          characterId: c.id,
+          episodeNo: st.episodeNo,
+          stageLabel: `第${st.episodeNo}集`,
+        })
+      }
+      continue
+    }
     const card = c.card || {}
     const desc = [card.appearance, card.personality, card.combatStyle, card.abilities].filter(Boolean).join('；')
-    push('character', c.name, desc, 'character', c.id)
+    push('character', c.name, desc, 'character', c.id, { characterId: c.id })
   }
   for (const e of listEntities(novelId)) {
     const category = ENTITY_CATEGORY[e.type]

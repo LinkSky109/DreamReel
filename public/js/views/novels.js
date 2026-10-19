@@ -690,13 +690,14 @@ async function tabArt({ body, id, refresh }) {
   const assets = (data && data.assets) || []
   const stats = (data && data.stats) || {}
   const active = state.artCategory || 'all'
-  const filtered = active === 'all' ? assets : assets.filter((a) => a.category === active)
+  const stageAssets = assets.filter((a) => a.episodeNo)
+  const filtered = active === 'all' ? assets : active === '__stage' ? stageAssets : assets.filter((a) => a.category === active)
   const card = (a) => `
     <div class="card" style="padding:10px;border:1px solid var(--border-color);">
       <div style="aspect-ratio:16/9;background:var(--bg-secondary,#f3f4f6);border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
         ${a.imageUrl ? `<img data-media="${esc(a.imageUrl)}" alt="${esc(a.name)}" style="width:100%;height:100%;object-fit:cover;" />` : '<span style="font-size:12px;color:var(--text-secondary);">未出图</span>'}
       </div>
-      <div style="font-size:13px;margin-top:6px;font-weight:600;">${esc(a.name)} <span style="font-size:11px;color:#7c3aed;">${esc(ASSET_CAT_LABEL[a.category] || a.category)}</span>${a.source !== 'manual' ? ` <span style="font-size:11px;color:var(--text-secondary);">· ${esc(a.source)}</span>` : ''}</div>
+      <div style="font-size:13px;margin-top:6px;font-weight:600;">${esc(a.name)} <span style="font-size:11px;color:#7c3aed;">${esc(ASSET_CAT_LABEL[a.category] || a.category)}</span>${a.episodeNo ? ` <span style="font-size:11px;color:#16a34a;">· 第${esc(a.episodeNo)}集阶段</span>` : ''}${a.source !== 'manual' && !a.episodeNo ? ` <span style="font-size:11px;color:var(--text-secondary);">· ${esc(a.source)}</span>` : ''}</div>
       ${a.prompt ? `<div style="font-size:11px;color:var(--text-secondary);max-height:32px;overflow:hidden;">${esc(a.prompt)}</div>` : ''}
       ${a.error ? `<div style="font-size:11px;color:#dc2626;">${esc(a.error)}</div>` : ''}
       <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
@@ -712,13 +713,15 @@ async function tabArt({ body, id, refresh }) {
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
           <span id="nvArtBulkInfo" style="font-size:12px;color:#7c3aed;"></span>
           <button id="nvArtBulk" class="btn btn-sm">本类批量出图</button>
-          <button id="nvArtSuggest" class="btn btn-sm">从角色/世界观导入候选</button>
+          <button id="nvArtSuggest" class="btn btn-sm">从角色/世界观导入候选（含各阶段）</button>
         </div>
       </div>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">共 ${assets.length} · 已出图 ${esc(stats.generated || 0)} · 失败 ${esc(stats.failed || 0)} · ${ASSET_CATEGORIES.map(([k, l]) => `${l} ${esc((stats.byCategory && stats.byCategory[k]) || 0)}`).join(' · ')}</div>
       <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">批量出图按「当前类别」逐张生成（单张约 1 分钟、走付费 provider）；分批续跑，可随时停。</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">角色会按「形象时间线」拆成多个阶段（如 少年期 / 荒漠期 / 终局形态），每个阶段一张设定图；无时间线时回退为单张角色卡。</div>
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-sm ${active === 'all' ? 'btn-primary' : ''}" data-acat="all">全部 ${assets.length}</button>
+        <button class="btn btn-sm ${active === '__stage' ? 'btn-primary' : ''}" data-acat="__stage">角色阶段 ${stageAssets.length}</button>
         ${ASSET_CATEGORIES.map(([k, l]) => `<button class="btn btn-sm ${active === k ? 'btn-primary' : ''}" data-acat="${k}">${l} ${esc((stats.byCategory && stats.byCategory[k]) || 0)}</button>`).join('')}
       </div>
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">

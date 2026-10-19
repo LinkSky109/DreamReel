@@ -342,6 +342,51 @@ export function buildTimeline(novelId) {
   return out
 }
 
+/** 文本相似度（字符二元组 Jaccard），用于判断两个阶段是否真的发生了变化 */
+function similarity(a, b) {
+  const x = String(a || '').replace(/\s+/g, '')
+  const y = String(b || '').replace(/\s+/g, '')
+  if (!x && !y) return 1
+  if (!x || !y) return 0
+  const grams = (s) => {
+    const set = new Set()
+    for (let i = 0; i < s.length - 1; i += 1) set.add(s.slice(i, i + 2))
+    if (!set.size) set.add(s)
+    return set
+  }
+  const A = grams(x)
+  const B = grams(y)
+  let inter = 0
+  for (const g of A) if (B.has(g)) inter += 1
+  return inter / (A.size + B.size - inter)
+}
+
+/**
+ * 从形象时间线里提炼「有意义的阶段」：外观/装备/能力发生实质变化时才切一个阶段。
+ * 返回按集号升序的阶段状态（最多 maxStages 个，均匀抽样保留首尾）。
+ */
+export function deriveCharacterStages(novelId, characterId, { maxStages = 8 } = {}) {
+  const states = listStates(novelId, characterId)
+  if (!states.length) return []
+  const changed = (a, b) =>
+    similarity(a.appearance, b.appearance) < 0.62 ||
+    String(a.equipment || '').trim() !== String(b.equipment || '').trim() ||
+    similarity(a.abilities, b.abilities) < 0.62 ||
+    String(a.injuries || '').trim() !== String(b.injuries || '').trim()
+
+  const stages = [states[0]]
+  for (let i = 1; i < states.length; i += 1) {
+    if (changed(states[i], stages[stages.length - 1])) stages.push(states[i])
+  }
+  if (stages.length <= maxStages) return stages
+
+  const picked = []
+  for (let i = 0; i < maxStages; i += 1) {
+    picked.push(stages[Math.round((i * (stages.length - 1)) / (maxStages - 1))])
+  }
+  return picked.filter((s, i) => picked.findIndex((x) => x.id === s.id) === i)
+}
+
 /** 校验某集是否已具备出场角色的形象状态；返回缺失角色名 */
 export function missingStatesForEpisode(novelId, episodeNo, names = []) {
   const chars = listCharacters(novelId).filter((c) => c.name && names.includes(c.name))
@@ -357,5 +402,6 @@ export default {
   buildAppearanceDirective,
   generateEpisodeStates,
   buildTimeline,
+  deriveCharacterStages,
   missingStatesForEpisode,
 }

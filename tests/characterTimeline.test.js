@@ -9,6 +9,7 @@ import {
   buildAppearanceDirective,
   missingStatesForEpisode,
   buildTimeline,
+  deriveCharacterStages,
 } from '../src/services/characterGrowthService.js'
 
 let novelId
@@ -58,6 +59,31 @@ describe('角色形象时间线 characterGrowthService', () => {
     const other = storageService.createNovelCharacter({ id: 'c-timeline-2', novelId, name: '丽儿', aliases: [], card: {}, description: '' })
     assert.deepEqual(missingStatesForEpisode(novelId, 1, ['丽儿']), ['丽儿'])
     storageService.deleteNovelCharacterStates(novelId, other.id, null)
+  })
+
+  it('deriveCharacterStages 只在形象实质变化时切阶段', () => {
+    const c = storageService.createNovelCharacter({ id: 'c-stage-1', novelId, name: '阶段测试', aliases: [], card: {}, description: '' })
+    upsertState(novelId, c.id, 1, { appearance: '少年，破旧斗篷，脸上带疤', equipment: '铁片' }, { source: 'llm' })
+    upsertState(novelId, c.id, 2, { appearance: '少年，破旧斗篷，脸上带疤', equipment: '铁片' }, { source: 'llm' }) // 无变化
+    upsertState(novelId, c.id, 3, { appearance: '青年，皮甲，短发', equipment: '猎枪' }, { source: 'llm' }) // 变化
+    upsertState(novelId, c.id, 4, { appearance: '青年，皮甲，短发', equipment: '猎枪' }, { source: 'llm' }) // 无变化
+    upsertState(novelId, c.id, 5, { appearance: '深渊化，背生黑翼', equipment: '光刃' }, { source: 'llm' }) // 变化
+    const stages = deriveCharacterStages(novelId, c.id, { maxStages: 8 })
+    assert.deepEqual(
+      stages.map((s) => s.episodeNo),
+      [1, 3, 5]
+    )
+  })
+
+  it('deriveCharacterStages 超过上限时均匀抽样并保留首尾', () => {
+    const c = storageService.createNovelCharacter({ id: 'c-stage-2', novelId, name: '阶段抽样', aliases: [], card: {}, description: '' })
+    for (let i = 1; i <= 10; i += 1) {
+      upsertState(novelId, c.id, i, { appearance: `第${i}阶段完全不同外形${'x'.repeat(i)}`, equipment: `装备${i}` }, { source: 'llm' })
+    }
+    const stages = deriveCharacterStages(novelId, c.id, { maxStages: 4 })
+    assert.equal(stages.length, 4)
+    assert.equal(stages[0].episodeNo, 1)
+    assert.equal(stages[stages.length - 1].episodeNo, 10)
   })
 
   it('buildTimeline 按角色聚合', () => {

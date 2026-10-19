@@ -941,8 +941,8 @@ router.post('/:id/assets/bulk-generate', async (req, res) => {
 
 router.post('/:id/assets/suggest', (req, res) => {
   try {
-    const { categories } = req.body || {}
-    const created = suggestAssets(req.params.id, { categories })
+    const { categories, stages, maxStages } = req.body || {}
+    const created = suggestAssets(req.params.id, { categories, stages, maxStages })
     res.json({ success: true, data: { created: created.length, assets: listAssets(req.params.id), stats: assetStats(req.params.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })

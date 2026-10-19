@@ -26,6 +26,10 @@ export class NovelAssetImage {
     this.prompt = data.prompt || ''
     this.source = data.source || 'manual' // manual | character | entity
     this.sourceId = data.sourceId || null
+    // 角色分阶段设定图：锚定角色与集号（同一角色的不同成长阶段）
+    this.characterId = data.characterId || null
+    this.episodeNo = data.episodeNo ?? null
+    this.stageLabel = data.stageLabel || ''
     this.status = data.status || 'draft' // draft | generated | failed
     this.imageUrl = data.imageUrl || null
     this.filePath = data.filePath || null
