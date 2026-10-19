@@ -36,6 +36,8 @@ export class VolcTTSProvider extends BaseTTSProvider {
     this.baseUrl = cfg.volcTtsBaseUrl || process.env.VOLC_TTS_BASE_URL || 'https://openspeech.bytedance.com'
     // 注意：Agent Plan 的 TTS 路径带 /plan/
     this.path = cfg.volcTtsPath || process.env.VOLC_TTS_PATH || '/api/v3/plan/tts/unidirectional'
+    // 自建音色（复刻/设计）走标准 V3 路径，不走 Agent Plan 路径
+    this.customPath = cfg.volcTtsCustomPath || process.env.VOLC_TTS_CUSTOM_PATH || '/api/v3/tts/unidirectional'
     this.resourceId = cfg.volcTtsResourceId || process.env.VOLC_TTS_RESOURCE_ID || 'seed-tts-2.0'
     this.speaker = cfg.volcTtsSpeaker || process.env.VOLC_TTS_SPEAKER || 'zh_female_vv_uranus_bigtts'
     this.format = cfg.volcTtsFormat || process.env.VOLC_TTS_FORMAT || 'mp3'
@@ -43,7 +45,7 @@ export class VolcTTSProvider extends BaseTTSProvider {
     this.timeout = cfg.timeout || parseInt(process.env.LLM_TIMEOUT_MS || '', 10) || 60000
   }
 
-  async synthesize({ text, voice } = {}) {
+  async synthesize({ text, voice, resourceId } = {}) {
     if (!this.apiKey) throw new Error('缺少 Agent Plan API Key（VOLC_TTS_API_KEY / SEEDANCE_API_KEY）')
     if (!text) throw new Error('TTS 文本为空')
 
@@ -54,11 +56,12 @@ export class VolcTTSProvider extends BaseTTSProvider {
         audio_params: { format: this.format, sample_rate: this.sampleRate },
       },
     }
-    const res = await fetch(`${this.baseUrl}${this.path}`, {
+    const fetchPath = resourceId ? this.customPath : this.path
+    const res = await fetch(`${this.baseUrl}${fetchPath}`, {
       method: 'POST',
       headers: {
         'X-Api-Key': this.apiKey,
-        'X-Api-Resource-Id': this.resourceId,
+        'X-Api-Resource-Id': resourceId || this.resourceId,
         'X-Api-Request-Id': randomUUID(),
         'X-Control-Require-Usage-Tokens-Return': '*',
         'Content-Type': 'application/json',

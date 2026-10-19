@@ -207,12 +207,29 @@ async function renderList(container) {
       </section>
       <div style="display:grid;gap:10px;">
         ${novels.length ? novels.map((n) => `
-          <a href="#/novel/${esc(n.id)}" class="card" style="padding:14px;border:1px solid var(--border-color);display:block;">
-            <div style="font-weight:600;">${esc(n.title)} <span style="font-size:12px;color:var(--text-secondary);">${esc(n.author || '')}</span></div>
-            <div style="font-size:12px;color:var(--text-secondary);">阶段 ${esc(STAGE_LABEL[n.stage] || n.stage)} · 章 ${esc((n.counts && n.counts.chapters) || 0)} · 角色 ${esc((n.counts && n.counts.characters) || 0)} · 集 ${esc((n.counts && n.counts.episodes) || 0)}</div>
-          </a>`).join('') : '<div style="color:var(--text-secondary);">还没有小说项目</div>'}
+          <div class="card" style="padding:14px;border:1px solid var(--border-color);display:flex;align-items:center;gap:10px;">
+            <a href="#/novel/${esc(n.id)}" style="display:block;flex:1;color:inherit;text-decoration:none;">
+              <div style="font-weight:600;">${esc(n.title)} <span style="font-size:12px;color:var(--text-secondary);">${esc(n.author || '')}</span></div>
+              <div style="font-size:12px;color:var(--text-secondary);">阶段 ${esc(STAGE_LABEL[n.stage] || n.stage)} · 章 ${esc((n.counts && n.counts.chapters) || 0)} · 角色 ${esc((n.counts && n.counts.characters) || 0)} · 集 ${esc((n.counts && n.counts.episodes) || 0)}</div>
+            </a>
+            <button class="btn btn-sm" data-delnovel="${esc(n.id)}" data-title="${esc(n.title)}" style="color:#dc2626;">删除</button>
+          </div>`).join('') : '<div style="color:var(--text-secondary);">还没有小说项目</div>'}
       </div>
     </div>`
+
+  container.querySelectorAll('[data-delnovel]').forEach((b) => b.addEventListener('click', async () => {
+    const title = b.dataset.title || b.dataset.delnovel
+    if (!confirm(`确定删除「${title}」？\n\n会同时删除该项目的角色/剧本/资产/成片/同步记录，不可恢复。`)) return
+    b.disabled = true
+    try {
+      await api.deleteNovel(b.dataset.delnovel)
+      showToast('已删除', 'success')
+      renderList(container)
+    } catch (err) {
+      b.disabled = false
+      showToast(err.message, 'error')
+    }
+  }))
 
   container.querySelector('#novelCreate')?.addEventListener('submit', async (e) => {
     e.preventDefault()
@@ -534,6 +551,30 @@ async function tabCharacters({ body, novel, id, refresh }) {
       refresh()
     } catch (err) { showToast(err.message, 'error') }
   }))
+
+  // 形象时间线（按剧情演进）
+  const tlHost = document.createElement('section')
+  tlHost.className = 'card'
+  tlHost.style.cssText = 'padding:16px;margin-top:14px;'
+  tlHost.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <h3 style="margin:0;">形象时间线（角色随剧情演进）</h3>
+      <button id="nvTlLoad" class="btn btn-sm">加载</button>
+    </div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">同一角色在不同集的外观/装备/能力；出图会按当集状态生成。</div>
+    <div id="nvTlBody" style="margin-top:8px;"></div>`
+  body.appendChild(tlHost)
+  tlHost.querySelector('#nvTlLoad')?.addEventListener('click', async () => {
+    const host = tlHost.querySelector('#nvTlBody')
+    host.textContent = '加载中…'
+    try {
+      const tl = unwrap(await api.listNovelTimeline(id)).timeline || []
+      host.innerHTML = tl.length
+        ? tl.map((c) => `<details style="margin-bottom:6px;"><summary style="cursor:pointer;font-size:13px;"><b>${esc(c.name)}</b> · ${c.states.length} 个时间点</summary>
+            <div style="margin:6px 0 0 12px;">${c.states.map((s) => `<div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;"><b>第${esc(s.episodeNo)}集</b>：${esc(s.appearance || '')}${s.equipment ? `；装备：${esc(s.equipment)}` : ''}${s.injuries ? `；伤势：${esc(s.injuries)}` : ''}${s.abilities ? `；能力：${esc(s.abilities)}` : ''} <span style="color:#7c3aed;">[${esc(s.source)}]</span></div>`).join('')}</div>
+          </details>`).join('')
+        : '<div style="font-size:12px;color:var(--text-secondary);">暂无形象记录，可在「单集」页生成。</div>'
+    } catch (err) { host.textContent = err.message }
+  })
 }
 
 // ---------- 世界观 ----------
@@ -863,10 +904,13 @@ async function tabEpisode({ body, novel, id, refresh }) {
   }
 
   let panel = ''
+  const shotEp = state.shotEpisodeId ? episodes.find((e) => e.id === state.shotEpisodeId) : null
+  const seasonTitle = (seasons.find((s) => s.id === seasonId) || {}).title || '本季'
   if (state.shotEpisodeId) {
-    const [shots, assetData] = await Promise.all([
+    const [shots, assetData, epStates] = await Promise.all([
       api.listEpisodeShots(id, state.shotEpisodeId).then(unwrap).catch(() => []),
       api.listNovelAssets(id).then(unwrap).catch(() => ({ assets: [] })),
+      api.listEpisodeStates(id, state.shotEpisodeId).then(unwrap).catch(() => ({ episodeNo: null, items: [] })),
     ])
     const assetsWithImg = ((assetData && assetData.assets) || []).filter((a) => a.imageUrl)
     const CATS = [...new Set(assetsWithImg.map((a) => a.category))]
@@ -879,16 +923,18 @@ async function tabEpisode({ body, novel, id, refresh }) {
     window.__nvActiveRefs = activeRefs
     window.__nvShotRefs = Object.fromEntries(shots.map((s) => [s.index, s.referenceImages || []]))
     panel = `
-      <section class="card" style="padding:16px;margin-bottom:14px;border:1px solid #7c3aed;">
+      <section id="nvShotPanel" class="card" style="padding:16px;margin-bottom:14px;border:2px solid #7c3aed;">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">${esc(seasonTitle)} ｜ 单集分镜详情</div>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-          <h3 style="margin:0;">分镜 / 外部生成</h3>
+          <h3 style="margin:0;">第 ${esc(shotEp ? shotEp.episodeNo : '?')} 集 · 分镜 / 外部生成</h3>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button id="nvShotAuto" class="btn btn-sm">自动匹配参考图</button>
             <button id="nvShotExport" class="btn btn-sm btn-primary">导出分镜清单</button>
             <button id="nvShotImport" class="btn btn-sm">导入回传视频</button>
-            <button id="nvShotClose" class="btn btn-sm">收起</button>
+            <button id="nvShotClose" class="btn btn-sm">返回集列表</button>
           </div>
         </div>
+        <div style="font-size:13px;color:var(--text-primary);margin-top:4px;font-weight:600;">${esc(shotEp ? shotEp.title : `集 ${state.shotEpisodeId}`)}</div>
         <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">分镜 <b>${shots.length}</b> · 已回传 <b>${returned}</b> · 已配参考图 <b>${refd}</b> · 图集可用 <b>${assetsWithImg.length}</b></div>
         <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">流程：导出 manifest+refs → 外部工具逐分镜生成 → 放回 <code>/storage/videos/novels/&lt;id&gt;/shots/&lt;eid&gt;/shotNN.mp4</code> → 导入 → 成片按分镜拼接</div>
         <div style="display:grid;gap:8px;margin-top:10px;">
@@ -910,6 +956,28 @@ async function tabEpisode({ body, novel, id, refresh }) {
               ${s.videoUrl ? `<video data-media="${esc(s.videoUrl)}" controls preload="metadata" style="max-width:320px;margin-top:8px;border-radius:4px;border:1px solid var(--border-color);"></video>` : ''}
             </div>`
           }).join('') : '<div style="color:var(--text-secondary);">该集暂无分镜，先点「剧本」生成。</div>'}
+        </div>
+        <div style="margin-top:12px;border-top:1px dashed var(--border-color);padding-top:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <b style="font-size:13px;">本集角色形象（第 ${esc(epStates.episodeNo || '?')} 集，随剧情时间演进）</b>
+            <button id="nvEpStateGen" class="btn btn-sm">生成 / 刷新本集形象</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">出图 / 出片会按这里的外观与装备生成，避免出现尚未获得的装备。</div>
+          <div id="nvEpStateList" style="display:grid;gap:6px;margin-top:8px;">
+            ${(epStates.items || []).length ? (epStates.items).map((it) => {
+              const s = it.exact || it.effective || {}
+              return `<div style="border:1px solid var(--border-color);border-radius:6px;padding:8px;" data-state-cid="${esc(it.characterId)}" data-state-name="${esc(it.name)}" data-state-ep="${esc(epStates.episodeNo)}">
+                <div style="font-size:12px;font-weight:600;">${esc(it.name)} ${it.exact ? '<span style="color:#16a34a;font-size:11px;">· 本集已定</span>' : '<span style="color:#d97706;font-size:11px;">· 沿用第' + esc((it.effective && it.effective.episodeNo) || '?') + '集</span>'}</div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px;margin-top:6px;">
+                  <input class="form-input" style="padding:4px;" data-sf="appearance" placeholder="外观" value="${esc(s.appearance || '')}" />
+                  <input class="form-input" style="padding:4px;" data-sf="equipment" placeholder="装备（本集已持有）" value="${esc(s.equipment || '')}" />
+                  <input class="form-input" style="padding:4px;" data-sf="injuries" placeholder="伤势/状态" value="${esc(s.injuries || '')}" />
+                  <input class="form-input" style="padding:4px;" data-sf="abilities" placeholder="能力阶段" value="${esc(s.abilities || '')}" />
+                </div>
+                <div style="margin-top:6px;"><button class="btn btn-sm" data-state-save="1">保存本集形象</button></div>
+              </div>`
+            }).join('') : '<div style="color:var(--text-secondary);font-size:12px;">该集尚无角色形象，点「生成 / 刷新本集形象」。</div>'}
+          </div>
         </div>
         ${active ? `
           <div class="card" style="margin-top:10px;border:1px solid #7c3aed;padding:10px;">
@@ -962,7 +1030,7 @@ async function tabEpisode({ body, novel, id, refresh }) {
     </div>
     <div style="display:grid;gap:8px;">
       ${pageItems.length ? pageItems.map((e) => `
-        <div class="card" style="padding:10px;border:1px solid var(--border-color);">
+        <div class="card" id="nvEpCard_${esc(e.id)}" style="padding:10px;border:1px solid ${state.shotEpisodeId === e.id ? '#7c3aed' : 'var(--border-color)'};${state.shotEpisodeId === e.id ? 'box-shadow:0 0 0 2px rgba(124,58,237,.25);' : ''}">
           <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;">
             <div style="font-size:13px;min-width:260px;"><b>#${esc(e.episodeNo)}</b> ${esc(e.title)} <span style="color:var(--text-secondary);font-size:12px;">· ${esc(e.targetSeconds)}s${e.screenplay ? ` · 已成片 ${esc(e.screenplay.totalSeconds)}s` : ''}</span><div style="margin-top:3px;">${epBadges(e)}</div></div>
             <div style="display:flex;gap:6px;">
@@ -1055,9 +1123,26 @@ async function tabEpisode({ body, novel, id, refresh }) {
     runEpAction(b, '生成中…', () => api.generateEpisodeScript(id, b.dataset.script, {}).then(unwrap), (r) => `剧本已生成（${((r && r.shots) || []).length} 分镜）`)
   }))
   body.querySelectorAll('[data-shots]').forEach((b) => b.addEventListener('click', () => {
-    state.shotEpisodeId = state.shotEpisodeId === b.dataset.shots ? null : b.dataset.shots
+    const eid = b.dataset.shots
+    if (state.shotEpisodeId === eid) {
+      state.shotEpisodeId = null
+    } else {
+      state.shotEpisodeId = eid
+      state.shotAddFor = null
+      // 让被打开的集停留在当前可见页，避免“点了分镜但看不到是哪一集”
+      const idx = filtered.findIndex((e) => e.id === eid)
+      if (idx >= 0) state.epPage = Math.floor(idx / PAGE_SIZE) + 1
+    }
     refresh()
   }))
+
+  // 打开分镜详情后，滚动到面板顶部，明确当前集
+  if (state.shotEpisodeId) {
+    requestAnimationFrame(() => {
+      const p = body.querySelector('#nvShotPanel')
+      if (p && p.scrollIntoView) p.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
   body.querySelectorAll('[data-assets]').forEach((b) => b.addEventListener('click', () => {
     runEpAction(b, '生成中…', async () => {
       const r = unwrap(await api.generateEpisodeAssets(id, b.dataset.assets, {}))
@@ -1090,6 +1175,41 @@ async function tabEpisode({ body, novel, id, refresh }) {
         refresh()
       } catch (err) { showToast(err.message, 'error') }
     })
+    // 本集角色形象：生成/刷新
+    body.querySelector('#nvEpStateGen')?.addEventListener('click', async () => {
+      const btn = body.querySelector('#nvEpStateGen')
+      const old = btn.textContent
+      btn.disabled = true
+      btn.textContent = '生成中…'
+      try {
+        const r = unwrap(await api.generateEpisodeStates(id, eid, {}))
+        showToast(`本集角色形象已生成（${r.count} 个）`, 'success')
+        refresh()
+      } catch (err) {
+        showToast(err.message, 'error')
+      } finally {
+        btn.disabled = false
+        btn.textContent = old
+      }
+    })
+    // 本集角色形象：保存
+    body.querySelectorAll('[data-state-save]').forEach((b) => b.addEventListener('click', async () => {
+      const row = b.closest('[data-state-cid]')
+      if (!row) return
+      const cid = row.dataset.stateCid
+      const episodeNo = Number(row.dataset.stateEp)
+      const patch = {}
+      row.querySelectorAll('[data-sf]').forEach((inp) => { patch[inp.dataset.sf] = inp.value.trim() })
+      b.disabled = true
+      try {
+        await api.upsertCharacterState(id, cid, episodeNo, patch)
+        showToast(`「${row.dataset.stateName}」第 ${episodeNo} 集形象已保存`, 'success')
+      } catch (err) {
+        showToast(err.message, 'error')
+      } finally {
+        b.disabled = false
+      }
+    }))
     // 打开“为该分镜添加参考图”的选择器
     body.querySelectorAll('[data-refadd]').forEach((b) => b.addEventListener('click', () => {
       const idx = Number(b.dataset.refadd)
@@ -1148,9 +1268,11 @@ async function tabSync({ body, novel, id, refresh }) {
   const voices = await api.listNovelVoices(id).then(unwrap).catch(() => null)
   const voiceOpts = (cur) => {
     const cat = (voices && voices.catalog) || []
+    const cus = (voices && voices.custom) || []
     const opts = cat.map((v) => `<option value="${esc(v.id)}" ${cur === v.id ? 'selected' : ''}>${esc(v.name)}（${esc(v.gender)}）</option>`).join('')
-    const known = cat.some((v) => v.id === cur)
-    return `<option value="">（默认）</option>${opts}${cur && !known ? `<option value="${esc(cur)}" selected>自定义：${esc(cur)}</option>` : ''}<option value="__custom__">自定义…</option>`
+    const customOpts = cus.map((v) => `<option value="${esc(v.id)}" ${cur === v.id ? 'selected' : ''}>${esc(v.name)}（${v.type === 'design' ? '设计' : '复刻'}）</option>`).join('')
+    const known = [...cat, ...cus].some((v) => v.id === cur)
+    return `<option value="">（默认）</option>${opts}${customOpts ? `<optgroup label="自建音色">${customOpts}</optgroup>` : ''}${cur && !known ? `<option value="${esc(cur)}" selected>自定义：${esc(cur)}</option>` : ''}<option value="__custom__">自定义 ID…</option>`
   }
   body.innerHTML = `
     <section class="card" style="padding:16px;margin-bottom:14px;">
@@ -1169,20 +1291,56 @@ async function tabSync({ body, novel, id, refresh }) {
     <section class="card" style="padding:16px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <h3 style="margin:0;">角色音色（固定，跨全集一致）</h3>
-        <button id="nvVoiceReset" class="btn btn-sm">重置为自动分配</button>
+        <div style="display:flex;gap:6px;">
+          <button id="nvVoiceNew" class="btn btn-sm btn-primary">新建音色</button>
+          <button id="nvVoiceReset" class="btn btn-sm">重置为自动分配</button>
+        </div>
       </div>
-      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">每个角色固定一把声音；旁白单独一轨。可选内置音色，或选「自定义…」填任意音色 ID（含声音复刻的 <code>S_xxx</code>）。</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">每个角色固定一把声音；旁白单独一轨。可选内置音色 / 自建音色，或选「自定义 ID」填任意音色 ID（含声音复刻的 <code>S_xxx</code>）。</div>
+      <div id="nvVoiceBuilder" style="display:none;margin-top:10px;border:1px dashed #7c3aed;border-radius:8px;padding:12px;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="nvVBMode" class="form-input" style="width:auto;padding:4px;">
+            <option value="clone">声音复刻（上传音频样本）</option>
+            <option value="design">音色设计（文本描述）</option>
+          </select>
+          <input id="nvVBName" class="form-input" style="padding:4px;max-width:180px;" placeholder="音色名称（如：血瞳-少年）" />
+          <input id="nvVBGender" class="form-input" style="padding:4px;width:90px;" placeholder="性别(男/女)" />
+          <select id="nvVBAssign" class="form-input" style="width:auto;padding:4px;">
+            <option value="">生成后不指派</option>
+            <option value="旁白">指派给：旁白</option>
+            ${((voices && voices.characters) || []).map((c) => `<option value="${esc(c.name)}">指派给：${esc(c.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div id="nvVBCloneBox" style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input id="nvVBAudio" type="file" accept="audio/*" />
+          <input id="nvVBText" class="form-input" style="padding:4px;flex:1;min-width:220px;" placeholder="参考文本（选填；与音频一致可提升成功率）" />
+        </div>
+        <div id="nvVBDesignBox" style="margin-top:8px;display:none;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input id="nvVBSpeaker" class="form-input" style="padding:4px;max-width:220px;" placeholder="已购买的 speaker_id（控制台购买）" />
+          <input id="nvVBPrompt" class="form-input" style="padding:4px;flex:1;min-width:240px;" placeholder="音色描述（如：女性，语速中等偏快，语调低沉有力）" />
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+          <button id="nvVBSubmit" class="btn btn-sm btn-primary">生成并保存</button>
+          <button id="nvVBCancel" class="btn btn-sm">取消</button>
+          <span id="nvVBMsg" style="font-size:12px;color:var(--text-secondary);"></span>
+        </div>
+        <div style="font-size:11px;color:#d97706;margin-top:6px;">计费提醒：声音复刻首次合成、音色设计槽位均可能产生费用；复刻后 7 天未合成会自动清理。</div>
+      </div>
       ${voices
         ? `<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
              <b style="font-size:13px;">旁白</b>
              <select class="form-input" style="padding:4px;max-width:280px;" data-voice-spk="旁白">${voiceOpts(voices.narrator)}</select>
+             <button class="btn btn-sm" data-voice-preview="旁白">试听</button>
            </div>
-           <div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px;max-height:360px;overflow:auto;">
+           <div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:8px;max-height:360px;overflow:auto;">
              ${(voices.characters || []).map((c) => `<div style="display:flex;gap:8px;align-items:center;">
                <span style="font-size:13px;min-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(c.name)}">${esc(c.name)}${c.gender ? `<span style="color:var(--text-secondary);font-size:11px;">·${esc(c.gender)}</span>` : ''}</span>
                <select class="form-input" style="padding:4px;flex:1;" data-voice-spk="${esc(c.name)}">${voiceOpts(c.voice)}</select>
+               <button class="btn btn-sm" data-voice-preview="${esc(c.name)}">试听</button>
              </div>`).join('') || '<div style="color:var(--text-secondary);">暂无角色</div>'}
-           </div>`
+           </div>
+           ${(voices.custom || []).length ? `<div style="margin-top:10px;font-size:12px;color:var(--text-secondary);">自建音色：${voices.custom.map((v) => `${esc(v.name)}（${v.type === 'design' ? '设计' : '复刻'}）`).join('、')}</div>` : ''}
+           <div id="nvVoicePreview" style="margin-top:8px;"></div>`
         : '<div style="font-size:13px;color:var(--text-secondary);margin-top:8px;">（角色音色不可用）</div>'}
     </section>
     <section class="card" style="padding:16px;margin-bottom:14px;">
@@ -1225,12 +1383,15 @@ async function tabSync({ body, novel, id, refresh }) {
           <option value="overwrite">覆盖同名</option>
           <option value="skip">跳过已存在</option>
         </select>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-secondary);" title="忽略本地增量记录，强制重新上传清单内所有文件">
+          <input type="checkbox" id="nvSyncForce" /> 完整重传
+        </label>
         <button id="nvSyncWebdavPlan" class="btn btn-sm">预览变更</button>
         <button id="nvSyncWebdav" class="btn btn-sm">同步到 WebDAV</button>
         <button id="nvSyncQuarkPlan" class="btn btn-sm">夸克预览</button>
         <button id="nvSyncQuark" class="btn btn-sm">同步到夸克</button>
       </div>
-      <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;">WebDAV 连接在 <code>.env</code> 配置（<code>WEBDAV_URL/USERNAME/PASSWORD</code>）；夸克需配置 <code>QUARK_COOKIE</code>（未配置时同步会如实报错，预览始终可用）。</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;">WebDAV 连接在 <code>.env</code> 配置（<code>WEBDAV_URL/USERNAME/PASSWORD</code>）；夸克需配置 <code>QUARK_COOKIE</code>（未配置时同步会如实报错，预览始终可用）。同步完成后会核对远端文件数，缺失会明确提示。</div>
       <pre id="nvSyncReport" style="display:none;margin-top:10px;font-size:11px;max-height:240px;overflow:auto;background:var(--bg-secondary,#f5f5f5);padding:8px;border-radius:6px;"></pre>
     </section>`
 
@@ -1323,12 +1484,97 @@ async function tabSync({ body, novel, id, refresh }) {
   body.querySelector('#nvVoiceReset')?.addEventListener('click', async () => {
     try { await api.resetNovelVoices(id); showToast('已重置为自动分配', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
   })
+
+  // 试听：对当前选中音色合成一小段
+  body.querySelectorAll('[data-voice-preview]').forEach((b) => b.addEventListener('click', async () => {
+    const spk = b.dataset.voicePreview
+    const sel = body.querySelector(`[data-voice-spk="${CSS.escape(spk)}"]`)
+    const voice = sel && sel.value && sel.value !== '__custom__' ? sel.value : ''
+    b.disabled = true
+    const old = b.textContent
+    b.textContent = '合成中…'
+    try {
+      const r = unwrap(await api.previewNovelVoice(id, { voice }))
+      const box = body.querySelector('#nvVoicePreview')
+      if (box) box.innerHTML = `<audio controls autoplay src="${esc(r.audioUrl)}" style="height:32px;"></audio> <span style="font-size:12px;color:var(--text-secondary);">${esc(spk)} 试听（${esc(String(r.duration || ''))}s）</span>`
+    } catch (err) {
+      showToast(`试听失败：${err.message}`, 'error')
+    } finally {
+      b.disabled = false
+      b.textContent = old
+    }
+  }))
+
+  // 新建音色
+  const vb = body.querySelector('#nvVoiceBuilder')
+  body.querySelector('#nvVoiceNew')?.addEventListener('click', () => {
+    if (vb) vb.style.display = vb.style.display === 'none' ? 'block' : 'none'
+  })
+  body.querySelector('#nvVBCancel')?.addEventListener('click', () => { if (vb) vb.style.display = 'none' })
+  body.querySelector('#nvVBMode')?.addEventListener('change', (e) => {
+    const clone = e.target.value === 'clone'
+    const cb = body.querySelector('#nvVBCloneBox')
+    const db = body.querySelector('#nvVBDesignBox')
+    if (cb) cb.style.display = clone ? 'flex' : 'none'
+    if (db) db.style.display = clone ? 'none' : 'flex'
+  })
+  const readAudioBase64 = (file) => new Promise((resolve, reject) => {
+    const fr = new FileReader()
+    fr.onerror = () => reject(new Error('读取音频失败'))
+    fr.onload = () => {
+      const m = String(fr.result || '').match(/^data:([^;]+);base64,(.*)$/)
+      if (!m) return reject(new Error('音频格式无法识别'))
+      const fmtFromMime = (m[1].split('/')[1] || '').replace('mpeg', 'mp3').replace('x-wav', 'wav')
+      resolve({ base64: m[2], format: fmtFromMime })
+    }
+    fr.readAsDataURL(file)
+  })
+  body.querySelector('#nvVBSubmit')?.addEventListener('click', async () => {
+    const btn = body.querySelector('#nvVBSubmit')
+    const msg = body.querySelector('#nvVBMsg')
+    const setMsg = (t) => { if (msg) msg.textContent = t || '' }
+    const mode = body.querySelector('#nvVBMode')?.value
+    const name = (body.querySelector('#nvVBName')?.value || '').trim()
+    const gender = (body.querySelector('#nvVBGender')?.value || '').trim()
+    const assignTo = body.querySelector('#nvVBAssign')?.value || undefined
+    if (!name) return setMsg('请填音色名称')
+    btn.disabled = true
+    try {
+      let r
+      if (mode === 'clone') {
+        const file = body.querySelector('#nvVBAudio')?.files?.[0]
+        if (!file) { btn.disabled = false; return setMsg('请选择音频样本') }
+        setMsg('上传复刻中…')
+        const { base64, format } = await readAudioBase64(file)
+        r = unwrap(await api.cloneNovelVoice(id, {
+          name, gender, audioBase64: base64, format,
+          text: (body.querySelector('#nvVBText')?.value || '').trim(),
+          assignTo,
+        }))
+      } else {
+        const speakerId = (body.querySelector('#nvVBSpeaker')?.value || '').trim()
+        const textPrompt = (body.querySelector('#nvVBPrompt')?.value || '').trim()
+        if (!speakerId) { btn.disabled = false; return setMsg('音色设计需填已购买的 speaker_id') }
+        setMsg('设计中…')
+        r = unwrap(await api.designNovelVoice(id, { name, gender, speakerId, textPrompt, assignTo }))
+      }
+      showToast(`音色「${name}」已生成`, 'success')
+      refresh()
+      return r
+    } catch (err) {
+      setMsg(`❌ ${err.message}`)
+    } finally {
+      btn.disabled = false
+    }
+  })
   body.querySelector('#nvSyncLocalPlan')?.addEventListener('click', async () => {
     const targetDir = body.querySelector('#nvSyncDir')?.value?.trim()
     if (!targetDir) return showToast('请填目标目录', 'error')
     const scope = body.querySelector('#nvSyncScope')?.value
     try { const r = unwrap(await api.syncNovel(id, { backend: 'local', dryRun: true, targetDir, scope })); showReport(r); showToast(`待传输 ${r.changed}/${r.fileCount} 个文件`, 'success') } catch (err) { showToast(err.message, 'error') }
   })
+  const forceFlag = () => body.querySelector('#nvSyncForce')?.checked || false
+  const remoteWarn = (r) => (r && r.remoteCheck && r.remoteCheck.ok === false ? `；⚠ 远端校验缺 ${r.remoteCheck.missing?.length ?? '?'} 个` : '')
   body.querySelector('#nvSyncLocal')?.addEventListener('click', async () => {
     const targetDir = body.querySelector('#nvSyncDir')?.value?.trim()
     if (!targetDir) return showToast('请填目标目录', 'error')
@@ -1336,7 +1582,7 @@ async function tabSync({ body, novel, id, refresh }) {
     btn.disabled = true
     try {
       const scope = body.querySelector('#nvSyncScope')?.value
-      const r = unwrap(await api.syncNovel(id, { backend: 'local', targetDir, scope }))
+      const r = unwrap(await api.syncNovel(id, { backend: 'local', targetDir, scope, force: forceFlag() }))
       showReport(r)
       showToast(`已复制 ${r.copied} 个 / 跳过 ${r.skipped} 个${r.failed?.length ? ` / 失败 ${r.failed.length}` : ''}`, r.failed?.length ? 'error' : 'success')
       refresh()
@@ -1355,9 +1601,10 @@ async function tabSync({ body, novel, id, refresh }) {
     showToast('正在同步到 WebDAV…')
     try {
       const scope = body.querySelector('#nvSyncScope')?.value
-      const r = unwrap(await api.syncNovel(id, { backend: 'webdav', remoteDir, onConflict, scope }))
+      const r = unwrap(await api.syncNovel(id, { backend: 'webdav', remoteDir, onConflict, scope, force: forceFlag() }))
       showReport(r)
-      showToast(`上传 ${r.uploaded} 个 / 跳过 ${r.skipped} 个${r.failed?.length ? ` / 失败 ${r.failed.length}` : ''}`, r.failed?.length ? 'error' : 'success')
+      const ok = !r.failed?.length && !(r.remoteCheck && r.remoteCheck.ok === false)
+      showToast(`上传 ${r.uploaded} 个 / 跳过 ${r.skipped} 个${r.failed?.length ? ` / 失败 ${r.failed.length}` : ''}${remoteWarn(r)}`, ok ? 'success' : 'error')
       refresh()
     } catch (err) { showToast(err.message, 'error') } finally { btn.disabled = false }
   })
@@ -1374,9 +1621,10 @@ async function tabSync({ body, novel, id, refresh }) {
     showToast('正在同步到夸克网盘…')
     try {
       const scope = body.querySelector('#nvSyncScope')?.value
-      const r = unwrap(await api.syncNovel(id, { backend: 'quark', remoteDir, onConflict, scope }))
+      const r = unwrap(await api.syncNovel(id, { backend: 'quark', remoteDir, onConflict, scope, force: forceFlag() }))
       showReport(r)
-      showToast(`上传 ${r.uploaded} 个 / 跳过 ${r.skipped} 个${r.failed?.length ? ` / 失败 ${r.failed.length}` : ''}`, r.failed?.length ? 'error' : 'success')
+      const ok = !r.failed?.length && !(r.remoteCheck && r.remoteCheck.ok === false)
+      showToast(`上传 ${r.uploaded} 个 / 跳过 ${r.skipped} 个${r.failed?.length ? ` / 失败 ${r.failed.length}` : ''}${remoteWarn(r)}`, ok ? 'success' : 'error')
       refresh()
     } catch (err) { showToast(err.message, 'error') } finally { btn.disabled = false }
   })

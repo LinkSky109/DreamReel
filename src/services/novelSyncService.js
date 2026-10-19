@@ -211,11 +211,22 @@ async function withRetry(fn, { retries = 2, baseDelayMs = 300 } = {}) {
  * @param {string} [opts.targetDir] local 目标目录
  * @param {object} [opts.webdav] webdav 连接参数（url/username/password/token/root/remoteDir/timeoutMs）
  */
+/** 清单为空时不允许“假成功”：直接给出可操作的错误 */
+function assertManifestNotEmpty(files, scope) {
+  if (files.length > 0) return
+  const preset = resolveScope(scope)
+  throw new Error(
+    `同步清单为空（范围：${preset.label}）：该项目没有可同步的产物。` +
+      `请先生成剧本/资产/成片，或切换同步范围为「全部」。`
+  )
+}
+
 export async function syncNovel(novelId, opts = {}) {
   const {
     backend,
     dryRun = false,
     onlyChanged = true,
+    force = false,
     onConflict = 'overwrite',
     concurrency,
     retries,
@@ -223,21 +234,26 @@ export async function syncNovel(novelId, opts = {}) {
     webdav: webdavOpts = {},
   } = opts
 
+  if (backend === 'webdav' && !resolveWebdavConfig(webdavOpts).url) {
+    throw new Error('WebDAV 未配置：请设置 WEBDAV_URL（或请求体 url）')
+  }
+
   const manifest = buildManifest(novelId, { scope: opts.scope })
   const files = manifest.map((f) => ({ ...f, relKey: f.rel.split(path.sep).join('/') }))
+  assertManifestNotEmpty(files, opts.scope)
 
   if (backend === 'local') {
-    return withScope(syncLocalCore(novelId, files, { dryRun, onlyChanged, onConflict, targetDir }), opts.scope)
+    return withScope(syncLocalCore(novelId, files, { dryRun, onlyChanged, force, onConflict, targetDir }), opts.scope)
   }
   if (backend === 'webdav') {
     return withScope(
-      await syncWebdavCore(novelId, files, { dryRun, onlyChanged, onConflict, concurrency, retries, ...webdavOpts }),
+      await syncWebdavCore(novelId, files, { dryRun, onlyChanged, force, onConflict, concurrency, retries, ...webdavOpts }),
       opts.scope
     )
   }
   if (backend === 'quark') {
     return withScope(
-      await syncQuarkCore(novelId, files, { dryRun, onlyChanged, onConflict, concurrency, retries, ...opts.quark }),
+      await syncQuarkCore(novelId, files, { dryRun, onlyChanged, force, onConflict, concurrency, retries, ...opts.quark }),
       opts.scope
     )
   }
@@ -246,16 +262,17 @@ export async function syncNovel(novelId, opts = {}) {
 
 // ----- local -----
 
-function syncLocalCore(novelId, files, { dryRun, onlyChanged, targetDir }) {
+function syncLocalCore(novelId, files, { dryRun, onlyChanged, force = false, targetDir }) {
   if (!targetDir) throw new Error('targetDir required for local')
   const dest = path.join(targetDir, novelId)
   const key = destKey('local', dest)
   const ledger = readLedger(novelId)
   const prev = ledger.state[key] || {}
+  const incremental = onlyChanged && !force
 
   const plan = files.map((f) => {
     const fp = fingerprint(f)
-    const unchanged = onlyChanged && sameFingerprint(prev[f.relKey], fp)
+    const unchanged = incremental && sameFingerprint(prev[f.relKey], fp)
     return { rel: f.relKey, size: f.size, unchanged }
   })
   const pending = files.filter((f, i) => !plan[i].unchanged)
@@ -321,10 +338,12 @@ async function syncWebdavCore(novelId, files, opts) {
   const {
     dryRun = false,
     onlyChanged = true,
+    force = false,
     onConflict = 'overwrite',
     concurrency = config.webdav?.concurrency || 3,
     retries = config.webdav?.retries ?? 2,
     remoteDir,
+    verify = true,
   } = opts
 
   const conn = resolveWebdavConfig(opts)
@@ -336,11 +355,12 @@ async function syncWebdavCore(novelId, files, opts) {
   const key = destKey('webdav', `${conn.url}/${fullRemoteDir}`)
   const ledger = readLedger(novelId)
   const prev = ledger.state[key] || {}
+  const incremental = onlyChanged && !force
 
   const plan = []
   for (const f of files) {
     const fp = fingerprint(f)
-    const unchanged = onlyChanged && sameFingerprint(prev[f.relKey], fp)
+    const unchanged = incremental && sameFingerprint(prev[f.relKey], fp)
     plan.push({ rel: f.relKey, size: f.size, unchanged })
   }
   const changed = files.filter((_, i) => !plan[i].unchanged)
@@ -359,6 +379,7 @@ async function syncWebdavCore(novelId, files, opts) {
 
   const nextState = { ...prev }
   const failed = []
+  const uploadedRels = []
   let uploaded = 0
   let skipped = 0
 
@@ -389,6 +410,7 @@ async function syncWebdavCore(novelId, files, opts) {
         await withRetry(() => client.putFile(remotePath, f.abs, { contentType: guessContentType(f.abs) }), { retries })
         nextState[f.relKey] = fingerprint(f)
         uploaded++
+        uploadedRels.push(f.relKey)
         return { ok: true }
       } catch (error) {
         const detail = error instanceof WebdavError ? `${error.message}${error.retryable ? '（可重试）' : ''}` : error.message
@@ -396,6 +418,25 @@ async function syncWebdavCore(novelId, files, opts) {
         return { ok: false }
       }
     }, concurrency)
+  }
+
+  // 远端抽检：上传成功后 HEAD 抽查（默认最多 10 个），避免“本地报成功、远端没文件”
+  let remoteCheck = null
+  if (verify && !rootError && uploadedRels.length) {
+    const sample = uploadedRels.slice(0, 10)
+    const missing = []
+    for (const rel of sample) {
+      try {
+        const ok = await client.exists(`${targetRemoteDir}/${rel}`)
+        if (!ok) missing.push(rel)
+      } catch (error) {
+        missing.push(`${rel}（${error.message}）`)
+      }
+    }
+    remoteCheck = { checked: sample.length, missing, ok: missing.length === 0 }
+    if (missing.length) {
+      logger.warn(`WebDAV 远端校验失败：${missing.length}/${sample.length} 个文件不存在`)
+    }
   }
 
   ledger.state[key] = nextState
@@ -422,19 +463,24 @@ async function syncWebdavCore(novelId, files, opts) {
     total: files.length,
     bytes: changed.reduce((sum, f) => sum + f.size, 0),
     failed,
+    remoteCheck,
   }
 }
 
 // ---------- 兼容旧接口（本地 / 夸克） ----------
 /** 本地同步（真实复制，增量） */
-export function syncToLocal(novelId, target, { dryRun = false, scope } = {}) {
+export function syncToLocal(novelId, target, { dryRun = false, scope, force = false } = {}) {
   const files = buildManifest(novelId, { scope }).map((f) => ({ ...f, relKey: f.rel.split(path.sep).join('/') }))
-  return withScope(syncLocalCore(novelId, files, { dryRun, onlyChanged: true, targetDir: target }), scope)
+  assertManifestNotEmpty(files, scope)
+  return withScope(syncLocalCore(novelId, files, { dryRun, onlyChanged: true, force, targetDir: target }), scope)
 }
 
 /** WebDAV / NAS 同步（真实上传，增量） */
-export function syncToWebdav(novelId, opts = {}) {
+export async function syncToWebdav(novelId, opts = {}) {
+  // 配置缺失优先于清单为空报错：用户应先补齐连接信息
+  if (!resolveWebdavConfig(opts).url) throw new Error('WebDAV 未配置：请设置 WEBDAV_URL（或请求体 url）')
   const files = buildManifest(novelId, { scope: opts.scope }).map((f) => ({ ...f, relKey: f.rel.split(path.sep).join('/') }))
+  assertManifestNotEmpty(files, opts.scope)
   return syncWebdavCore(novelId, files, opts).then((r) => withScope(r, opts.scope))
 }
 
@@ -459,14 +505,36 @@ function resolveQuarkConfig(overrides = {}) {
   }
 }
 
+/** 递归列出夸克远端目录下的文件相对路径（有上限，防异常目录拖死同步） */
+async function walkQuarkRemote(client, fid, prefix, out, depth = 0) {
+  if (depth > 8 || out.size >= 5000) return
+  let page = 1
+  for (;;) {
+    const { list } = await client.listFiles(fid, { page, size: 200 })
+    if (!list.length) return
+    for (const item of list) {
+      const name = item.file_name || item.name || ''
+      const rel = prefix ? `${prefix}/${name}` : name
+      const isFolder = String(item.file_type) === '0' || item.dir === true
+      if (isFolder) await walkQuarkRemote(client, item.fid, rel, out, depth + 1)
+      else out.add(rel)
+      if (out.size >= 5000) return
+    }
+    if (list.length < 200) return
+    page += 1
+  }
+}
+
 async function syncQuarkCore(novelId, files, opts = {}) {
   const {
     dryRun = false,
     onlyChanged = true,
+    force = false,
     onConflict = 'overwrite',
     concurrency = config.quark?.concurrency || 1,
     retries = config.quark?.retries ?? 2,
     remoteDir,
+    verify = true,
     client: injectedClient,
   } = opts
 
@@ -478,10 +546,11 @@ async function syncQuarkCore(novelId, files, opts = {}) {
   const key = destKey('quark', remotePrefix.join('/'))
   const ledger = readLedger(novelId)
   const prev = ledger.state[key] || {}
+  const incremental = onlyChanged && !force
 
   const plan = files.map((f) => {
     const fp = fingerprint(f)
-    return { rel: f.relKey, size: f.size, unchanged: onlyChanged && sameFingerprint(prev[f.relKey], fp) }
+    return { rel: f.relKey, size: f.size, unchanged: incremental && sameFingerprint(prev[f.relKey], fp) }
   })
   const changed = files.filter((_, i) => !plan[i].unchanged)
 
@@ -506,7 +575,20 @@ async function syncQuarkCore(novelId, files, opts = {}) {
   let uploaded = 0
   let skipped = 0
 
-  await runPool(changed, async (f) => {
+  // 即使本次没有变更，也确保远端根目录存在，便于后续核对。
+  // 失败（如 cookie 失效）不直接抛出，转为逐文件失败上报，与增量/冲突语义一致。
+  let rootError = null
+  try {
+    await client.ensureFolder(remotePrefix, '0')
+  } catch (error) {
+    rootError = error
+  }
+
+  if (rootError) {
+    const detail = rootError instanceof QuarkError ? `${rootError.message}${rootError.retryable ? '（可重试）' : ''}` : rootError.message
+    for (const f of changed) failed.push({ rel: [...remotePrefix, f.relKey].join('/'), error: detail })
+  } else {
+    await runPool(changed, async (f) => {
     const segments = f.relKey.split('/')
     const fileName = segments.pop()
     const dirParts = [...remotePrefix, ...segments]
@@ -535,7 +617,41 @@ async function syncQuarkCore(novelId, files, opts = {}) {
       failed.push({ rel: remotePath, error: detail })
       return { ok: false }
     }
-  }, concurrency)
+    }, concurrency)
+  }
+
+  // 远端核对：递归列出目标目录，比对清单，避免“本地报成功、远端没文件”。
+  // 夸克列表有索引延迟（大文件刚传完可能暂时不入列表），缺失时等待后重试一次，避免误报。
+  let remoteCheck = null
+  if (verify && !rootError) {
+    const expected = files.map((f) => f.relKey)
+    const diffOnce = async () => {
+      const found = new Set()
+      const rootFid = await client.ensureFolder(remotePrefix, '0')
+      await walkQuarkRemote(client, rootFid, '', found)
+      const present = expected.filter((rel) => found.has(rel) || found.has(`${targetRemoteDir}/${rel}`))
+      return { present, missing: expected.filter((rel) => !present.includes(rel)) }
+    }
+    try {
+      let { present, missing } = await diffOnce()
+      if (missing.length) {
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+        ;({ present, missing } = await diffOnce())
+      }
+      remoteCheck = {
+        expected: expected.length,
+        found: present.length,
+        missing: missing.slice(0, 30),
+        ok: missing.length === 0,
+      }
+      if (missing.length) {
+        logger.warn(`夸克远端校验：期望 ${expected.length}，实际命中 ${present.length}，缺失 ${missing.length}`)
+      }
+    } catch (error) {
+      remoteCheck = { error: error.message }
+      logger.warn(`夸克远端校验失败（不影响本次上传结果）：${error.message}`)
+    }
+  }
 
   ledger.state[key] = nextState
   ledger.entries.push({
@@ -559,11 +675,13 @@ async function syncQuarkCore(novelId, files, opts = {}) {
     total: files.length,
     bytes: changed.reduce((sum, f) => sum + f.size, 0),
     failed,
+    remoteCheck,
   }
 }
 
 /** 夸克网盘同步：真实上传（需 cookie）或 dry-run */
 export function syncToQuark(novelId, opts = {}) {
   const files = buildManifest(novelId, { scope: opts.scope }).map((f) => ({ ...f, relKey: f.rel.split(path.sep).join('/') }))
+  assertManifestNotEmpty(files, opts.scope)
   return syncQuarkCore(novelId, files, opts).then((r) => withScope(r, opts.scope))
 }

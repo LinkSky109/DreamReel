@@ -11,6 +11,9 @@ import { storageService } from './storageService.js'
 import { getNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
 import { generateEpisodeScript } from './episodeScriptService.js'
 import { ensureVoiceMap, voiceFor } from './voiceService.js'
+import { resourceIdFor } from './voiceLibraryService.js'
+import { buildAppearanceDirective } from './characterGrowthService.js'
+import { listCharacters } from './characterExtractionService.js'
 
 const execFileAsync = promisify(execFile)
 const TMP_DIR = path.join(path.resolve(config.storage.path), 'temp')
@@ -72,11 +75,21 @@ async function pollTask(provider, taskId, { timeoutMs = 120000, intervalMs = 200
   return { status: 'timeout' }
 }
 
-function buildVideoPrompt(project, episode) {
+function buildVideoPrompt(project, episode, novelId = null) {
   const styleName = project.style && project.style.name ? project.style.name : ''
   const visual = project.style && project.style.visual ? project.style.visual : ''
   const shots = (episode.screenplay?.shots || []).slice(0, 4).map((s) => s.description).filter(Boolean).join('；')
-  return `${styleName}。${visual}。${episode.title}。${shots}`.slice(0, 500)
+  // 角色形象按剧情时间点：优先使用本集角色状态，避免终态装备出现在早期集
+  let appearance = ''
+  if (novelId) {
+    const episodeNo = Number(episode.episodeNo ?? (episode.chapterIndex ?? 0) + 1)
+    const shotText = (episode.screenplay?.shots || []).map((s) => String(s.description || '')).join(' ')
+    const names = listCharacters(novelId)
+      .filter((c) => c.name && shotText.includes(c.name))
+      .map((c) => c.name)
+    appearance = buildAppearanceDirective(novelId, episodeNo, names.length ? names : null)
+  }
+  return [styleName, visual, episode.title, shots, appearance].filter(Boolean).join('。').slice(0, 800)
 }
 
 const NON_NAME_PREFIX = new Set(['注意', '比如', '例如', '因为', '所以', '但是', '不过', '其实', '总之', '于是', '然后', '如果', '只要', '只有', '除了', '关于', '对于', '此时', '突然', '忽然', '接着', '随后', '原来', '终于'])
@@ -144,7 +157,12 @@ async function synthesizeMultiVoice(novelId, episode, ttsProvider) {
   const files = []
   const usedVoices = new Set()
   for (let i = 0; i < segs.length; i += 1) {
-    const r = await ttsProvider.synthesize({ text: segs[i].text, language: 'zh', voice: segs[i].voice })
+    const r = await ttsProvider.synthesize({
+      text: segs[i].text,
+      language: 'zh',
+      voice: segs[i].voice,
+      resourceId: resourceIdFor(segs[i].voice) || undefined,
+    })
     usedVoices.add(segs[i].voice)
     const srcAbs = r.audioUrl && r.audioUrl.startsWith('/storage/') ? urlToAbs(r.audioUrl) : null
     if (srcAbs && fs.existsSync(srcAbs)) files.push(srcAbs)
@@ -198,7 +216,7 @@ export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
       const imgProvider = getImageProvider()
       const outputPath = path.join(MEDIA.images, novelId, `${episodeId}_frame.png`)
       fs.mkdirSync(path.dirname(outputPath), { recursive: true })
-      const prompt = buildVideoPrompt(project, episode)
+      const prompt = buildVideoPrompt(project, episode, novelId)
       await imgProvider.generateImage({
         prompt,
         width: 1024,
@@ -261,7 +279,7 @@ export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
   if (opts.video !== false) {
     try {
       const videoProvider = opts.provider ? opts.provider : getVideoProvider()
-      const prompt = buildVideoPrompt(project, episode)
+      const prompt = buildVideoPrompt(project, episode, novelId)
       const { taskId } = await videoProvider.generateVideo({
         prompt,
         duration: opts.duration || 5,

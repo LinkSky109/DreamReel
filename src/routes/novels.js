@@ -1,9 +1,11 @@
-import { Router } from 'express'
+import express, { Router } from 'express'
+import { storageService } from '../services/storageService.js'
 import {
   createNovelProject,
   listNovelProjects,
   getNovelProject,
   updateNovelProject,
+  deleteNovelProject,
 } from '../services/novelProjectService.js'
 import { ingestNovel, listChunks } from '../services/novelChunkService.js'
 import { extractCharacters, listCharacters } from '../services/characterExtractionService.js'
@@ -11,7 +13,14 @@ import { selectCharacterSet, listCharacterSets } from '../services/characterExtr
 import { advanceStage } from '../services/novelProjectService.js'
 import { ensureCards, applyEdits, reviewStats } from '../services/characterCardService.js'
 import { generateStyle } from '../services/novelStyleService.js'
-import { addState, listStates } from '../services/characterGrowthService.js'
+import {
+  addState,
+  listStates,
+  upsertState,
+  buildTimeline,
+  generateEpisodeStates,
+  getCharacterStateAt,
+} from '../services/characterGrowthService.js'
 import {
   planSeries,
   listSeasons,
@@ -35,6 +44,9 @@ import { extractAll } from '../services/combinedExtractionService.js'
 import { bulkGenerate } from '../services/bulkEpisodeService.js'
 import { seasonAssetSubset, bulkGenerateSeasonAssets } from '../services/seasonAssetService.js'
 import { listVoiceAssignments, setVoice, resetVoices } from '../services/voiceService.js'
+import { makeSpeakerId, registerVoiceAsset, deleteVoiceAsset, listVoiceAssets, resourceIdFor } from '../services/voiceLibraryService.js'
+import { cloneVoice, designVoice } from '../services/volcVoiceApi.js'
+import { getTTSProvider } from '../providers/ttsProviderFactory.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
 import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
 import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
@@ -70,6 +82,16 @@ router.get('/', (_req, res) => {
     res.json({ success: true, data: listNovelProjects() })
   } catch (error) {
     res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+// 删除项目（db 关联记录 + 所有落盘目录，不可恢复）
+router.delete('/:id', (req, res) => {
+  try {
+    const data = deleteNovelProject(req.params.id)
+    res.json({ success: true, data })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
@@ -261,6 +283,68 @@ router.post('/:id/characters/:cid/states', (req, res) => {
   }
 })
 
+// 形象时间线（全书，按角色分组）
+router.get('/:id/timeline', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: { timeline: buildTimeline(req.params.id) } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 手动新增/更新某角色某集形象（episodeNo 为锚点）
+router.put('/:id/characters/:cid/states/:episodeNo', (req, res) => {
+  try {
+    const state = upsertState(req.params.id, req.params.cid, Number(req.params.episodeNo), req.body || {}, { source: 'manual' })
+    res.json({ success: true, data: state })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 删除某角色某集形象
+router.delete('/:id/characters/:cid/states/:episodeNo', (req, res) => {
+  try {
+    const n = storageService.deleteNovelCharacterStates(req.params.id, req.params.cid, Number(req.params.episodeNo))
+    res.json({ success: true, data: { removed: n } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 生成/刷新某一集的角色形象状态（LLM）
+router.post('/:id/episodes/:eid/states', async (req, res) => {
+  try {
+    const { names, provider } = req.body || {}
+    const saved = await generateEpisodeStates(req.params.id, req.params.eid, { names, provider })
+    res.json({ success: true, data: { count: saved.length, states: saved } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 查看某一集各角色形象（含回退：取 ≤ 该集的最近状态）
+router.get('/:id/episodes/:eid/states', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    const ep = storageService.getEpisode(req.params.eid)
+    if (!ep || ep.novelId !== req.params.id) throw new Error(`episode not found: ${req.params.eid}`)
+    const episodeNo = Number(ep.episodeNo ?? (ep.chapterIndex ?? 0) + 1)
+    const chars = listCharacters(req.params.id).filter((c) => c.name)
+    const items = chars
+      .map((c) => {
+        const exact = listStates(req.params.id, c.id).find((s) => Number(s.episodeNo) === episodeNo)
+        const effective = getCharacterStateAt(req.params.id, c.id, episodeNo)
+        return exact || effective ? { characterId: c.id, name: c.name, exact: exact || null, effective: effective || null } : null
+      })
+      .filter(Boolean)
+    res.json({ success: true, data: { episodeNo, items } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
 // ===== 分季分集 + 剧本（Sprint 21） =====
 
 // 规划：章节 → 集 → 季
@@ -284,6 +368,100 @@ router.put('/:id/voices', (req, res) => {
 router.post('/:id/voices/reset', (req, res) => {
   try {
     res.json({ success: true, data: resetVoices(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// ===== 自建音色（声音复刻 / 音色设计）=====
+const jsonLarge = express.json({ limit: '20mb' }) // 音频样本 base64 可能 >10MB
+
+// 列出该作品可用的自建音色
+router.get('/:id/voices/library', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: { voices: listVoiceAssets(req.params.id) } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 声音复刻：上传音频样本 → 注册自定义音色（可选直接指派给某角色）
+router.post('/:id/voices/clone', jsonLarge, async (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    const { name, audioBase64, format = 'mp3', text = '', language = 0, demoText = '', speakerId, assignTo, gender = '' } = req.body || {}
+    if (!name) return res.status(400).json({ success: false, error: '音色名称 name 必填' })
+    if (!audioBase64) return res.status(400).json({ success: false, error: '音频样本 audioBase64 必填' })
+    const sid = speakerId || makeSpeakerId(req.params.id, name)
+    const r = await cloneVoice({ speakerId: sid, audioBase64, format, language, text, demoText })
+    const asset = registerVoiceAsset({
+      novelId: req.params.id,
+      name,
+      type: 'clone',
+      speakerId: r.speakerId,
+      gender,
+      language,
+      status: 'ready',
+      demoAudioUrl: r.demoAudio || '',
+      note: text ? `参考文本：${String(text).slice(0, 40)}` : '',
+    })
+    const map = assignTo ? setVoice(req.params.id, assignTo, r.speakerId) : undefined
+    res.status(201).json({ success: true, data: { voice: asset, map } })
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+// 音色设计：文本/图片提示 → 生成音色试听（需已购买 speaker_id）
+router.post('/:id/voices/design', jsonLarge, async (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    const { name, speakerId, textPrompt, text, imageBase64, language = 0, assignTo, gender = '' } = req.body || {}
+    if (!name) return res.status(400).json({ success: false, error: '音色名称 name 必填' })
+    const r = await designVoice({ speakerId, text: text || '这是一段音色试听文本。', textPrompt, imageBase64, language })
+    const asset = registerVoiceAsset({
+      novelId: req.params.id,
+      name,
+      type: 'design',
+      speakerId: r.speakerId,
+      gender,
+      language,
+      status: 'preview',
+      demoAudioUrl: r.demoAudio || '',
+      note: textPrompt ? `设计描述：${String(textPrompt).slice(0, 60)}` : '',
+    })
+    const map = assignTo ? setVoice(req.params.id, assignTo, r.speakerId) : undefined
+    res.status(201).json({ success: true, data: { voice: asset, map } })
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+// 试听：用指定音色合成一小段（预设或自建音色均可）
+router.post('/:id/voices/preview', async (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    const { voice, text } = req.body || {}
+    if (!voice) return res.status(400).json({ success: false, error: 'voice 必填' })
+    const provider = getTTSProvider()
+    const r = await provider.synthesize({
+      text: String(text || '你好，这是这段音色的试听效果。').slice(0, 60),
+      language: 'zh',
+      voice,
+      resourceId: resourceIdFor(voice) || undefined,
+    })
+    res.json({ success: true, data: { audioUrl: r.audioUrl, duration: r.duration, provider: r.provider } })
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+// 删除自建音色
+router.delete('/:id/voices/:voiceId', (req, res) => {
+  try {
+    const asset = deleteVoiceAsset(req.params.voiceId)
+    res.json({ success: true, data: { removed: asset } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -456,6 +634,7 @@ router.post('/:id/sync', async (req, res) => {
       targetDir,
       cookie,
       onlyChanged = true,
+      force = false,
       onConflict = 'overwrite',
       scope,
       remoteDir,
@@ -468,19 +647,19 @@ router.post('/:id/sync', async (req, res) => {
       if (!targetDir) return res.status(400).json({ success: false, error: 'targetDir required for local' })
       return res.json({
         success: true,
-        data: await syncNovel(req.params.id, { backend: 'local', dryRun, targetDir, onlyChanged, scope }),
+        data: await syncNovel(req.params.id, { backend: 'local', dryRun, targetDir, onlyChanged, force, scope }),
       })
     }
     if (backend === 'webdav') {
       return res.json({
         success: true,
-        data: await syncToWebdav(req.params.id, { dryRun, onlyChanged, onConflict, scope, remoteDir, url, username, password, token }),
+        data: await syncToWebdav(req.params.id, { dryRun, onlyChanged, force, onConflict, scope, remoteDir, url, username, password, token }),
       })
     }
     if (backend === 'quark') {
       return res.json({
         success: true,
-        data: await syncToQuark(req.params.id, { dryRun, onlyChanged, onConflict, scope, remoteDir, cookie }),
+        data: await syncToQuark(req.params.id, { dryRun, onlyChanged, force, onConflict, scope, remoteDir, cookie }),
       })
     }
     return res.status(400).json({ success: false, error: `unknown backend: ${backend}` })

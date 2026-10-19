@@ -104,6 +104,16 @@ const config = {
     attemptTimeoutMs: parseInt(process.env.TTS_ATTEMPT_TIMEOUT_MS, 10) || 0,
   },
 
+  // 自建音色（声音复刻 / 音色设计）——需「语音技术控制台 API Key」，与 Agent Plan key 不同
+  volcVoice: {
+    apiKey: process.env.VOLC_VOICE_API_KEY || process.env.VOLC_TTS_API_KEY || '',
+    baseUrl: process.env.VOLC_TTS_BASE_URL || 'https://openspeech.bytedance.com',
+    clonePath: process.env.VOLC_VOICE_CLONE_PATH || '/api/v3/tts/voice_clone',
+    designPath: process.env.VOLC_VOICE_DESIGN_PATH || '/api/v3/tts/voice_design',
+    cloneResourceId: process.env.VOLC_VOICE_CLONE_RESOURCE_ID || 'seed-icl-2.0',
+    timeoutMs: parseInt(process.env.VOLC_VOICE_TIMEOUT_MS, 10) || 120000,
+  },
+
   image: {
     provider: process.env.IMAGE_PROVIDER || 'mock',
     apiKey: process.env.OPENAI_IMAGE_API_KEY || process.env.OPENAI_API_KEY || '',

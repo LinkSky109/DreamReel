@@ -97,6 +97,31 @@ export function advanceStage(id, toStage) {
   return storageService.updateNovelProject(project)
 }
 
+/**
+ * 删除小说项目：db 级联清理 + 全部落盘目录清理（不可恢复）。
+ * 覆盖 novels/<id>、exports/novels/<id>、images|videos|audio/novels/<id>。
+ */
+export function deleteNovelProject(id) {
+  getNovelProject(id)
+  const root = path.resolve(config.storage.path)
+  const dirs = [
+    novelDir(id),
+    path.join(root, 'exports', 'novels', id),
+    path.join(root, 'images', 'novels', id),
+    path.join(root, 'videos', 'novels', id),
+    path.join(root, 'audio', 'voices', 'novels', id),
+  ]
+  const removedDirs = []
+  for (const dir of dirs) {
+    if (fs.existsSync(dir)) {
+      fs.rmSync(dir, { recursive: true, force: true })
+      removedDirs.push(dir)
+    }
+  }
+  const db = storageService.deleteNovelProjectCascade(id)
+  return { id, deleted: db.deleted, removedDirs, removedRecords: db.removed }
+}
+
 export function writeNovelFile(novelId, relativePath, content) {
   const dir = novelDir(novelId)
   ensureDir(dir)

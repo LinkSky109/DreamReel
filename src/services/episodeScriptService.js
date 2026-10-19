@@ -6,6 +6,7 @@ import { getNovelProject, readNovelFile, assertEditable } from './novelProjectSe
 import { listCharacters } from './characterExtractionService.js'
 import { listEntities } from './worldbuildingService.js'
 import { isGenericName } from '../utils/nameFilters.js'
+import { buildAppearanceDirective, generateEpisodeStates } from './characterGrowthService.js'
 
 /**
  * 单集剧本生成（Sprint 21 / S21-3）
@@ -79,9 +80,10 @@ function buildScriptPrompt(text, target, style = {}, ctx = {}) {
     '5. 内容不足时减少镜头数并拉长单镜（6–12 秒），不要用空镜填充。',
     '6. 台词/旁白符合人物身份性格、有潜台词，避免口语化冗余与空泛抒情。',
     '',
-    '【必须沿用的既有设定】名字/形象/身份必须与下列一致，不得另起名字或编造新设定：',
+    '【必须沿用的既有设定】名字/身份必须与下列一致，不得另起名字或编造新设定：',
     coreLines.length ? coreLines.join('\n') : '（无）',
     styleText ? `\n【全书统一风格】${styleText}` : '',
+    '【形象时间线铁律】角色的外观/装备/能力必须符合其在本集剧情时间点的状态，严禁让角色提前使用尚未获得的装备、变身形态或后期能力；本集应有形象以「本集角色状态」为准。',
   ]
     .filter(Boolean)
     .join('\n')
@@ -90,6 +92,7 @@ function buildScriptPrompt(text, target, style = {}, ctx = {}) {
     target ? `目标成片时长：${target} 秒。` : '',
     localNames.length ? `【本集出场的角色/设定（须在画面中体现且名字一致）】${localNames.join('、')}` : '',
     localLines.length ? localLines.join('\n') : '',
+    ctx.appearanceDirective ? `\n【本集角色状态（画面须严格按此时点形象，不得提前出现未获得装备）】\n${ctx.appearanceDirective}` : '',
     '',
     '【本集小说片段】',
     text.slice(0, 6000),
@@ -113,9 +116,10 @@ function bookCoreLines(novelId) {
     .slice(0, 12)
   const cl = chars.map((c) => {
     const card = c.card || {}
-    const bits = [card.appearance, card.personality, card.abilities].filter(Boolean).map((s) => String(s).slice(0, 48))
+    // 只放稳定的人格底色：外貌/能力随剧情演进，改由「本集角色状态」提供，避免终态泄漏到早期集
+    const bits = [card.personality].filter(Boolean).map((s) => String(s).slice(0, 48))
     const alias = (c.aliases || []).length ? `（别名 ${c.aliases.slice(0, 3).join('/')}）` : ''
-    return `- ${c.name}${alias}：${bits.join('；') || String(c.description || '').slice(0, 48)}`
+    return `- ${c.name}${alias}：${bits.join('；') || '（人格见原文，形象按本集状态）'}`
   })
   const el = ents.map((e) => `- ${e.name}（${e.type}）：${String(e.description || '').slice(0, 40)}`)
   return [...cl, ...el]
@@ -148,13 +152,16 @@ export async function generateEpisodeScript(novelId, episodeId, opts = {}) {
       const local = [
         ...localChars.map((c) => {
           const card = c.card || {}
-          const bits = [card.appearance, card.personality].filter(Boolean).map((s) => String(s).slice(0, 40))
-          return `- ${c.name}：${bits.join('；') || String(c.description || '').slice(0, 40)}`
+          // 不放静态外貌/能力（可能已含终态）；形象统一由「本集角色状态」提供
+          const bits = [card.personality].filter(Boolean).map((s) => String(s).slice(0, 40))
+          return `- ${c.name}：${bits.join('；') || '（人格见原文）'}`
         }),
         ...localEnts.map((e) => `- ${e.name}（${e.type}）：${String(e.description || '').slice(0, 36)}`),
       ]
       const localNames = [...new Set([...localChars.map((c) => c.name), ...localEnts.map((e) => e.name)])]
-      const ctx = { core, local, localNames }
+      const episodeNo = Number(ep.episodeNo ?? (ep.chapterIndex ?? 0) + 1)
+      const appearanceDirective = buildAppearanceDirective(novelId, episodeNo, localNames)
+      const ctx = { core, local, localNames, appearanceDirective }
       const res = await llm.generateJSON(buildScriptPrompt(text, target, project.style || {}, ctx))
       const data = res.data
       if (res.usage && typeof res.usage.prompt_cache_hit_tokens === 'number') {
@@ -188,6 +195,13 @@ export async function generateEpisodeScript(novelId, episodeId, opts = {}) {
   ep.status = 'scripted'
   ep.scriptProvider = provider
   storageService.updateEpisode(ep)
+
+  // 生成/刷新本集角色形象状态（供出图/出片按剧情时间点使用；失败不影响剧本本身）
+  try {
+    await generateEpisodeStates(novelId, episodeId, { provider: opts.stateProvider })
+  } catch (error) {
+    logger.warn(`本集角色形象状态生成失败：${error.message}`)
+  }
   return ep
 }
 

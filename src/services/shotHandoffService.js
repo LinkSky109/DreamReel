@@ -7,6 +7,8 @@ import { getNovelProject, novelDir } from './novelProjectService.js'
 import { generateEpisodeScript } from './episodeScriptService.js'
 import { ASSET_CATEGORY_LABELS } from '../models/NovelAssetImage.js'
 import { isGenericName } from '../utils/nameFilters.js'
+import { buildAppearanceDirective } from './characterGrowthService.js'
+import { listCharacters } from './characterExtractionService.js'
 
 /**
  * 分镜级「外部生成」交接（Sprint 29）
@@ -42,10 +44,13 @@ function getEpisodeOrThrow(novelId, episodeId) {
   return ep
 }
 
-function buildShotPrompt(project, shot) {
+function buildShotPrompt(project, shot, appearanceText = '') {
   const style = project.style || {}
   const styleText = [style.name, style.visual, style.description].filter((x) => typeof x === 'string' && x).join('，')
-  return [shot.description, styleText ? `风格：${styleText}` : ''].filter(Boolean).join('，').slice(0, 900)
+  return [shot.description, styleText ? `风格：${styleText}` : '', appearanceText ? `本集角色状态：${appearanceText}` : '']
+    .filter(Boolean)
+    .join('，')
+    .slice(0, 1200)
 }
 
 function buildStoryboard(project, episode, shots) {
@@ -90,6 +95,14 @@ export async function exportShotHandoff(novelId, episodeId, opts = {}) {
   const byUrl = new Map(storageService.listNovelAssetImages(novelId).filter((a) => a.imageUrl).map((a) => [a.imageUrl, a]))
   const used = new Map()
 
+  // 本集角色形象（按剧情时间点），附到每个分镜提示词，避免终态装备出现在早期集
+  const episodeNo = Number(episode.episodeNo ?? (episode.chapterIndex ?? 0) + 1)
+  const shotText = (episode.screenplay.shots || []).map((s) => String(s.description || '')).join(' ')
+  const appearNames = listCharacters(novelId)
+    .filter((c) => c.name && shotText.includes(c.name))
+    .map((c) => c.name)
+  const appearanceText = buildAppearanceDirective(novelId, episodeNo, appearNames.length ? appearNames : null).replace(/\n/g, '；')
+
   const shots = (episode.screenplay.shots || []).map((s) => {
     const nn = String(s.index).padStart(2, '0')
     const referenceImages = []
@@ -114,7 +127,7 @@ export async function exportShotHandoff(novelId, episodeId, opts = {}) {
     return {
       index: s.index,
       duration: s.duration,
-      prompt: buildShotPrompt(project, s),
+      prompt: buildShotPrompt(project, s, appearanceText),
       dialogue: s.dialogue || '',
       narration: s.narration || '',
       shotType: s.shotType || '',

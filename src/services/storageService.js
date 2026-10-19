@@ -129,6 +129,7 @@ class StorageService {
       novelAssetImages: {},
       characterSets: {},
       worldSets: {},
+      voiceAssets: {},
       meta: { version: 1, createdAt: new Date().toISOString() },
     }
     this.save()
@@ -358,6 +359,47 @@ class StorageService {
     return project
   }
 
+  /**
+   * 删除小说项目及其所有关联记录（db 层）。
+   * 只删除 novelId 匹配的记录，不触碰其它项目；文件目录由上层服务清理。
+   */
+  deleteNovelProjectCascade(id) {
+    const exists = Boolean(this.data.novelProjects && this.data.novelProjects[id])
+    if (!exists) return { deleted: false, removed: {} }
+
+    const removed = {}
+    const purge = (key, predicate) => {
+      const bucket = this.data[key]
+      if (!bucket || typeof bucket !== 'object') return 0
+      let n = 0
+      for (const [rid, rec] of Object.entries(bucket)) {
+        if (predicate(rec, rid)) {
+          delete bucket[rid]
+          n += 1
+        }
+      }
+      if (n) removed[key] = n
+      return n
+    }
+
+    const belongs = (rec) => rec && rec.novelId === id
+    purge('novelChunks', belongs)
+    purge('novelCharacters', belongs)
+    purge('novelCharacterStates', belongs)
+    purge('seriesSeasons', belongs)
+    purge('seriesEpisodes', belongs)
+    purge('novelWorldEntities', belongs)
+    purge('novelAssetImages', belongs)
+    purge('characterSets', belongs)
+    purge('worldSets', belongs)
+    purge('versions', belongs)
+
+    delete this.data.novelProjects[id]
+    removed.novelProjects = 1
+    this.save()
+    return { deleted: true, removed }
+  }
+
   createNovelChunk(chunk) {
     if (!this.data.novelChunks) this.data.novelChunks = {}
     this.data.novelChunks[chunk.id] = chunk
@@ -411,6 +453,33 @@ class StorageService {
     return Object.values(this.data.novelCharacterStates).filter(
       (s) => s.novelId === novelId && (!characterId || s.characterId === characterId)
     )
+  }
+
+  getNovelCharacterState(id) {
+    if (!this.data.novelCharacterStates) return null
+    return this.data.novelCharacterStates[id] || null
+  }
+
+  updateNovelCharacterState(state) {
+    if (!this.data.novelCharacterStates) this.data.novelCharacterStates = {}
+    this.data.novelCharacterStates[state.id] = state
+    this.save()
+    return state
+  }
+
+  /** 删除某角色（或整部）在某集（或不限集）的状态记录 */
+  deleteNovelCharacterStates(novelId, characterId = null, episodeNo = null) {
+    if (!this.data.novelCharacterStates) return 0
+    let n = 0
+    for (const [id, s] of Object.entries(this.data.novelCharacterStates)) {
+      if (s.novelId !== novelId) continue
+      if (characterId && s.characterId !== characterId) continue
+      if (episodeNo !== null && episodeNo !== undefined && Number(s.episodeNo) !== Number(episodeNo)) continue
+      delete this.data.novelCharacterStates[id]
+      n += 1
+    }
+    if (n) this.save()
+    return n
   }
 
   // ============ Seasons / Episodes（分季分集） ============
@@ -518,6 +587,34 @@ class StorageService {
   }
 
   // ============ 备选集合（角色/世界观多次生成） ============
+
+  // ============ 自建音色库（声音复刻 / 音色设计） ============
+
+  createVoiceAsset(asset) {
+    if (!this.data.voiceAssets) this.data.voiceAssets = {}
+    this.data.voiceAssets[asset.id] = asset
+    this.save()
+    return asset
+  }
+
+  getVoiceAsset(id) {
+    if (!this.data.voiceAssets) return null
+    return this.data.voiceAssets[id] || null
+  }
+
+  listVoiceAssets(novelId) {
+    if (!this.data.voiceAssets) return []
+    return Object.values(this.data.voiceAssets).filter(
+      (v) => (!novelId ? true : v.novelId === novelId || v.novelId === null || v.novelId === undefined)
+    )
+  }
+
+  deleteVoiceAsset(id) {
+    if (!this.data.voiceAssets || !this.data.voiceAssets[id]) return false
+    delete this.data.voiceAssets[id]
+    this.save()
+    return true
+  }
 
   createCharacterSet(set) {
     if (!this.data.characterSets) this.data.characterSets = {}

@@ -6,15 +6,29 @@
 import { getNovelProject, updateNovelProject } from './novelProjectService.js'
 import { listCharacters } from './characterExtractionService.js'
 import { isGenericName } from '../utils/nameFilters.js'
+import { listVoiceAssets } from './voiceLibraryService.js'
 
-// 豆包语音合成 2.0（uranus_bigtts）中文音色——均已用 seed-tts-2.0 实测可用
+// 豆包语音合成 2.0（uranus_bigtts）中文音色——全部经 seed-tts-2.0 真实合成探测可用。
+// 新增音色请先用 scripts/verify-voices.js 实测，避免把不可用 ID 放进目录。
 export const VOICE_CATALOG = [
-  { id: 'zh_male_m191_uranus_bigtts', name: '云舟 2.0', gender: '男' },
-  { id: 'zh_male_taocheng_uranus_bigtts', name: '小天 2.0', gender: '男' },
-  { id: 'zh_female_vv_uranus_bigtts', name: 'Vivi 2.0', gender: '女' },
-  { id: 'zh_female_xiaohe_uranus_bigtts', name: '小何 2.0', gender: '女' },
-  { id: 'zh_female_wenrouxiaoya_uranus_bigtts', name: '温柔小雅 2.0', gender: '女' },
-  { id: 'zh_female_shuangkuaisisi_uranus_bigtts', name: '爽快思思 2.0', gender: '女' },
+  // 男声
+  { id: 'zh_male_m191_uranus_bigtts', name: '云舟 2.0', gender: '男', tags: ['稳重', '旁白'] },
+  { id: 'zh_male_taocheng_uranus_bigtts', name: '小天 2.0', gender: '男', tags: ['青年'] },
+  { id: 'zh_male_yangguangqingnian_uranus_bigtts', name: '阳光青年 2.0', gender: '男', tags: ['阳光'] },
+  { id: 'zh_male_shaonianzixin_uranus_bigtts', name: '少年自信 2.0', gender: '男', tags: ['少年'] },
+  { id: 'zh_male_ruyayichen_uranus_bigtts', name: '儒雅逸辰 2.0', gender: '男', tags: ['儒雅'] },
+  { id: 'zh_male_wennuanahu_uranus_bigtts', name: '温暖阿虎 2.0', gender: '男', tags: ['温暖'] },
+  // 女声
+  { id: 'zh_female_vv_uranus_bigtts', name: 'Vivi 2.0', gender: '女', tags: ['通用'] },
+  { id: 'zh_female_xiaohe_uranus_bigtts', name: '小何 2.0', gender: '女', tags: ['通用'] },
+  { id: 'zh_female_wenrouxiaoya_uranus_bigtts', name: '温柔小雅 2.0', gender: '女', tags: ['温柔'] },
+  { id: 'zh_female_shuangkuaisisi_uranus_bigtts', name: '爽快思思 2.0', gender: '女', tags: ['爽快'] },
+  { id: 'zh_female_cancan_uranus_bigtts', name: '灿灿 2.0', gender: '女', tags: ['活泼'] },
+  { id: 'zh_female_tianmeixiaoyuan_uranus_bigtts', name: '甜美小源 2.0', gender: '女', tags: ['甜美'] },
+  { id: 'zh_female_qingxinnvsheng_uranus_bigtts', name: '清新女声 2.0', gender: '女', tags: ['清新'] },
+  { id: 'zh_female_gaolengyujie_uranus_bigtts', name: '高冷御姐 2.0', gender: '女', tags: ['御姐'] },
+  { id: 'zh_female_meilinvyou_uranus_bigtts', name: '魅力女友 2.0', gender: '女', tags: ['甜媚'] },
+  { id: 'zh_female_tianmeitaozi_uranus_bigtts', name: '甜美桃子 2.0', gender: '女', tags: ['甜美'] },
 ]
 export const NARRATOR_VOICE = 'zh_male_m191_uranus_bigtts' // 旁白：云舟（稳重大气）
 
@@ -67,13 +81,25 @@ export function resetVoices(novelId) {
   return ensureVoiceMap(novelId)
 }
 
-/** 供 UI 使用：当前映射 + 可选音色表 + 旁白音色 */
+/** 供 UI 使用：当前映射 + 可选音色表 + 旁白音色 + 自建音色 */
 export function listVoiceAssignments(novelId) {
   const map = ensureVoiceMap(novelId)
   const characters = listCharacters(novelId)
     .filter((c) => c.name && !isGenericName(c.name))
     .map((c) => ({ name: c.name, gender: String((c.card && c.card.gender) || ''), voice: map[c.name] || '' }))
-  return { narrator: map['旁白'] || NARRATOR_VOICE, catalog: VOICE_CATALOG, characters, map }
+  return {
+    narrator: map['旁白'] || NARRATOR_VOICE,
+    catalog: VOICE_CATALOG,
+    custom: listVoiceAssets(novelId).map((v) => ({
+      id: v.speakerId,
+      name: v.name,
+      gender: v.gender || '',
+      type: v.type,
+      demoAudioUrl: v.demoAudioUrl || '',
+    })),
+    characters,
+    map,
+  }
 }
 
 export default { VOICE_CATALOG, NARRATOR_VOICE, ensureVoiceMap, voiceFor, setVoice, resetVoices, listVoiceAssignments }
