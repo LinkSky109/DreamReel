@@ -127,6 +127,11 @@ const config = {
     path: storagePath,
   },
 
+  // 剧集包同步范围：deliverables（产物+文档，默认）/ media（仅产物）/ all（全部）
+  sync: {
+    scope: process.env.SYNC_SCOPE || 'deliverables',
+  },
+
   // 网盘同步（WebDAV / NAS）：群晖 / Nextcloud / 坚果云 / 阿里云盘 WebDAV 等
   webdav: {
     url: process.env.WEBDAV_URL || '',
@@ -143,9 +148,13 @@ const config = {
   quark: {
     cookie: process.env.QUARK_COOKIE || '',
     cookieFile: process.env.QUARK_COOKIE_FILE || path.join(storagePath, '.quark-cookie'),
+    // 扫码登录接口域名（可通过环境变量指向代理/测试服务器）
+    authBase: process.env.QUARK_AUTH_BASE || 'https://uop.quark.cn',
+    panBase: process.env.QUARK_PAN_BASE || 'https://pan.quark.cn',
     root: process.env.QUARK_ROOT || 'DreamReel',
     apiBase: process.env.QUARK_API_BASE || 'https://drive-pc.quark.cn/1/clouddrive',
-    ossHost: process.env.QUARK_OSS_HOST || 'oss-cn-shenzhen.aliyuncs.com',
+    // 上传域名基址（实测夸克返回 upload_url=http://pds.quark.cn，需前置 bucket 子域）
+    ossHost: process.env.QUARK_OSS_HOST || 'pds.quark.cn',
     partSize: parseInt(process.env.QUARK_PART_SIZE, 10) || 4 * 1024 * 1024,
     concurrency: parseInt(process.env.QUARK_CONCURRENCY, 10) || 1,
     timeoutMs: parseInt(process.env.QUARK_TIMEOUT_MS, 10) || 60000,

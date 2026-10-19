@@ -232,23 +232,23 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.equal(res.body.data.hasVideo, true)
 
     // 清单
-    res = await request(app).get(`/api/novels/${id}/manifest`)
+    res = await request(app).get(`/api/novels/${id}/manifest?scope=all`)
     assert.equal(res.status, 200)
     assert.ok(res.body.data.fileCount >= 1)
 
     // 本地同步（真实复制）
     const target = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-sync-'))
-    res = await request(app).post(`/api/novels/${id}/sync`).send({ backend: 'local', targetDir: target })
+    res = await request(app).post(`/api/novels/${id}/sync`).send({ backend: 'local', targetDir: target, scope: 'all' })
     assert.equal(res.status, 200)
     assert.ok(res.body.data.copied >= 1)
 
     // 夸克网盘 dry-run
-    res = await request(app).post(`/api/novels/${id}/sync`).send({ backend: 'quark', dryRun: true })
+    res = await request(app).post(`/api/novels/${id}/sync`).send({ backend: 'quark', dryRun: true, scope: 'all' })
     assert.equal(res.status, 200)
     assert.ok(res.body.data.fileCount >= 1)
 
-    // 夸克网盘真实上传（无 cookie）→ 如实失败
-    res = await request(app).post(`/api/novels/${id}/sync`).send({ backend: 'quark', dryRun: false })
+    // 夸克网盘真实上传（未提供 cookie）→ 如实失败
+    res = await request(app).post(`/api/novels/${id}/sync`).send({ backend: 'quark', dryRun: false, cookie: '', scope: 'all' })
     assert.equal(res.status, 400)
   })
 

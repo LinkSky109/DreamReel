@@ -81,8 +81,8 @@ storage/novels/<novelId>/
 ```
 
 `storageBackend` 接口（MVP 实现 `LocalBackend`）：`read/write/list/remove/stat`。
-**网盘目标 = 夸克网盘**（参考 `ai-manga-factory/docs/夸克网盘业务产物同步.md`）：cookie 登录（`quark_pan_cookie.txt`，密钥不入库）、`root_folder/business_folder` 目录层次、**dry-run**、**ledger 去重**、`only_completed_jobs`。注意该方案记录 Quark 真实上传曾有 TLS EOF 问题待处理。
-NAS 适配器保留（`<!-- TODO：NAS 若要接，SMB/WebDAV/NFS/SFTP 选一 -->`）。
+**网盘目标 = 夸克网盘**（参考 `ai-manga-factory/docs/夸克网盘业务产物同步.md` 与 quarkpan 客户端）：cookie 登录（`QUARK_COOKIE`，密钥不入库）、`QUARK_ROOT/<novelId>` 目录层次、**dry-run**、**ledger 去重**、预上传 → OSS 分片 → 完成 → 结束。另支持标准 **WebDAV/NAS**。注意夸克为私有接口，协议随版本可能漂移；用 `npm run novel -- quark-check` 验证登录态。
+NAS 适配器保留（**已接 WebDAV**：`WEBDAV_URL/USERNAME/PASSWORD`，真实上传 + 增量去重 + 冲突策略 + 重试；兼容群晖 / Nextcloud / 坚果云 / 阿里云盘 WebDAV。SMB/NFS/SFTP 如需再评估）。
 
 ### 3.2 数据模型（新增）
 
@@ -175,7 +175,7 @@ LLM/剧本 `scriptService`·`llmProviderFactory`；风格 `styleService`·`direc
 
 ### Sprint 23 — 成片 + 存储同步 + 发布
 - **成片合成**（`videoCompositingService`）+ 后续处理。
-- **存储同步**：**夸克网盘**适配器（参考 ai-manga-factory：cookie 登录 + dry-run + ledger 去重）+ 冲突/重试；NAS 保留。
+- **存储同步**：**WebDAV/NAS 真实上传**（增量去重 + 冲突策略 + 并发重试 + ledger；通用同步内核 `syncNovel`）；**夸克网盘真实上传**（cookie 登录 + 预上传/OSS 分片/完成/结束 + 增量 + 冲突覆盖/跳过 + 重试；`quark-check` 可验登录）。
 - 发布/导出（对接 gallery/studios）。
 - 验收：`书名 → 可交付剧集包`，并同步到目标存储。
 
@@ -201,14 +201,14 @@ LLM/剧本 `scriptService`·`llmProviderFactory`；风格 `styleService`·`direc
 - [x] 来源首选：**站点 TXT 下载（GBK）**
 - [x] MVP-1 样本：《殖装》**前 100 章**
 - [x] 角色卡字段：**含** 口头禅 / 关系网 / 能力 / 成长轨迹
-- [x] 网盘：**夸克网盘**（参考 `ai-manga-factory` 方案）
+- [x] 网盘：**WebDAV/NAS** 与 **夸克网盘** 均真实上传（通用同步内核：增量去重 + 冲突策略 + 重试 + ledger）
 - [x] 风格粒度：**全书统一**
 
 仍留白（你随时改）：
 
 - [ ] **提供火山方舟 Ark key（`SEEDANCE_API_KEY`）与 `SEEDANCE_MODEL`（Doubao-Seedance-2.5 的模型/端点 ID）**，以跑通真实视频生成。
 - [ ] 其它站点适配器与结构说明。
-- [ ] NAS 是否/何时接、协议（SMB/WebDAV/NFS/SFTP）。
+- [ ] NAS 其它协议（SMB/NFS/SFTP）是否/何时接（WebDAV 已支持）。
 - [ ] 人工审核判定口径（"修订字段数 ÷ 字段总数"）是否作为 <30% 的唯一口径。
 - [ ] 20–23 里程碑时间与优先级。
 - [ ] `<!-- TODO：其它你想加的 -->`

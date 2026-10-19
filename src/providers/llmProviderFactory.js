@@ -37,7 +37,7 @@ export const LLM_MODEL_CATALOG = [
 
 let activeProvider = null
 
-function rawLLM(providerName, { projectId = null, userId = null, model = null, prefConfig = {} } = {}) {
+function rawLLM(providerName, { model = null, prefConfig = {} } = {}) {
   const ProviderClass = PROVIDER_MAP[providerName]
   if (!ProviderClass) return null
   return new ProviderClass(buildMergedConfig('llm', providerName, prefConfig, model))

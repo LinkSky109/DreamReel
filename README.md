@@ -303,8 +303,14 @@ docker-compose down
 | POST | `/api/novels/:id/episodes/:eid/assets` | 生成单集图/音/视频资产（视频默认 mock；`VIDEO_PROVIDER=seedance` 走**火山方舟 Doubao-Seedance-2.5**） |
 | GET | `/api/novels/:id/episodes/:eid/assets` | 读取单集资产 |
 | POST | `/api/novels/:id/episodes/:eid/compose` | 单集成片（片段循环到目标时长 + 混音/静音轨）→ mp4，body `{ seconds? }` |
-| GET | `/api/novels/:id/manifest` | 剧集包清单（novels/** + exports 成片） |
-| POST | `/api/novels/:id/sync` | 存储同步，body `{ backend: 'local'\|'quark', dryRun?, targetDir?, cookie? }`；本地真实复制，夸克网盘 dry-run，真实上传需 `QUARK_COOKIE` |
+| GET | `/api/novels/:id/manifest` | 剧集包清单（`?scope=deliverables\|media\|all`，默认 deliverables） |
+| GET | `/api/novels/:id/sync/scopes` | 可用同步范围及目录白名单 |
+| POST | `/api/novels/:id/sync` | 存储同步，body `{ backend: 'local'\|'webdav'\|'quark', scope?, dryRun?, targetDir?, remoteDir?, onConflict?, onlyChanged?, url?, username?, password?, token?, cookie? }`；本地/WebDAV 真实同步，夸克网盘真实上传（需 `QUARK_COOKIE`，私有接口）|
+| GET | `/api/novels/:id/sync/ledger` | 同步历史 + 增量状态（上次同步时间/结果） |
+| POST | `/api/cloud-drive/quark/qr` | 生成夸克扫码登录二维码（返回本地渲染的 SVG，不经过第三方） |
+| GET | `/api/cloud-drive/quark/qr/:token/status` | 轮询扫码状态；成功后 cookie 落盘 `storage/.quark-cookie`（不返回给前端） |
+| GET | `/api/cloud-drive/quark/status` | 网盘登录态（`?verify=1` 会用 cookie 真实验一次） |
+| POST | `/api/cloud-drive/quark/logout` | 清除扫码落盘的 cookie |
 | POST | `/api/novels/:id/episodes/:eid/handoff` | 导出单集"外部生成"交接包（prompt.txt + spec.json + refs/） |
 | POST | `/api/novels/:id/episodes/:eid/handoff/import` | 回传外部产物 mp4，body `{ filePath }` |
 | GET | `/api/novels/:id/handoff` | 交接列表 |
@@ -323,7 +329,7 @@ docker-compose down
 
 > **阶段与锁定**：`source → characters → world → series → episodes → assets → compose`。**源文本/世界观提取一次**；**角色设定卡与世界观设定集可多次生成备选**，选定后**进入下一阶段即不可修改**。
 
-> CLI：`npm run novel -- <create|ingest|extract|list|show|characters|stats|style|plan|seasons|episodes|script|assets|compose|manifest|sync|handoff|handoff-import|handoff-list|world|world-show|world-entities|world-relations>`。来源首选站点 **TXT 下载**（两跳 Cookie + GB18030 解码）；**不绕过**登录/验证码/加密。抽取默认**离线启发式**（低精度基线）；**配置 `LLM_PROVIDER=opencode` 后走真实 LLM**（Vercel AI SDK + `ai-sdk-provider-opencode-sdk@5`，需要 **OpenCode 2.x**；系统自带的 `opencode` 1.x 不兼容）。先用 `npm run llm:serve` 拉起本机 2.x 服务（读取 `.env` 的 `OPENCODE_PASSWORD`，默认 `:4096`），并配置 `OPENCODE_BASE_URL`+`OPENCODE_PASSWORD`；或改用 OpenAI 兼容端点（`LLM_PROVIDER=openai`+`OPENAI_BASE_URL`+`OPENAI_API_KEY`）。抽取按**用户级 Provider 偏好**回退解析（用户级 → 全局 → Mock；小说项目当前不参与项目级偏好）。分季分集为**规则驱动**（确定性）；单集剧本启发式必落 85–95s，LLM 可选。视频生成：`VIDEO_PROVIDER=seedance` + `SEEDANCE_API_KEY` + `SEEDANCE_MODEL`（Ark Doubao-Seedance-2.5）。产出落 `storage/novels/<id>/`，成片落 `storage/exports/novels/<id>/`。
+> CLI：`npm run novel -- <create|ingest|extract|list|show|characters|stats|style|plan|seasons|episodes|script|assets|compose|manifest|sync|ledger|quark-login|quark-check|handoff|handoff-import|handoff-list|world|world-show|world-entities|world-relations>`。`sync` 支持 `--backend local|webdav|quark`（`--target` 本地目录 / `--remote-dir` 远端子目录 / `--dry-run` / `--full` 关闭增量 / `--on-conflict overwrite|skip` / `--scope deliverables|media|all`）；`quark-login` 扫码登录（浏览器入口在小说项目「风格/同步」页），`quark-check` 验证登录态。来源首选站点 **TXT 下载**（两跳 Cookie + GB18030 解码）；**不绕过**登录/验证码/加密。抽取默认**离线启发式**（低精度基线）；**配置 `LLM_PROVIDER=opencode` 后走真实 LLM**（Vercel AI SDK + `ai-sdk-provider-opencode-sdk@5`，需要 **OpenCode 2.x**；系统自带的 `opencode` 1.x 不兼容）。先用 `npm run llm:serve` 拉起本机 2.x 服务（读取 `.env` 的 `OPENCODE_PASSWORD`，默认 `:4096`），并配置 `OPENCODE_BASE_URL`+`OPENCODE_PASSWORD`；或改用 OpenAI 兼容端点（`LLM_PROVIDER=openai`+`OPENAI_BASE_URL`+`OPENAI_API_KEY`）。抽取按**用户级 Provider 偏好**回退解析（用户级 → 全局 → Mock；小说项目当前不参与项目级偏好）。分季分集为**规则驱动**（确定性）；单集剧本启发式必落 85–95s，LLM 可选。视频生成：`VIDEO_PROVIDER=seedance` + `SEEDANCE_API_KEY` + `SEEDANCE_MODEL`（Ark Doubao-Seedance-2.5）。产出落 `storage/novels/<id>/`，成片落 `storage/exports/novels/<id>/`。网盘同步见 `WEBDAV_*` 与 `QUARK_*`（`.env.example`）。夸克为私有接口，已实测通过：扫码登录 → `GET` 列目录 → 预上传 → OSS 并行分片（带 `x-oss-hash-ctx`）→ 合并 → finish；上传域名取 `pre.upload_url` 前置 bucket 子域（实测 `ul-sz.pds.quark.cn`），可用 `QUARK_OSS_HOST` 覆盖。
 
 **单集"外部生成"交接**（视频 plan 受限时的替代流程）：导出提示词/规格/参考图 → 交外部平台生成 → 结果放回视频目录并 import。
 ```

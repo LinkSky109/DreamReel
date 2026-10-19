@@ -16,6 +16,16 @@ const EXTRACT_BUSY = new Set()
 let STATUS_TIMER = null
 let STATUS_NOVEL = null
 
+// 网盘扫码登录轮询（切换标签页时必须停掉，避免定时器泄漏）
+let QUARK_QR_TIMER = null
+
+function stopQuarkQrPoll() {
+  if (QUARK_QR_TIMER) {
+    clearInterval(QUARK_QR_TIMER)
+    QUARK_QR_TIMER = null
+  }
+}
+
 function renderJobs(jobs) {
   const kinds = [
     ['both', '合并（角色+世界观）'],
@@ -163,6 +173,7 @@ function locked(novel, stage) {
 }
 
 export async function renderNovelsPage(container, novelId) {
+  stopQuarkQrPoll()
   if (novelId) {
     if (state.novelId !== novelId) state.worldType = 'all'
     state.novelId = novelId
@@ -1128,7 +1139,12 @@ async function tabEpisode({ body, novel, id, refresh }) {
 
 // ---------- 风格 / 同步 ----------
 async function tabSync({ body, novel, id, refresh }) {
-  const manifest = await api.getNovelManifest(id).then(unwrap).catch(() => ({ files: [] }))
+  stopQuarkQrPoll()
+  const scopes = await api.getNovelSyncScopes(id).then(unwrap).catch(() => [])
+  const scopeKey = 'deliverables'
+  const manifest = await api.getNovelManifest(id, scopeKey).then(unwrap).catch(() => ({ files: [] }))
+  const ledger = await api.getNovelSyncLedger(id).then(unwrap).catch(() => null)
+  const drive = await api.getCloudDriveStatus(false).then(unwrap).catch(() => null)
   const voices = await api.listNovelVoices(id).then(unwrap).catch(() => null)
   const voiceOpts = (cur) => {
     const cat = (voices && voices.catalog) || []
@@ -1169,15 +1185,128 @@ async function tabSync({ body, novel, id, refresh }) {
            </div>`
         : '<div style="font-size:13px;color:var(--text-secondary);margin-top:8px;">（角色音色不可用）</div>'}
     </section>
+    <section class="card" style="padding:16px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;">网盘登录（夸克）</h3>
+        <span id="nvQuarkState" style="font-size:12px;color:var(--text-secondary);">${drive && drive.configured ? (drive.source === 'env' ? '已配置（环境变量 QUARK_COOKIE）' : '已登录（扫码保存）') : '未登录'}</span>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">扫码用夸克 App 授权；cookie 只保存在服务端（<code>storage/.quark-cookie</code>），不返回给浏览器。二维码本地生成，不经过第三方服务。</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center;">
+        <button id="nvQuarkLogin" class="btn btn-sm">扫码登录</button>
+        <button id="nvQuarkCheck" class="btn btn-sm">校验登录态</button>
+        <button id="nvQuarkLogout" class="btn btn-sm" ${drive && drive.source === 'file' ? '' : 'disabled'}>退出登录</button>
+        <span id="nvQuarkLoginMsg" style="font-size:12px;color:var(--text-secondary);"></span>
+      </div>
+      <div id="nvQuarkQrBox" style="display:none;margin-top:12px;text-align:center;"></div>
+    </section>
     <section class="card" style="padding:16px;">
       <h3 style="margin-top:0;">剧集包 / 同步</h3>
-      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">清单文件数 ${esc((manifest.files || []).length)}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <input id="nvSyncDir" class="form-input" style="flex:1;min-width:240px;" placeholder="本地同步目标目录（如 /Users/link/out）" />
-        <button id="nvSyncLocal" class="btn btn-sm">同步到本地</button>
-        <button id="nvSyncQuark" class="btn btn-sm">夸克网盘 dry-run</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+        <span style="font-size:12px;color:var(--text-secondary);">同步范围</span>
+        <select id="nvSyncScope" class="form-input" style="width:auto;padding:4px;">
+          ${(scopes.length ? scopes : [{ key: 'deliverables', label: '产物 + 文档' }, { key: 'media', label: '仅产物' }, { key: 'all', label: '全部' }])
+            .map((s) => `<option value="${esc(s.key)}" ${s.key === scopeKey ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}
+        </select>
+        <span id="nvSyncCount" style="font-size:12px;color:var(--text-secondary);">${esc((manifest.files || []).length)} 个文件（增量同步：仅传输新增/改动文件）</span>
       </div>
+      ${ledger && ledger.last
+        ? `<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">上次同步：${esc(ledger.last.backend)} → ${esc(ledger.last.targetDir || ledger.last.url || '')}${ledger.last.remoteDir ? ' / ' + esc(ledger.last.remoteDir) : ''} · ${esc(new Date(ledger.last.at).toLocaleString())} · 上传 ${esc(String(ledger.last.uploaded ?? ledger.last.copied ?? 0))} · 跳过 ${esc(String(ledger.last.skipped ?? 0))}${ledger.last.failed ? ` · 失败 ${esc(String(ledger.last.failed))}` : ''}</div>`
+        : '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">尚无同步记录</div>'}
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;">本地目录</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <input id="nvSyncDir" class="form-input" style="flex:1;min-width:240px;" placeholder="本地同步目标目录（如 /Users/link/out）" />
+        <button id="nvSyncLocalPlan" class="btn btn-sm">预览变更</button>
+        <button id="nvSyncLocal" class="btn btn-sm">同步到本地</button>
+      </div>
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;">网盘（WebDAV / NAS）</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input id="nvSyncRemote" class="form-input" style="flex:1;min-width:200px;" placeholder="远端子目录（默认用作品 id：${esc(id)}）" />
+        <select id="nvSyncConflict" class="form-input" style="width:auto;">
+          <option value="overwrite">覆盖同名</option>
+          <option value="skip">跳过已存在</option>
+        </select>
+        <button id="nvSyncWebdavPlan" class="btn btn-sm">预览变更</button>
+        <button id="nvSyncWebdav" class="btn btn-sm">同步到 WebDAV</button>
+        <button id="nvSyncQuarkPlan" class="btn btn-sm">夸克预览</button>
+        <button id="nvSyncQuark" class="btn btn-sm">同步到夸克</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;">WebDAV 连接在 <code>.env</code> 配置（<code>WEBDAV_URL/USERNAME/PASSWORD</code>）；夸克需配置 <code>QUARK_COOKIE</code>（未配置时同步会如实报错，预览始终可用）。</div>
+      <pre id="nvSyncReport" style="display:none;margin-top:10px;font-size:11px;max-height:240px;overflow:auto;background:var(--bg-secondary,#f5f5f5);padding:8px;border-radius:6px;"></pre>
     </section>`
+
+  body.querySelector('#nvSyncScope')?.addEventListener('change', async (e) => {
+    try {
+      const m = unwrap(await api.getNovelManifest(id, e.target.value))
+      body.querySelector('#nvSyncCount').textContent = `${(m.files || []).length} 个文件（增量同步：仅传输新增/改动文件）`
+    } catch (err) { showToast(err.message, 'error') }
+  })
+
+  const showReport = (data) => {
+    const el = body.querySelector('#nvSyncReport')
+    if (!el) return
+    el.style.display = 'block'
+    el.textContent = JSON.stringify(data, null, 2)
+  }
+
+  // ---- 网盘登录（夸克扫码）----
+  const qrBox = body.querySelector('#nvQuarkQrBox')
+  const loginMsg = body.querySelector('#nvQuarkLoginMsg')
+  const setMsg = (t) => { if (loginMsg) loginMsg.textContent = t || '' }
+
+  body.querySelector('#nvQuarkCheck')?.addEventListener('click', async () => {
+    const btn = body.querySelector('#nvQuarkCheck')
+    btn.disabled = true
+    setMsg('校验中…')
+    try {
+      const r = unwrap(await api.getCloudDriveStatus(true))
+      setMsg(r.verified ? '✅ 登录态有效' : `❌ ${r.error || '登录态无效'}`)
+    } catch (err) { setMsg(`❌ ${err.message}`) } finally { btn.disabled = false }
+  })
+
+  body.querySelector('#nvQuarkLogout')?.addEventListener('click', async () => {
+    try {
+      unwrap(await api.logoutCloudDrive())
+      showToast('已退出夸克登录', 'success')
+      refresh()
+    } catch (err) { showToast(err.message, 'error') }
+  })
+
+  body.querySelector('#nvQuarkLogin')?.addEventListener('click', async () => {
+    stopQuarkQrPoll()
+    setMsg('正在生成二维码…')
+    let session
+    try {
+      session = unwrap(await api.createQuarkQr())
+    } catch (err) {
+      setMsg(`❌ ${err.message}`)
+      return
+    }
+    // 服务端生成的 SVG（由布尔矩阵渲染，不含任何用户输入），直接内联展示
+    qrBox.style.display = 'block'
+    qrBox.innerHTML = `<div style="display:inline-block;background:#fff;padding:8px;border-radius:8px;">${session.svg}</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">请用「夸克 App」扫描二维码（约 ${esc(String(session.expiresInSec / 60))} 分钟有效）</div>`
+    setMsg('等待扫码…')
+
+    QUARK_QR_TIMER = setInterval(async () => {
+      try {
+        const r = unwrap(await api.getQuarkQrStatus(session.token))
+        if (r.state === 'success') {
+          stopQuarkQrPoll()
+          setMsg('✅ 登录成功')
+          showToast('夸克登录成功', 'success')
+          refresh()
+        } else if (r.state === 'failed') {
+          stopQuarkQrPoll()
+          setMsg(`❌ ${r.message || '二维码已失效'}`)
+          qrBox.style.display = 'none'
+        }
+      } catch (err) {
+        stopQuarkQrPoll()
+        setMsg(`❌ ${err.message}`)
+        qrBox.style.display = 'none'
+      }
+    }, 2000)
+  })
 
   body.querySelector('#nvStyle')?.addEventListener('click', async () => {
     try { await api.generateNovelStyle(id); showToast('风格已生成', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
@@ -1194,12 +1323,61 @@ async function tabSync({ body, novel, id, refresh }) {
   body.querySelector('#nvVoiceReset')?.addEventListener('click', async () => {
     try { await api.resetNovelVoices(id); showToast('已重置为自动分配', 'success'); refresh() } catch (err) { showToast(err.message, 'error') }
   })
+  body.querySelector('#nvSyncLocalPlan')?.addEventListener('click', async () => {
+    const targetDir = body.querySelector('#nvSyncDir')?.value?.trim()
+    if (!targetDir) return showToast('请填目标目录', 'error')
+    const scope = body.querySelector('#nvSyncScope')?.value
+    try { const r = unwrap(await api.syncNovel(id, { backend: 'local', dryRun: true, targetDir, scope })); showReport(r); showToast(`待传输 ${r.changed}/${r.fileCount} 个文件`, 'success') } catch (err) { showToast(err.message, 'error') }
+  })
   body.querySelector('#nvSyncLocal')?.addEventListener('click', async () => {
     const targetDir = body.querySelector('#nvSyncDir')?.value?.trim()
     if (!targetDir) return showToast('请填目标目录', 'error')
-    try { const r = unwrap(await api.syncNovel(id, { backend: 'local', targetDir })); showToast(`已复制 ${r.copied} 个文件`, 'success') } catch (err) { showToast(err.message, 'error') }
+    const btn = body.querySelector('#nvSyncLocal')
+    btn.disabled = true
+    try {
+      const scope = body.querySelector('#nvSyncScope')?.value
+      const r = unwrap(await api.syncNovel(id, { backend: 'local', targetDir, scope }))
+      showReport(r)
+      showToast(`已复制 ${r.copied} 个 / 跳过 ${r.skipped} 个${r.failed?.length ? ` / 失败 ${r.failed.length}` : ''}`, r.failed?.length ? 'error' : 'success')
+      refresh()
+    } catch (err) { showToast(err.message, 'error') } finally { btn.disabled = false }
+  })
+  body.querySelector('#nvSyncWebdavPlan')?.addEventListener('click', async () => {
+    const remoteDir = body.querySelector('#nvSyncRemote')?.value?.trim() || undefined
+    const scope = body.querySelector('#nvSyncScope')?.value
+    try { const r = unwrap(await api.syncNovel(id, { backend: 'webdav', dryRun: true, remoteDir, scope })); showReport(r); showToast(`待上传 ${r.changed}/${r.fileCount} 个文件`, 'success') } catch (err) { showToast(err.message, 'error') }
+  })
+  body.querySelector('#nvSyncWebdav')?.addEventListener('click', async () => {
+    const remoteDir = body.querySelector('#nvSyncRemote')?.value?.trim() || undefined
+    const onConflict = body.querySelector('#nvSyncConflict')?.value || 'overwrite'
+    const btn = body.querySelector('#nvSyncWebdav')
+    btn.disabled = true
+    showToast('正在同步到 WebDAV…')
+    try {
+      const scope = body.querySelector('#nvSyncScope')?.value
+      const r = unwrap(await api.syncNovel(id, { backend: 'webdav', remoteDir, onConflict, scope }))
+      showReport(r)
+      showToast(`上传 ${r.uploaded} 个 / 跳过 ${r.skipped} 个${r.failed?.length ? ` / 失败 ${r.failed.length}` : ''}`, r.failed?.length ? 'error' : 'success')
+      refresh()
+    } catch (err) { showToast(err.message, 'error') } finally { btn.disabled = false }
+  })
+  body.querySelector('#nvSyncQuarkPlan')?.addEventListener('click', async () => {
+    const remoteDir = body.querySelector('#nvSyncRemote')?.value?.trim() || undefined
+    const scope = body.querySelector('#nvSyncScope')?.value
+    try { const r = unwrap(await api.syncNovel(id, { backend: 'quark', dryRun: true, remoteDir, scope })); showReport(r); showToast(`夸克待上传 ${r.changed}/${r.fileCount} 个文件`, 'success') } catch (err) { showToast(err.message, 'error') }
   })
   body.querySelector('#nvSyncQuark')?.addEventListener('click', async () => {
-    try { const r = unwrap(await api.syncNovel(id, { backend: 'quark', dryRun: true })); showToast(`夸克 dry-run：${r.fileCount} 个文件`, 'success') } catch (err) { showToast(err.message, 'error') }
+    const remoteDir = body.querySelector('#nvSyncRemote')?.value?.trim() || undefined
+    const onConflict = body.querySelector('#nvSyncConflict')?.value || 'overwrite'
+    const btn = body.querySelector('#nvSyncQuark')
+    btn.disabled = true
+    showToast('正在同步到夸克网盘…')
+    try {
+      const scope = body.querySelector('#nvSyncScope')?.value
+      const r = unwrap(await api.syncNovel(id, { backend: 'quark', remoteDir, onConflict, scope }))
+      showReport(r)
+      showToast(`上传 ${r.uploaded} 个 / 跳过 ${r.skipped} 个${r.failed?.length ? ` / 失败 ${r.failed.length}` : ''}`, r.failed?.length ? 'error' : 'success')
+      refresh()
+    } catch (err) { showToast(err.message, 'error') } finally { btn.disabled = false }
   })
 }

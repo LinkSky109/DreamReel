@@ -45,6 +45,7 @@ import imagesRouter from './routes/images.js'
 import editPlansRouter from './routes/editPlans.js'
 import communityRouter from './routes/community.js'
 import novelsRouter from './routes/novels.js'
+import cloudDriveRouter from './routes/cloudDrive.js'
 import { authOptional } from './middleware/auth.js'
 import { mediaAccess } from './middleware/mediaAccess.js'
 import { performanceMonitor } from './services/performanceMonitor.js'
@@ -124,6 +125,7 @@ app.use('/api/images', authOptional, imagesRouter)
 app.use('/api/edit-plans', authOptional, editPlansRouter)
 app.use('/api/community', authOptional, communityRouter)
 app.use('/api/novels', authOptional, novelsRouter)
+app.use('/api/cloud-drive', authOptional, cloudDriveRouter)
 
 // Static files: only expose media subdirectories, never storage/data (DB, hashes, keys)
 // R37：公开素材库保持直接访问

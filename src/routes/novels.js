@@ -22,7 +22,7 @@ import {
 import { generateEpisodeScript, getEpisodeScript } from '../services/episodeScriptService.js'
 import { generateEpisodeAssets, getEpisodeAssets } from '../services/episodeAssetService.js'
 import { composeEpisode } from '../services/episodeComposeService.js'
-import { buildManifest, syncToLocal, syncToQuark } from '../services/novelSyncService.js'
+import { buildManifest, syncToQuark, syncToWebdav, syncNovel, getLedger, getSyncState, resolveScope, SYNC_SCOPES } from '../services/novelSyncService.js'
 import { exportHandoff, importHandoffResult, listHandoff } from '../services/episodeHandoffService.js'
 import { extractWorld, listEntities, listRelations, summarize } from '../services/worldbuildingService.js'
 import { selectWorldSet, listWorldSets } from '../services/worldbuildingService.js'
@@ -436,28 +436,76 @@ router.post('/:id/episodes/:eid/compose', async (req, res) => {
   }
 })
 
-// 剧集包清单
+// 剧集包清单（?scope=deliverables|media|all）
 router.get('/:id/manifest', (req, res) => {
   try {
-    const files = buildManifest(req.params.id).map((f) => ({ rel: f.rel, size: f.size }))
-    res.json({ success: true, data: { fileCount: files.length, files } })
+    const scope = resolveScope(req.query.scope)
+    const files = buildManifest(req.params.id, { scope: scope.key }).map((f) => ({ rel: f.rel, size: f.size }))
+    res.json({ success: true, data: { fileCount: files.length, scope: scope.key, scopeLabel: scope.label, files } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
-// 存储同步（本地 / 夸克网盘）
-router.post('/:id/sync', (req, res) => {
+// 存储同步（本地 / WebDAV 网盘 / 夸克网盘）
+router.post('/:id/sync', async (req, res) => {
   try {
-    const { backend = 'local', dryRun = false, targetDir, cookie } = req.body || {}
+    const {
+      backend = 'local',
+      dryRun = false,
+      targetDir,
+      cookie,
+      onlyChanged = true,
+      onConflict = 'overwrite',
+      scope,
+      remoteDir,
+      url,
+      username,
+      password,
+      token,
+    } = req.body || {}
     if (backend === 'local') {
       if (!targetDir) return res.status(400).json({ success: false, error: 'targetDir required for local' })
-      return res.json({ success: true, data: syncToLocal(req.params.id, targetDir, { dryRun }) })
+      return res.json({
+        success: true,
+        data: await syncNovel(req.params.id, { backend: 'local', dryRun, targetDir, onlyChanged, scope }),
+      })
+    }
+    if (backend === 'webdav') {
+      return res.json({
+        success: true,
+        data: await syncToWebdav(req.params.id, { dryRun, onlyChanged, onConflict, scope, remoteDir, url, username, password, token }),
+      })
     }
     if (backend === 'quark') {
-      return res.json({ success: true, data: syncToQuark(req.params.id, { dryRun, cookie }) })
+      return res.json({
+        success: true,
+        data: await syncToQuark(req.params.id, { dryRun, onlyChanged, onConflict, scope, remoteDir, cookie }),
+      })
     }
     return res.status(400).json({ success: false, error: `unknown backend: ${backend}` })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 可用同步范围
+router.get('/:id/sync/scopes', (_req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: Object.entries(SYNC_SCOPES).map(([key, v]) => ({ key, label: v.label, dirs: v.dirs })),
+    })
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+// 同步历史 + 增量状态（供 UI 展示上次同步）
+router.get('/:id/sync/ledger', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    res.json({ success: true, data: { entries: getLedger(req.params.id).entries, ...getSyncState(req.params.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

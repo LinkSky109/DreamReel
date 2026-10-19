@@ -11,6 +11,10 @@
  *   node scripts/novel.js show     <novelId>
  *   node scripts/novel.js characters <novelId>
  *   node scripts/novel.js stats    <novelId>
+ *   node scripts/novel.js sync     <novelId> --backend local|webdav|quark [--target <dir>] [--remote-dir <sub>] [--scope deliverables|media|all] [--dry-run] [--full]
+ *   node scripts/novel.js ledger   <novelId>
+ *   node scripts/novel.js quark-login [--timeout 300] [--file storage/.quark-cookie]
+ *   node scripts/novel.js quark-check
  */
 
 // 关闭 info 日志，保证 stdout 只输出机器可读结果（日志会污染 CLI 输出）
@@ -228,8 +232,9 @@ async function main() {
     case 'manifest': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      const files = services.sync.buildManifest(id).map((f) => ({ rel: f.rel, size: f.size }))
-      print({ fileCount: files.length, files: files.slice(0, 20) })
+      const scope = services.sync.resolveScope(flags.scope)
+      const files = services.sync.buildManifest(id, { scope: scope.key }).map((f) => ({ rel: f.rel, size: f.size }))
+      print({ scope: scope.key, scopeLabel: scope.label, fileCount: files.length, files: files.slice(0, 20) })
       break
     }
 
@@ -237,13 +242,103 @@ async function main() {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
       const backend = flags.backend || 'local'
+      const onlyChanged = flags['full'] !== true
+      const scope = flags.scope
       if (backend === 'local') {
-        print(services.sync.syncToLocal(id, flags.target, { dryRun: flags['dry-run'] === true }))
+        print(await services.sync.syncNovel(id, {
+          backend: 'local',
+          targetDir: flags.target,
+          dryRun: flags['dry-run'] === true,
+          onlyChanged,
+          scope,
+        }))
+      } else if (backend === 'webdav') {
+        print(await services.sync.syncToWebdav(id, {
+          dryRun: flags['dry-run'] === true,
+          onlyChanged,
+          onConflict: flags['on-conflict'] || 'overwrite',
+          scope,
+          remoteDir: flags['remote-dir'],
+          url: flags.url,
+        }))
       } else if (backend === 'quark') {
-        print(services.sync.syncToQuark(id, { dryRun: flags['dry-run'] !== false }))
+        print(await services.sync.syncToQuark(id, {
+          dryRun: flags['dry-run'] === true,
+          onlyChanged,
+          onConflict: flags['on-conflict'] || 'overwrite',
+          scope,
+          remoteDir: flags['remote-dir'],
+        }))
       } else {
         throw new Error(`unknown backend: ${backend}`)
       }
+      break
+    }
+
+    case 'quark-login': {
+      const { QuarkAuth, saveCookie } = await import('../src/services/quarkAuth.js')
+      const { encodeQr, renderTerminal } = await import('../src/utils/qrcode.js')
+      const { writeQrPng, writeQrSvg } = await import('../src/utils/qrImage.js')
+      const { QuarkClient } = await import('../src/services/quarkClient.js')
+      const config = (await import('../src/config/index.js')).default
+      const timeoutMs = flags.timeout ? Number(flags.timeout) * 1000 : 300000
+
+      const auth = new QuarkAuth()
+      const session = await auth.createQrSession()
+      const qr = encodeQr(session.qrUrl, { ec: 'M' })
+
+      // 本地生成图片（不经过任何在线二维码服务，避免泄露登录 token）
+      const outDir = flags['out-dir'] || config.storage.path
+      const pngPath = writeQrPng(qr.modules, flags.png || `${outDir}/quark-login-qr.png`, { scale: 8, border: 4 })
+      const svgPath = writeQrSvg(qr.modules, flags.svg || `${outDir}/quark-login-qr.svg`, { scale: 8, border: 4 })
+
+      console.log(`二维码图片：\n  PNG: ${pngPath}\n  SVG: ${svgPath}\n`)
+      if (flags.open !== false && process.platform === 'darwin') {
+        try {
+          const { spawnSync } = await import('node:child_process')
+          spawnSync('open', [pngPath])
+              console.log('已用系统默认程序打开 PNG，请用夸克 App 扫码。\n')
+        } catch {
+          /* 打不开就靠路径手动打开 */
+        }
+      }
+      if (flags.ascii) {
+          console.log(renderTerminal(qr.modules))
+      }
+      console.log(`\n链接（手机打开亦可）：${session.qrUrl}\n等待扫码…`)
+
+      const result = await auth.waitForScan(session, {
+        timeoutMs,
+        onPoll: (state) => {
+          if (state === 'pending') process.stdout.write('.')
+        },
+      })
+      process.stdout.write('\n')
+
+      // 用拿到的 cookie 验证一次：能列出根目录才算登录可用
+      const client = new QuarkClient({ ...config.quark, cookie: result.cookie })
+      const probe = await client.checkAuth()
+      const file = saveCookie(result.cookie, flags.file || config.quark.cookieFile)
+      print({ ok: true, cookieSavedTo: file, cookieLength: result.cookie.length, canListRoot: probe.ok })
+      break
+    }
+
+    case 'quark-check': {
+      const { QuarkClient } = await import('../src/services/quarkClient.js')
+      const { loadCookie } = await import('../src/services/quarkAuth.js')
+      const config = (await import('../src/config/index.js')).default
+      const cookie = flags.cookie || config.quark.cookie || loadCookie(config.quark.cookieFile)
+      if (!cookie) throw new Error('缺少 cookie：先 `quark-login` 扫码，或设置 QUARK_COOKIE')
+      const client = new QuarkClient({ ...config.quark, cookie })
+      const info = await client.checkAuth()
+      print({ ...info, cookieSource: flags.cookie ? 'flag' : config.quark.cookie ? 'env' : 'file' })
+      break
+    }
+
+    case 'ledger': {
+      const id = positional[0]
+      if (!id) throw new Error('缺少 <novelId>')
+      print(services.sync.getSyncState(id))
       break
     }
 
@@ -344,7 +439,7 @@ async function main() {
     }
 
     default:
-      print('usage: node scripts/novel.js <create|ingest|extract|list|show|characters|characters-sets|characters-select|stats|style|plan|seasons|episodes|script|assets|compose|manifest|sync|handoff|handoff-import|handoff-list|world|world-show|world-entities|world-relations|world-sets|world-select|advance> [args]')
+      print('usage: node scripts/novel.js <create|ingest|extract|list|show|characters|characters-sets|characters-select|stats|style|plan|seasons|episodes|script|assets|compose|manifest|sync|ledger|quark-login|quark-check|handoff|handoff-import|handoff-list|world|world-show|world-entities|world-relations|world-sets|world-select|advance> [args]')
   }
 }
 
