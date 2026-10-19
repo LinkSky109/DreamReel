@@ -713,6 +713,7 @@ async function tabArt({ body, id, refresh }) {
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
           <span id="nvArtBulkInfo" style="font-size:12px;color:#7c3aed;"></span>
           <button id="nvArtBulk" class="btn btn-sm">本类批量出图</button>
+          <button id="nvArtStop" class="btn btn-sm" style="display:none;color:#dc2626;">停止出图</button>
           <button id="nvArtSuggest" class="btn btn-sm">从角色/世界观导入候选（含各阶段）</button>
         </div>
       </div>
@@ -753,23 +754,48 @@ async function tabArt({ body, id, refresh }) {
   })
   body.querySelector('#nvArtBulk')?.addEventListener('click', async () => {
     const btn = body.querySelector('#nvArtBulk')
+    const stopBtn = body.querySelector('#nvArtStop')
     const info = body.querySelector('#nvArtBulkInfo')
-    const cats = state.artCategory && state.artCategory !== 'all' ? [state.artCategory] : undefined
+    const cats = state.artCategory && state.artCategory !== 'all' && state.artCategory !== '__stage' ? [state.artCategory] : undefined
     const old = btn.textContent
-    ;[...body.querySelectorAll('button,input,select')].forEach((x) => { x.disabled = true })
+    let stopped = false
+    ;[...body.querySelectorAll('button,input,select')].forEach((x) => { if (x.id !== 'nvArtStop') x.disabled = true })
     btn.textContent = '出图中…'
+    if (stopBtn) {
+      stopBtn.style.display = 'inline-block'
+      stopBtn.disabled = false
+      stopBtn.textContent = '停止出图'
+      stopBtn.onclick = async () => {
+        stopped = true
+        stopBtn.disabled = true
+        stopBtn.textContent = '停止中…'
+        try { await api.cancelNovelAssetBulk(id) } catch { /* 已停 */ }
+      }
+    }
     try {
       let guard = 0
       for (;;) {
-        const r = unwrap(await api.bulkGenerateAssets(id, { categories: cats, onlyMissing: true, limit: 3, concurrency: 2 }))
+        const r = unwrap(await api.bulkGenerateAssets(id, {
+          categories: cats,
+          onlyMissing: true,
+          limit: 3,
+          concurrency: 2,
+          reset: guard === 0 && !stopped,
+        }))
         if (info) info.textContent = `已出图 ${r.withImages}/${r.total}（本轮 ${r.ok} 成功 / ${r.failed} 失败）`
+        if (r.cancelled || r.stopped || stopped) {
+          showToast('已停止出图', 'success')
+          break
+        }
         if (r.remaining <= 0 || r.processed === 0 || ++guard > 400) break
       }
-      showToast('批量出图完成', 'success')
+      if (!stopped && info && !info.textContent.includes('停止')) showToast('批量出图完成', 'success')
     } catch (err) {
-      showToast(err.message, 'error')
+      if (/已停止/.test(err.message)) showToast('已停止出图', 'success')
+      else showToast(err.message, 'error')
     } finally {
       btn.textContent = old
+      if (stopBtn) { stopBtn.style.display = 'none'; stopBtn.disabled = false }
       refresh()
     }
   })

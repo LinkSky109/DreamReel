@@ -178,9 +178,16 @@ export async function bulkGenerateImages(novelId, opts = {}) {
   const todo = storageService.listNovelAssetImages(novelId).filter(pick).slice(0, limit)
   let ok = 0
   let failed = 0
+  let stopped = false
+  const shouldStop = typeof opts.shouldStop === 'function' ? opts.shouldStop : () => false
   await runPool(
     todo,
     async (a) => {
+      // 每张图开始前检查中断标志：取消后不再启动新的生成
+      if (shouldStop()) {
+        stopped = true
+        return
+      }
       try {
         const r = await generateAssetImage(novelId, a.id, { userId: opts.userId })
         if (r && r.imageUrl) ok++
@@ -197,6 +204,8 @@ export async function bulkGenerateImages(novelId, opts = {}) {
     processed: todo.length,
     ok,
     failed,
+    stopped,
+    cancelled: shouldStop(),
     total: all.length,
     withImages: all.filter((a) => a.imageUrl).length,
     remaining: all.filter(pick).length,

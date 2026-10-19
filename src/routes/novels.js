@@ -49,6 +49,7 @@ import { cloneVoice, designVoice } from '../services/volcVoiceApi.js'
 import { getTTSProvider } from '../providers/ttsProviderFactory.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
 import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
+import { beginRun, cancelRun, isCancelled, finishRun, getRunStatus } from '../services/bulkControl.js'
 import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
 
 /**
@@ -924,15 +925,42 @@ router.post('/:id/assets/normalize', (req, res) => {
   }
 })
 
+// 停止批量出图（当前批次最多再完成并发数的少量图）
+router.post('/:id/assets/bulk-cancel', (req, res) => {
+  try {
+    const run = cancelRun(req.params.id)
+    res.json({ success: true, data: { cancelled: true, cancelledAt: run.cancelledAt } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 批量出图状态
+router.get('/:id/assets/bulk-status', (req, res) => {
+  try {
+    res.json({ success: true, data: getRunStatus(req.params.id) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
 router.post('/:id/assets/bulk-generate', async (req, res) => {
   try {
     const body = req.body || {}
-    const r = await bulkGenerateImages(req.params.id, {
+    const novelId = req.params.id
+    // reset=true：开始新一轮；否则若已被取消，直接拒绝，让客户端循环立即停止
+    if (body.reset) beginRun(novelId)
+    else if (isCancelled(novelId)) {
+      return res.status(409).json({ success: false, code: 'BULK_CANCELLED', error: '已停止出图；重新开始请点击「本类批量出图」' })
+    }
+    const r = await bulkGenerateImages(novelId, {
       limit: optionalClampInt(body.limit, 1, 24),
       concurrency: optionalClampInt(body.concurrency, 1, 6),
       categories: Array.isArray(body.categories) ? body.categories : undefined,
       userId: req.user?.id,
+      shouldStop: () => isCancelled(novelId),
     })
+    finishRun(novelId, { ok: r.ok, failed: r.failed })
     res.json({ success: true, data: r })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
