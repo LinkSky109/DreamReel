@@ -1,7 +1,8 @@
-import { getVideoProvider, getVideoProviderForProject } from '../providers/videoProviderFactory.js'
+import { getVideoProvider, getVideoProviderForProject, getVideoProviderChainForProject } from '../providers/videoProviderFactory.js'
 import { SHOT_STATUS } from '../models/shot.js'
 import config from '../config/index.js'
 import { recordOutcome } from './withMetrics.js'
+import { shouldSwitch } from './executionRouter.js'
 import { styleService } from './styleService.js'
 import logger from '../utils/logger.js'
 import { buildCharacterActionPrompt } from '../config/characterExpressions.js'
@@ -81,30 +82,45 @@ export class VideoService {
 
       logger.info(`Generating video for shot ${shotId}, duration=${duration}s`)
 
+      // 提交阶段回退链（主 → 回退）；仅在提交成功前切换
+      const chain = this._videoChain(projectId, project?.userId)
       const submitStart = Date.now()
-      let taskId
-      try {
-        ;({ taskId } = await provider.generateVideo({
-          prompt: enhancedPrompt,
-          referenceImages: finalRefImages,
-          duration,
-          resolution,
-          aspectRatio,
-          // 供指标归属（ComfyUI provider 会记录 stage=video 的调用指标）
-          projectId,
-          userId: project?.userId || null,
-          shotId,
-        }))
-      } catch (error) {
-        // 提交失败：若 provider 不自行记录，则由 service 记一条失败指标
-        this._recordVideoOutcome(
-          { projectId, userId: project?.userId || null, shotId, duration, startTime: submitStart },
-          provider,
-          false,
-          { error: error.message, errorClass: 'server' }
-        )
-        throw error
+      let taskId = null
+      let usedProvider = null
+      let submitError = null
+      for (let i = 0; i < chain.length; i += 1) {
+        const p = chain[i]
+        try {
+          ;({ taskId } = await p.generateVideo({
+            prompt: enhancedPrompt,
+            referenceImages: finalRefImages,
+            duration,
+            resolution,
+            aspectRatio,
+            // 供指标归属（ComfyUI provider 会记录 stage=video 的调用指标）
+            projectId,
+            userId: project?.userId || null,
+            shotId,
+          }))
+          usedProvider = p
+          break
+        } catch (error) {
+          submitError = error
+          // 提交失败：若 provider 不自行记录，则由 service 记一条失败指标
+          this._recordVideoOutcome(
+            { projectId, userId: project?.userId || null, shotId, duration, startTime: submitStart },
+            p,
+            false,
+            { error: error.message, errorClass: 'server' }
+          )
+          if (i < chain.length - 1 && shouldSwitch(error)) {
+            logger.warn(`视频提交失败（${p.name}），切换下一个 provider: ${error.message}`)
+            continue
+          }
+          throw error
+        }
       }
+      if (!taskId) throw submitError || new Error('视频提交失败')
 
       // 异步等待完成
       return new Promise((resolve, reject) => {
@@ -119,7 +135,7 @@ export class VideoService {
           status: 'generating',
           duration,
           resolution,
-          provider, // Phase 1: 保存当前使用的 provider，避免切换后影响已启动任务
+          provider: usedProvider, // Phase 1: 保存实际提交的 provider，避免回退/切换后影响已启动任务
         })
         this.pollTaskStatus(taskId)
       })
@@ -127,6 +143,14 @@ export class VideoService {
       logger.error(`Video generation failed for shot ${shotId}:`, error.message)
       throw error
     }
+  }
+
+  /**
+   * 视频提交阶段回退链（主 → 回退）。
+   * 仅用于提交；提交成功后轮询固定用 activeTasks 里的 provider。
+   */
+  _videoChain(projectId, userId) {
+    return getVideoProviderChainForProject(projectId, userId, this.provider)
   }
 
   /**

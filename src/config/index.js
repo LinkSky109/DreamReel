@@ -28,6 +28,11 @@ const config = {
     // 视频任务轮询：默认 30 分钟窗口（自托管 ComfyUI 长片可能远超旧 120s 上限）
     pollMaxMs: parseInt(process.env.VIDEO_POLL_MAX_MS, 10) || 1800000,
     pollIntervalMs: parseInt(process.env.VIDEO_POLL_INTERVAL_MS, 10) || 1000,
+    // 执行级回退（仅提交阶段；提交成功后由 activeTasks 固定 provider 轮询）
+    fallbackProviders: (process.env.VIDEO_FALLBACK_PROVIDERS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     // 自托管 ComfyUI（另一台机器，内网直连；默认无鉴权）
     comfyui: {
       baseUrl: process.env.COMFYUI_BASE_URL || '',

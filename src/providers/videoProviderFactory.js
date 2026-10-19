@@ -94,6 +94,28 @@ export function getVideoProviderForProject(projectId = null, userId = null, defa
 }
 
 /**
+ * 视频「提交阶段」回退链：[主, ...回退]。
+ * 仅用于提交（generateVideo）；因视频是异步任务，回退只在**提交成功前**发生
+ * （提交成功后由 activeTasks 固定 provider 轮询，不再切换）。
+ */
+export function getVideoProviderChainForProject(projectId = null, userId = null, defaultProvider = null) {
+  const primary = getVideoProviderForProject(projectId, userId, defaultProvider)
+  const resolved = resolveProviderConfig('video', projectId, userId)
+  const primaryName = primary?.name || resolved.provider
+  const chain = [primary]
+  const names = (config.video.fallbackProviders || []).filter(
+    (n) => n && n !== primaryName && PROVIDER_MAP[n] && isProviderConfigured('video', n)
+  )
+  for (const n of names) {
+    chain.push(new PROVIDER_MAP[n](buildMergedConfig('video', n)))
+  }
+  if (chain.length > 1) {
+    logger.info(`Video 提交回退链: ${chain.map((p) => p.name).join(' → ')}`)
+  }
+  return chain
+}
+
+/**
  * 重置 provider（用于测试）
  */
 export function resetVideoProvider() {

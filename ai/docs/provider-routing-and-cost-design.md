@@ -457,7 +457,8 @@ export const PRICING_TABLE = {
 > 构建「主 + 回退」链。每次逻辑调用生成共享 `requestId`，逐次尝试记录 `attempt` / `isFallback`；
 > 支持 `LLM_ATTEMPT_TIMEOUT_MS` 单次尝试软超时（防主 provider 挂起）。
 > **已真机验证**：停掉 LiteLLM → 自动切到直连 DeepSeek（attempt1 失败 network / attempt2 成功，requestId 一致）。
-> 图片/视频/TTS 阶段沿用同一 `executionRouter` 即可扩展（图片、TTS 已接入工厂链；视频因异步任务需在提交前失败时切换，待做）。
+> 全阶段已接入：文本/图片/TTS 走工厂链（`executionRouter`），**视频走「提交阶段」回退**
+> （`getVideoProviderChainForProject` + `videoService` 在提交成功前失败才切换，`activeTasks` 固定实际提交的 provider 轮询）。
 
 ### 6.1 触发条件（决策点 1）
 
