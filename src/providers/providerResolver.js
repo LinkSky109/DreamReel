@@ -30,6 +30,9 @@ export function isProviderConfigured(stage, providerName) {
         return !!config.video.minimaxApiKey && !!config.video.minimaxGroupId
       case 'wan':
         return !!config.video.wanApiKey
+      case 'comfyui':
+        // 自托管 ComfyUI：已配置 baseUrl 即可用（默认无鉴权）
+        return !!config.video.comfyui?.baseUrl
       default:
         return false
     }
@@ -44,6 +47,9 @@ export function isProviderConfigured(stage, providerName) {
       case 'opencode':
         // 本地 OpenCode 2.x 服务（服务发现或 baseUrl）；无需外部 key
         return true
+      case 'litellm':
+        // LiteLLM 网关：已配 baseUrl + key 即可用
+        return !!config.llm.litellmBaseUrl && !!config.llm.litellmApiKey
       default:
         return false
     }
@@ -175,6 +181,10 @@ export function buildMergedConfig(stage, providerName, prefConfig = {}, model = 
       if (!model) merged.model = config.llm.deepseekModel
     } else if (providerName === 'opencode') {
       if (!model) merged.model = config.llm.opencodeModel
+    } else if (providerName === 'litellm') {
+      merged.apiKey = config.llm.litellmApiKey
+      merged.baseUrl = config.llm.litellmBaseUrl
+      if (!model) merged.model = config.llm.litellmModel
     }
   }
   if (model) {

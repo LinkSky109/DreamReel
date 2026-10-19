@@ -16,5 +16,20 @@ services:
       - dreamreel-storage:/app/storage
     restart: unless-stopped
 
+  # LiteLLM 供应商网关：统一多供应商/多套餐端点，见 litellm/README.md
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: dreamreel-litellm
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    env_file:
+      - .env            # 复用已配置的 DEEPSEEK_*/OPENCODE_*/SEEDANCE_*/OPENAI_IMAGE_*/LITELLM_MASTER_KEY
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # 容器内访问宿主机的本地 OpenCode
+    restart: unless-stopped
+
 volumes:
   dreamreel-storage:

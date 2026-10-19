@@ -200,15 +200,17 @@ export function buildWorkflow(template, p = {}) {
   }
 
   // 保存节点
+  // 保存节点（兼容 SaveWEBM / SaveVideo + CreateVideo 链路）
   const [, webm] = findNode(wf, 'SaveWEBM')
   const [, saveVideo] = findNode(wf, 'SaveVideo')
-  if (webm) {
-    if (p.filenamePrefix) patchNodeInput(wf, 'SaveWEBM', 'filename_prefix', p.filenamePrefix)
-    if (p.fps != null) patchNodeInput(wf, 'SaveWEBM', 'fps', p.fps)
-  } else if (saveVideo) {
-    if (p.filenamePrefix) patchNodeInput(wf, 'SaveVideo', 'filename_prefix', p.filenamePrefix)
-    // mp4 输出：帧率在 CreateVideo 节点上
-    if (p.fps != null) patchNodeInput(wf, 'CreateVideo', 'fps', p.fps)
+  const [, createVideo] = findNode(wf, 'CreateVideo')
+  if (p.filenamePrefix) {
+    if (webm) patchNodeInput(wf, 'SaveWEBM', 'filename_prefix', p.filenamePrefix)
+    else if (saveVideo) patchNodeInput(wf, 'SaveVideo', 'filename_prefix', p.filenamePrefix)
+  }
+  if (p.fps != null) {
+    if (webm) patchNodeInput(wf, 'SaveWEBM', 'fps', p.fps)
+    else if (createVideo) patchNodeInput(wf, 'CreateVideo', 'fps', p.fps)
   }
 
   return stripMeta(wf)

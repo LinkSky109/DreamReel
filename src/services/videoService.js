@@ -1,6 +1,7 @@
 import { getVideoProvider, getVideoProviderForProject } from '../providers/videoProviderFactory.js'
 import { SHOT_STATUS } from '../models/shot.js'
 import config from '../config/index.js'
+import { recordOutcome } from './withMetrics.js'
 import { styleService } from './styleService.js'
 import logger from '../utils/logger.js'
 import { buildCharacterActionPrompt } from '../config/characterExpressions.js'
@@ -80,19 +81,37 @@ export class VideoService {
 
       logger.info(`Generating video for shot ${shotId}, duration=${duration}s`)
 
-      const { taskId } = await provider.generateVideo({
-        prompt: enhancedPrompt,
-        referenceImages: finalRefImages,
-        duration,
-        resolution,
-        aspectRatio,
-      })
+      const submitStart = Date.now()
+      let taskId
+      try {
+        ;({ taskId } = await provider.generateVideo({
+          prompt: enhancedPrompt,
+          referenceImages: finalRefImages,
+          duration,
+          resolution,
+          aspectRatio,
+          // 供指标归属（ComfyUI provider 会记录 stage=video 的调用指标）
+          projectId,
+          userId: project?.userId || null,
+          shotId,
+        }))
+      } catch (error) {
+        // 提交失败：若 provider 不自行记录，则由 service 记一条失败指标
+        this._recordVideoOutcome(
+          { projectId, userId: project?.userId || null, shotId, duration, startTime: submitStart },
+          provider,
+          false,
+          { error: error.message, errorClass: 'server' }
+        )
+        throw error
+      }
 
       // 异步等待完成
       return new Promise((resolve, reject) => {
         this.activeTasks.set(taskId, {
           projectId,
           shotId,
+          userId: project?.userId || null,
           resolve,
           reject,
           startTime: Date.now(),
@@ -113,14 +132,19 @@ export class VideoService {
   /**
    * 轮询任务状态
    */
-  async pollTaskStatus(taskId, maxAttempts = 120, intervalMs = 1000) {
+  async pollTaskStatus(taskId, maxAttempts = null, intervalMs = null) {
     const taskInfo = this.activeTasks.get(taskId)
     if (!taskInfo) return
 
     // Phase 1: 使用任务启动时的 provider，避免切换后影响已启动任务
     const provider = taskInfo.provider || this.provider
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // 轮询窗口：默认取 config.video.pollMaxMs（30 分钟），可按 interval 换算成次数
+    const pollIntervalMs = intervalMs ?? config.video.pollIntervalMs ?? 1000
+    const pollMaxMs = config.video.pollMaxMs ?? 1800000
+    const attempts = maxAttempts ?? Math.max(1, Math.ceil(pollMaxMs / pollIntervalMs))
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
       try {
         const status = await provider.getTaskStatus(taskId)
 
@@ -133,6 +157,7 @@ export class VideoService {
             consistencyScore,
           })
           this._recordTaskHistory(taskId, taskInfo, 'completed', status.videoUrl)
+          this._recordVideoOutcome(taskInfo, provider, true)
           this.activeTasks.delete(taskId)
           return
         }
@@ -141,12 +166,16 @@ export class VideoService {
           const errorMsg = status.error || 'Video generation failed'
           taskInfo.reject(new Error(errorMsg))
           this._recordTaskHistory(taskId, taskInfo, status.status === 'cancelled' ? 'cancelled' : 'failed', null, errorMsg)
+          this._recordVideoOutcome(taskInfo, provider, false, {
+            error: errorMsg,
+            errorClass: status.status === 'cancelled' ? 'cancelled' : 'server',
+          })
           this.activeTasks.delete(taskId)
           return
         }
 
         // 继续等待
-        await new Promise((resolve) => setTimeout(resolve, intervalMs))
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
       } catch (error) {
         logger.error(`Poll task ${taskId} failed:`, error.message)
         taskInfo.reject(error)
@@ -158,7 +187,32 @@ export class VideoService {
     // 超时
     taskInfo.reject(new Error('Video generation timed out'))
     this._recordTaskHistory(taskId, taskInfo, 'failed', null, 'Video generation timed out')
+    this._recordVideoOutcome(taskInfo, provider, false, { error: 'Video generation timed out', errorClass: 'timeout' })
     this.activeTasks.delete(taskId)
+  }
+
+  /**
+   * 记录视频终态指标（若 provider 自行记录则跳过，避免重复）
+   */
+  _recordVideoOutcome(taskInfo, provider, success, { error = null, errorClass = null } = {}) {
+    if (!provider || provider.recordsOwnMetrics) return
+    recordOutcome(
+      {
+        stage: 'video',
+        taskType: 'shot.video',
+        provider: provider.name,
+        model: provider.model || null,
+        projectId: taskInfo?.projectId ?? null,
+        userId: taskInfo?.userId ?? null,
+      },
+      {
+        success,
+        latencyMs: Date.now() - (taskInfo?.startTime || Date.now()),
+        error,
+        errorClass,
+        ctx: { durationSeconds: taskInfo?.duration ?? null },
+      }
+    )
   }
 
   /**
@@ -238,6 +292,7 @@ export class VideoService {
     // 拒绝 promise 并移除任务
     taskInfo.reject(new Error('Task cancelled by user'))
     this._recordTaskHistory(taskId, taskInfo, 'cancelled', null, 'Task cancelled by user')
+    this._recordVideoOutcome(taskInfo, provider, false, { error: 'cancelled by user', errorClass: 'cancelled' })
     this.activeTasks.delete(taskId)
 
     logger.info(`Task cancelled: ${taskId}`)

@@ -1,0 +1,65 @@
+# LiteLLM Proxy 配置 —— DreamReel 供应商网关
+#
+# 作用：把「不同供应商 / 不同套餐端点 / 不同 token」统一到一个 OpenAI 兼容网关。
+# 每个部署（deployment）可各自指定 api_base + api_key —— 这正是「plan 端点与按量端点不同」的解法。
+#
+# 用法：
+#   export LITELLM_MASTER_KEY=sk-...     # 网关自己的 key（客户端用这个访问 4000）
+#   docker compose up litellm            # 或 litellm --config litellm/config.yaml --port 4000
+#
+# 密钥一律用 os.environ/XXX 引用，不写死在文件里。
+#
+# ⚠️ 下面标 [待核对] 的模型 ID / 端点，必须以你的火山方舟账号与控制台的「模型 ID / 接入点」为准，
+#    不同账号自定义 endpoint 的 model id 可能不同（你 .env 里用的是别名，需映射到真实 model id）。
+
+model_list:
+  # ========== 文本 LLM ==========
+  # DeepSeek 官方（按量）
+  - model_name: deepseek-flash
+    litellm_params:
+      model: deepseek/deepseek-flash
+      api_key: os.environ/DEEPSEEK_API_KEY
+      api_base: os.environ/DEEPSEEK_BASE_URL
+
+  # OpenCode 本地服务（OpenAI 兼容）
+  # ⚠️ [待核对] OpenCode 用 Basic(opencode:PASSWORD) 鉴权，LiteLLM 的 openai/ 走 Bearer。
+  #    若鉴权失败，改用 extra_headers 传 Authorization: Basic ...，或经 python-api-base 适配。
+  - model_name: opencode-deepseek-flash-free
+    litellm_params:
+      model: openai/opencode/deepseek-v4.1-flash-free
+      api_base: os.environ/OPENCODE_BASE_URL
+      api_key: os.environ/OPENCODE_API_KEY
+
+  # ========== 图片（火山方舟 Agent Plan 端点）==========
+  # 你 .env 里的 OPENAI_IMAGE_* 指向 https://ark.cn-beijing.volces.com/api/plan/v3
+  - model_name: doubao-seedream-5.0-pro
+    litellm_params:
+      model: openai/doubao-seedream-5.0-pro          # [待核对] 真实 model id，如 doubao-seedream-5-0-260128
+      api_key: os.environ/OPENAI_IMAGE_API_KEY
+      api_base: os.environ/OPENAI_IMAGE_BASE_URL     # plan 端点
+    model_info:
+      mode: image_generation
+
+  # ========== 视频（火山方舟 Agent Plan 端点 / Seedance）==========
+  # LiteLLM 支持 volcengine Seedance，经 /v1/videos 调用并按秒计费
+  - model_name: doubao-seedance-2.5
+    litellm_params:
+      model: volcengine/doubao-seedance-2-5-260628  # [待核对] 与你账号的 model id 对齐
+      api_key: os.environ/SEEDANCE_API_KEY
+      api_base: os.environ/SEEDANCE_BASE_URL          # plan 端点
+    model_info:
+      mode: video_generation
+
+  # ========== TTS（火山语音，可选）==========
+  # 你 .env 里 VOLC_TTS_API_KEY 目前为空，配好后再启用
+  # - model_name: volc-tts
+  #   litellm_params:
+  #     model: volcengine/<tts-model-id>   # [待核对]
+  #     api_key: os.environ/VOLC_TTS_API_KEY
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+litellm_settings:
+  # 网关级超时（视频生成是长任务，需放宽）
+  request_timeout: 600

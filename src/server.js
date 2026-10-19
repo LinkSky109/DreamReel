@@ -23,6 +23,7 @@ import statsRouter from './routes/stats.js'
 import moderationRouter from './routes/moderation.js'
 import notificationsRouter from './routes/notifications.js'
 import providersRouter from './routes/providers.js'
+import providerMetricsRouter from './routes/providerMetrics.js'
 import systemRouter from './routes/system.js'
 import webhooksRouter from './routes/webhooks.js'
 import aiAssistantRouter from './routes/aiAssistant.js'
@@ -101,6 +102,7 @@ app.use('/api/styles', stylesRouter)
 app.use('/api/analysis', authOptional, analysisRouter)
 app.use('/api/collab', authOptional, collaborationRouter)
 app.use('/api/providers', providersRouter)
+app.use('/api/providers', providerMetricsRouter) // /metrics /compare /costs（Phase 0 指标）
 app.use('/api/system', systemRouter)
 app.use('/api/webhooks', webhooksRouter)
 app.use('/api/ai-assistant', aiAssistantRouter)

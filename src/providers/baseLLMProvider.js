@@ -26,7 +26,8 @@ export class BaseLLMProvider {
    */
   async generateJSON(params) {
     const result = await this.generate(params)
-    return { data: parseJsonLoose(result.content), raw: result.content }
+    // 透出 usage（供指标层记录 token）；此前仅返回 { data, raw } 导致文本用量丢失
+    return { data: parseJsonLoose(result.content), raw: result.content, usage: result.usage }
   }
 }
 

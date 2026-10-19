@@ -5,6 +5,7 @@ import { VolcTTSProvider } from './volcTTSProvider.js'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import { resolveProviderConfig, buildMergedConfig, isProviderConfigured } from './providerResolver.js'
+import { composeWithFallback } from '../services/executionRouter.js'
 
 const PROVIDER_MAP = {
   mock: MockTTSProvider,
@@ -26,19 +27,32 @@ export const TTS_MODEL_CATALOG = [
 
 let activeProvider = null
 
+function rawTTS(name, { model = null, prefConfig = {} } = {}) {
+  const ProviderClass = PROVIDER_MAP[name]
+  if (!ProviderClass) return null
+  return new ProviderClass(buildMergedConfig('tts', name, prefConfig, model))
+}
+
+function buildTTSChain(primaryName, { projectId = null, userId = null, model = null, prefConfig = {} } = {}) {
+  const baseMeta = { stage: 'tts', projectId, userId, deadlineMs: config.tts.attemptTimeoutMs || 0 }
+  const primary = rawTTS(primaryName, { model, prefConfig }) || new MockTTSProvider(config.tts)
+  const raws = [primary]
+  const fallbacks = (config.tts.fallbackProviders || []).filter(
+    (n) => n && n !== primaryName && PROVIDER_MAP[n] && isProviderConfigured('tts', n)
+  )
+  for (const n of fallbacks) {
+    const p = rawTTS(n)
+    if (p) raws.push(p)
+  }
+  if (raws.length > 1) logger.info(`TTS 回退链: ${raws.map((x) => x.name).join(' → ')}`)
+  return composeWithFallback(raws, baseMeta, ['synthesize'])
+}
+
 export function getTTSProvider() {
   if (activeProvider) return activeProvider
-
   const providerName = config.tts.provider
-  const ProviderClass = PROVIDER_MAP[providerName]
-
-  if (!ProviderClass) {
-    logger.warn(`Unknown TTS provider: ${providerName}, falling back to mock`)
-    activeProvider = new MockTTSProvider(config.tts)
-  } else {
-    activeProvider = new ProviderClass(config.tts)
-  }
-
+  if (!PROVIDER_MAP[providerName]) logger.warn(`Unknown TTS provider: ${providerName}, falling back to mock`)
+  activeProvider = buildTTSChain(providerName)
   logger.info(`TTS provider initialized: ${activeProvider.name}`)
   return activeProvider
 }
@@ -53,19 +67,13 @@ export function getTTSProviderForProject(projectId = null, userId = null) {
   if (!projectId && !userId) {
     return getTTSProvider()
   }
-
   const resolved = resolveProviderConfig('tts', projectId, userId)
-  const ProviderClass = PROVIDER_MAP[resolved.provider]
-
-  if (!ProviderClass) {
-    logger.warn(`Unknown TTS provider: ${resolved.provider}, falling back to mock`)
-    return new MockTTSProvider(config.tts)
-  }
-
-  const mergedConfig = buildMergedConfig('tts', resolved.provider, resolved.config, resolved.model)
-  const instance = new ProviderClass(mergedConfig)
-  logger.info(`TTS provider for project=${projectId}: ${instance.name} (source=${resolved.source})`)
-  return instance
+  return buildTTSChain(resolved.provider, {
+    projectId,
+    userId,
+    model: resolved.model,
+    prefConfig: resolved.config,
+  })
 }
 
 export function resetTTSProvider() {

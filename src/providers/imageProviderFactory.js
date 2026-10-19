@@ -4,6 +4,7 @@ import { OpenAIImageProvider } from './openaiImageProvider.js'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import { resolveProviderConfig, buildMergedConfig, isProviderConfigured } from './providerResolver.js'
+import { composeWithFallback } from '../services/executionRouter.js'
 
 const PROVIDER_MAP = {
   mock: MockImageProvider,
@@ -33,15 +34,34 @@ export const IMAGE_MODEL_CATALOG = [
 
 let activeProvider = null
 
+function rawImage(name, { model = null } = {}) {
+  const ProviderClass = PROVIDER_MAP[name]
+  if (!ProviderClass) return null
+  // 图片 provider 的 baseUrl/apiKey 只取全局配置（prefConfig 传空），避免 SSRF 与密钥替换
+  return new ProviderClass(buildMergedConfig('image', name, {}, model))
+}
+
+function buildImageChain(primaryName, { projectId = null, userId = null, model = null } = {}) {
+  const baseMeta = { stage: 'image', projectId, userId, deadlineMs: config.image.attemptTimeoutMs || 0 }
+  const primary = rawImage(primaryName, { model }) || new MockImageProvider(config.image)
+  const raws = [primary]
+  const fallbacks = (config.image.fallbackProviders || []).filter(
+    (n) => n && n !== primaryName && PROVIDER_MAP[n] && isProviderConfigured('image', n)
+  )
+  for (const n of fallbacks) {
+    const p = rawImage(n)
+    if (p) raws.push(p)
+  }
+  if (raws.length > 1) logger.info(`Image 回退链: ${raws.map((x) => x.name).join(' → ')}`)
+  return composeWithFallback(raws, baseMeta, ['generateImage'])
+}
+
 export function getImageProvider() {
   if (activeProvider) return activeProvider
-  const ProviderClass = PROVIDER_MAP[config.image.provider]
-  if (!ProviderClass) {
+  if (!PROVIDER_MAP[config.image.provider]) {
     logger.warn(`Unknown image provider: ${config.image.provider}, falling back to mock`)
-    activeProvider = new MockImageProvider(config.image)
-  } else {
-    activeProvider = new ProviderClass(config.image)
   }
+  activeProvider = buildImageChain(config.image.provider)
   logger.info(`Image provider initialized: ${activeProvider.name}`)
   return activeProvider
 }
@@ -54,15 +74,7 @@ export function getImageProviderForProject(projectId = null, userId = null) {
     return getImageProvider()
   }
 
-  const ProviderClass = PROVIDER_MAP[resolved.provider]
-  if (!ProviderClass) {
-    logger.warn(`Unknown image provider: ${resolved.provider}, falling back to mock`)
-    return new MockImageProvider(config.image)
-  }
-
-  // 图片 provider 的 baseUrl/apiKey 只取全局配置，忽略项目/用户级覆盖，避免 SSRF 与密钥替换。
-  const mergedConfig = buildMergedConfig('image', resolved.provider, {}, resolved.model)
-  return new ProviderClass(mergedConfig)
+  return buildImageChain(resolved.provider, { projectId, userId, model: resolved.model })
 }
 
 export function resetImageProvider() {

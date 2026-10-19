@@ -39,7 +39,10 @@ describe('REAL-06: Provider 切换一致性', () => {
   describe('Video Provider 工厂', () => {
     it('应返回所有可用的 video provider 名称', () => {
       const providers = getVideoProviders()
-      assert.deepStrictEqual(providers.sort(), ['mock', 'runway', 'pika', 'seedance', 'minimax', 'wan'].sort())
+      assert.deepStrictEqual(
+        providers.sort(),
+        ['mock', 'runway', 'pika', 'seedance', 'minimax', 'wan', 'comfyui'].sort()
+      )
     })
 
     it('应返回模型目录（R20）', () => {
@@ -59,7 +62,7 @@ describe('REAL-06: Provider 切换一致性', () => {
   describe('LLM Provider 工厂', () => {
     it('应返回所有可用的 llm provider 名称', () => {
       const providers = getLLMProviders()
-      assert.deepStrictEqual(providers.sort(), ['mock', 'openai', 'opencode', 'deepseek'].sort())
+      assert.deepStrictEqual(providers.sort(), ['mock', 'openai', 'opencode', 'deepseek', 'litellm'].sort())
     })
   })
 

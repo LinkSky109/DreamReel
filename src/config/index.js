@@ -1,6 +1,9 @@
+import path from 'path'
 import dotenv from 'dotenv'
 
 dotenv.config()
+
+const storagePath = process.env.STORAGE_PATH || './storage'
 
 const config = {
   env: process.env.NODE_ENV || 'development',
@@ -22,6 +25,30 @@ const config = {
     wanBaseUrl: process.env.WAN_BASE_URL || 'https://dashscope.aliyuncs.com/api/v1',
     wanModel: process.env.WAN_MODEL || 'wanx2.1-t2v-plus',
     maxConcurrent: parseInt(process.env.VIDEO_MAX_CONCURRENT, 10) || 3,
+    // 视频任务轮询：默认 30 分钟窗口（自托管 ComfyUI 长片可能远超旧 120s 上限）
+    pollMaxMs: parseInt(process.env.VIDEO_POLL_MAX_MS, 10) || 1800000,
+    pollIntervalMs: parseInt(process.env.VIDEO_POLL_INTERVAL_MS, 10) || 1000,
+    // 自托管 ComfyUI（另一台机器，内网直连；默认无鉴权）
+    comfyui: {
+      baseUrl: process.env.COMFYUI_BASE_URL || '',
+      apiToken: process.env.COMFYUI_API_TOKEN || '',
+      allowedHosts: (process.env.COMFYUI_ALLOWED_HOSTS || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      maxConcurrent: parseInt(process.env.COMFYUI_MAX_CONCURRENT, 10) || 1,
+      pollIntervalMs: parseInt(process.env.COMFYUI_POLL_INTERVAL_MS, 10) || 3000,
+      maxPollMs: parseInt(process.env.COMFYUI_MAX_POLL_MS, 10) || 1800000,
+      submitTimeoutMs: parseInt(process.env.COMFYUI_SUBMIT_TIMEOUT_MS, 10) || 30000,
+      downloadMaxBytes: parseInt(process.env.COMFYUI_DOWNLOAD_MAX_BYTES, 10) || 268435456,
+      workflow: process.env.COMFYUI_WORKFLOW || '',
+      model: process.env.COMFYUI_MODEL || 'wan22-ti2v',
+      defaultWidth: parseInt(process.env.COMFYUI_WIDTH, 10) || 832,
+      defaultHeight: parseInt(process.env.COMFYUI_HEIGHT, 10) || 480,
+      defaultLength: parseInt(process.env.COMFYUI_LENGTH, 10) || 49,
+      defaultSteps: parseInt(process.env.COMFYUI_STEPS, 10) || 20,
+      defaultFps: parseInt(process.env.COMFYUI_FPS, 10) || 16,
+    },
   },
 
   llm: {
@@ -36,7 +63,18 @@ const config = {
     // DeepSeek 官方 API（OpenAI 兼容）：https://api-docs.deepseek.com/zh-cn/
     deepseekApiKey: process.env.DEEPSEEK_API_KEY || '',
     deepseekBaseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
-    deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+    deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-flash',
+    // LiteLLM 网关（统一多供应商/套餐端点）：LLM_PROVIDER=litellm 时生效
+    litellmBaseUrl: process.env.LITELLM_BASE_URL || '',
+    litellmApiKey: process.env.LITELLM_API_KEY || process.env.LITELLM_MASTER_KEY || '',
+    litellmModel: process.env.LITELLM_MODEL || 'deepseek-flash',
+    // 执行级回退：主 provider 失败时按顺序切换（逗号分隔的 provider id）
+    fallbackProviders: (process.env.LLM_FALLBACK_PROVIDERS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    // 单次尝试软超时（毫秒）：防主 provider 挂起拖住回退；0 = 不启用
+    attemptTimeoutMs: parseInt(process.env.LLM_ATTEMPT_TIMEOUT_MS, 10) || 0,
     // 单次 LLM 调用超时（毫秒）。角色/世界观抽取为一次性长任务（确认后不改），
     // 默认放宽到 10 分钟。
     timeout: parseInt(process.env.LLM_TIMEOUT_MS || '', 10) || 600000,
@@ -53,6 +91,12 @@ const config = {
     volcTtsResourceId: process.env.VOLC_TTS_RESOURCE_ID || 'seed-tts-2.0',
     volcTtsSpeaker: process.env.VOLC_TTS_SPEAKER || 'zh_female_vv_uranus_bigtts',
     volcTtsFormat: process.env.VOLC_TTS_FORMAT || 'mp3',
+    // 执行级回退
+    fallbackProviders: (process.env.TTS_FALLBACK_PROVIDERS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    attemptTimeoutMs: parseInt(process.env.TTS_ATTEMPT_TIMEOUT_MS, 10) || 0,
   },
 
   image: {
@@ -62,6 +106,12 @@ const config = {
     model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1',
     // 显式 size 覆盖（如火山方舟 Agent Plan 用 "2K"/"1K"；为空则按 aspectRatio 映射像素尺寸）
     size: process.env.OPENAI_IMAGE_SIZE || '',
+    // 执行级回退
+    fallbackProviders: (process.env.IMAGE_FALLBACK_PROVIDERS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    attemptTimeoutMs: parseInt(process.env.IMAGE_ATTEMPT_TIMEOUT_MS, 10) || 0,
   },
 
   character: {
@@ -69,7 +119,32 @@ const config = {
   },
 
   storage: {
-    path: process.env.STORAGE_PATH || './storage',
+    path: storagePath,
+  },
+
+  // 网盘同步（WebDAV / NAS）：群晖 / Nextcloud / 坚果云 / 阿里云盘 WebDAV 等
+  webdav: {
+    url: process.env.WEBDAV_URL || '',
+    username: process.env.WEBDAV_USERNAME || '',
+    password: process.env.WEBDAV_PASSWORD || '',
+    token: process.env.WEBDAV_TOKEN || '',
+    root: process.env.WEBDAV_ROOT || 'DreamReel',
+    timeoutMs: parseInt(process.env.WEBDAV_TIMEOUT_MS, 10) || 60000,
+    concurrency: parseInt(process.env.WEBDAV_CONCURRENCY, 10) || 3,
+    retries: parseInt(process.env.WEBDAV_RETRIES, 10) || 2,
+  },
+
+  // 夸克网盘同步（私有接口，需 cookie）。真实上传默认关闭，需显式配置 QUARK_COOKIE。
+  quark: {
+    cookie: process.env.QUARK_COOKIE || '',
+    cookieFile: process.env.QUARK_COOKIE_FILE || path.join(storagePath, '.quark-cookie'),
+    root: process.env.QUARK_ROOT || 'DreamReel',
+    apiBase: process.env.QUARK_API_BASE || 'https://drive-pc.quark.cn/1/clouddrive',
+    ossHost: process.env.QUARK_OSS_HOST || 'oss-cn-shenzhen.aliyuncs.com',
+    partSize: parseInt(process.env.QUARK_PART_SIZE, 10) || 4 * 1024 * 1024,
+    concurrency: parseInt(process.env.QUARK_CONCURRENCY, 10) || 1,
+    timeoutMs: parseInt(process.env.QUARK_TIMEOUT_MS, 10) || 60000,
+    retries: parseInt(process.env.QUARK_RETRIES, 10) || 2,
   },
 
   quota: {

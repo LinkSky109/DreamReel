@@ -5,6 +5,7 @@ import { PikaVideoProvider } from './pikaVideoProvider.js'
 import { SeedanceVideoProvider } from './seedanceVideoProvider.js'
 import { MinimaxVideoProvider } from './minimaxVideoProvider.js'
 import { WanVideoProvider } from './wanVideoProvider.js'
+import { ComfyuiVideoProvider } from './comfyuiVideoProvider.js'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import { resolveProviderConfig, buildMergedConfig, isProviderConfigured } from './providerResolver.js'
@@ -21,6 +22,7 @@ const PROVIDER_MAP = {
   seedance: SeedanceVideoProvider,
   minimax: MinimaxVideoProvider,
   wan: WanVideoProvider,
+  comfyui: ComfyuiVideoProvider,
 }
 
 // 模型元数据：供前端展示可选模型与能力标签
@@ -34,6 +36,7 @@ export const VIDEO_MODEL_CATALOG = [
   ] },
   { id: 'minimax', name: 'Minimax Hailuo', vendor: 'Minimax', strengths: ['国产', '表情细腻', '长镜头'], referenceImage: true, benchmark: 'LibTV', models: [{ id: 'video-01', name: 'Video-01', default: true }] },
   { id: 'wan', name: '通义万相 3.0', vendor: '阿里', strengths: ['国产', '国风', '电商素材'], referenceImage: true, benchmark: 'LibTV', models: [{ id: 'wanx2.1-t2v-plus', name: 'Wanx2.1 T2V Plus', default: true }] },
+  { id: 'comfyui', name: 'ComfyUI（自托管）', vendor: '本地/内网', strengths: ['自托管', '成本 0', 'Wan2.2 可定制'], referenceImage: true, models: [{ id: 'wan22-ti2v', name: 'Wan2.2 TI2V-5B', default: true }] },
 ]
 
 let activeProvider = null
