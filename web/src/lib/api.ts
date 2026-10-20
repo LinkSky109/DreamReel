@@ -18,6 +18,7 @@ import type {
   NotificationPreferences,
   NovelCharacter,
   NovelCharacterSet,
+  CloudDriveStatus,
   NovelAsset,
   NovelAssetBulkResult,
   NovelAssetCategory,
@@ -31,11 +32,17 @@ import type {
   NovelSeason,
   NovelSeriesEstimate,
   NovelSeriesPlanResult,
+  NovelManifest,
   NovelSeasonAssetSubset,
+  NovelSyncLedger,
+  NovelSyncResult,
+  NovelSyncScope,
   NovelWorldEntity,
   NovelWorldRelation,
   NovelWorldSet,
   NovelWorldSummary,
+  QuarkQrSession,
+  QuarkQrStatus,
   NovelIngestResult,
   NovelProject,
   Project,
@@ -463,6 +470,24 @@ export const api = {
     requestData<NovelSeriesEstimate>(`/novels/${id}/series/estimate`),
   planNovelSeries: (id: string, body: Record<string, unknown> = {}) =>
     requestData<NovelSeriesPlanResult>(`/novels/${id}/series/plan`, { method: 'POST', body }),
+  generateNovelStyle: (id: string) =>
+    requestData<unknown>(`/novels/${id}/style/generate`, { method: 'POST', body: {} }),
+  getNovelSyncScopes: (id: string) => requestData<NovelSyncScope[]>(`/novels/${id}/sync/scopes`),
+  getNovelManifest: (id: string, scope?: string) =>
+    requestData<NovelManifest>(
+      `/novels/${id}/manifest${scope ? `?scope=${encodeURIComponent(scope)}` : ''}`
+    ),
+  getNovelSyncLedger: (id: string) => requestData<NovelSyncLedger>(`/novels/${id}/sync/ledger`),
+  syncNovel: (id: string, body: Record<string, unknown>) =>
+    requestData<NovelSyncResult>(`/novels/${id}/sync`, { method: 'POST', body }),
+  getCloudDriveStatus: (verify = false) =>
+    requestData<CloudDriveStatus>(`/cloud-drive/quark/status${verify ? '?verify=1' : ''}`),
+  createQuarkQr: () =>
+    requestData<QuarkQrSession>('/cloud-drive/quark/qr', { method: 'POST', body: {} }),
+  getQuarkQrStatus: (token: string) =>
+    requestData<QuarkQrStatus>(`/cloud-drive/quark/qr/${encodeURIComponent(token)}/status`),
+  logoutCloudDrive: () =>
+    requestData<unknown>('/cloud-drive/quark/logout', { method: 'POST', body: {} }),
   listNovelAssets: (id: string) =>
     requestData<{ assets: NovelAsset[]; stats: NovelAssetStats }>(`/novels/${id}/assets`),
   createNovelAsset: (

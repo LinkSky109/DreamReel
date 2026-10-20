@@ -495,6 +495,10 @@ export interface NovelStyle {
   scope?: string
   name?: string
   description?: string
+  visual?: string
+  narration?: string
+  music?: string
+  provider?: string
 }
 
 export interface NovelReviewStats {
@@ -700,6 +704,66 @@ export interface NovelAssetBulkResult {
   total: number
   withImages: number
   remaining: number
+}
+
+export interface NovelSyncScope {
+  key: string
+  label: string
+  dirs?: string[]
+}
+
+export interface NovelManifest {
+  fileCount: number
+  scope: string
+  scopeLabel?: string
+  files: { rel: string; size: number }[]
+}
+
+export interface NovelSyncLedgerEntry {
+  backend: string
+  targetDir?: string
+  url?: string
+  remoteDir?: string
+  at: string
+  uploaded?: number
+  copied?: number
+  skipped?: number
+  failed?: number
+}
+
+export interface NovelSyncLedger {
+  entries?: NovelSyncLedgerEntry[]
+  last?: NovelSyncLedgerEntry | null
+}
+
+export interface NovelSyncResult {
+  fileCount?: number
+  changed?: number
+  copied?: number
+  uploaded?: number
+  skipped?: number
+  failed?: unknown[]
+  remaining?: number
+  remoteCheck?: { ok?: boolean; missing?: unknown[] }
+  [key: string]: unknown
+}
+
+export interface CloudDriveStatus {
+  configured?: boolean
+  source?: string
+  verified?: boolean
+  error?: string
+}
+
+export interface QuarkQrSession {
+  token: string
+  svg: string
+  expiresInSec: number
+}
+
+export interface QuarkQrStatus {
+  state: 'pending' | 'success' | 'failed' | string
+  message?: string
 }
 
 export interface NovelSeasonAssetSubset {

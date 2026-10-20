@@ -12,20 +12,21 @@ import { WorldTab } from '../features/novel/WorldTab'
 import { SeriesTab } from '../features/novel/SeriesTab'
 import { EpisodeTab } from '../features/novel/EpisodeTab'
 import { ArtTab } from '../features/novel/ArtTab'
+import { SyncTab } from '../features/novel/SyncTab'
 import { Modal } from '../components/Modal'
 import './NovelDetail.css'
 
 type TabKey = 'stage' | 'source' | 'characters' | 'world' | 'series' | 'episode' | 'art' | 'sync'
 
-const TABS: { key: TabKey; zh: string; en: string; migrated: boolean }[] = [
-  { key: 'stage', zh: '阶段', en: 'Stage', migrated: true },
-  { key: 'source', zh: '来源', en: 'Source', migrated: true },
-  { key: 'characters', zh: '角色', en: 'Characters', migrated: true },
-  { key: 'world', zh: '世界观', en: 'World', migrated: true },
-  { key: 'series', zh: '分季分集', en: 'Seasons', migrated: true },
-  { key: 'episode', zh: '单集', en: 'Episodes', migrated: true },
-  { key: 'art', zh: '设定图集', en: 'Art', migrated: true },
-  { key: 'sync', zh: '风格/同步', en: 'Style / Sync', migrated: false },
+const TABS: { key: TabKey; zh: string; en: string }[] = [
+  { key: 'stage', zh: '阶段', en: 'Stage' },
+  { key: 'source', zh: '来源', en: 'Source' },
+  { key: 'characters', zh: '角色', en: 'Characters' },
+  { key: 'world', zh: '世界观', en: 'World' },
+  { key: 'series', zh: '分季分集', en: 'Seasons' },
+  { key: 'episode', zh: '单集', en: 'Episodes' },
+  { key: 'art', zh: '设定图集', en: 'Art' },
+  { key: 'sync', zh: '风格/同步', en: 'Style / Sync' },
 ]
 
 export function NovelDetailPage() {
@@ -36,7 +37,6 @@ export function NovelDetailPage() {
 
   const tabParam = params.get('tab') as TabKey | null
   const tab: TabKey = TABS.some((item) => item.key === tabParam) ? (tabParam as TabKey) : 'stage'
-  const tabMeta = TABS.find((item) => item.key === tab)
 
   const novelQuery = useQuery({
     queryKey: ['novel', id],
@@ -111,7 +111,6 @@ export function NovelDetailPage() {
             onClick={() => setTab(item.key)}
           >
             {lang === 'en' ? item.en : item.zh}
-            {!item.migrated ? <span className="dr-novel-tab-dot" aria-hidden="true" /> : null}
           </button>
         ))}
       </div>
@@ -123,7 +122,7 @@ export function NovelDetailPage() {
       {tab === 'series' ? <SeriesTab novel={novel} onChanged={invalidate} /> : null}
       {tab === 'episode' ? <EpisodeTab novel={novel} onChanged={invalidate} /> : null}
       {tab === 'art' ? <ArtTab novel={novel} onChanged={invalidate} /> : null}
-      {tabMeta && !tabMeta.migrated ? <LegacyTab novelId={id} tab={tab} label={lang === 'en' ? tabMeta.en : tabMeta.zh} /> : null}
+      {tab === 'sync' ? <SyncTab novel={novel} onChanged={invalidate} /> : null}
     </div>
   )
 }
@@ -296,26 +295,6 @@ function SourceTab({ novel, onIngested }: { novel: NovelDetail; onIngested: () =
           {t('清洗后文本为准；已摄取的章节会用于后续抽取。', 'Cleaned text is authoritative; ingested chapters feed extraction.')}
         </span>
       </div>
-    </section>
-  )
-}
-
-function LegacyTab({ novelId, tab, label }: { novelId: string; tab: string; label: string }) {
-  const { t } = useLang()
-  return (
-    <section className="dr-card dr-state dr-novel-legacy">
-      <Icon name="info" size={22} />
-      <h2>{t(`「${label}」仍在旧版制作台`, `${label} is still in the legacy workspace`)}</h2>
-      <p>
-        {t(
-          '该模块尚未迁移到新版界面。打开旧版后会自动定位到对应标签，数据完全一致。',
-          'This module is not migrated yet. The legacy workspace opens on the same tab with identical data.'
-        )}
-      </p>
-      <Link className="dr-btn dr-btn-primary" to={`/novel-legacy/${novelId}?tab=${tab}`}>
-        <Icon name="arrow-left" size={14} />
-        {t('在旧版打开此模块', 'Open in legacy workspace')}
-      </Link>
     </section>
   )
 }
