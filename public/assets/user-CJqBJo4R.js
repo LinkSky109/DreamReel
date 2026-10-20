@@ -1,0 +1,1 @@
+function e(){try{let e=localStorage.getItem(`dreamreel_user`);if(!e)return null;let t=JSON.parse(e);return t?.id?t:null}catch{return null}}function t(){return e()?.id??`default`}export{t};
