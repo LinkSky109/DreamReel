@@ -51,6 +51,56 @@ const SPECS = {
       kind: doc.type || '',
     }),
   },
+  seasons: {
+    table: 'seasons',
+    order: ['sort_order', 'asc'],
+    toDoc: (row) => ({
+      ...(row.payload || {}),
+      id: row.id,
+      novelId: row.novel_id,
+      seasonNo: row.season_no,
+      title: row.title,
+    }),
+    fromDoc: (doc) => ({ id: doc.id, novelId: doc.novelId, seasonNo: doc.seasonNo ?? 1, title: doc.title || '' }),
+  },
+  episodes: {
+    table: 'episodes',
+    order: ['sort_order', 'asc'],
+    toDoc: (row) => ({
+      ...(row.payload || {}),
+      id: row.id,
+      novelId: row.novel_id,
+      seasonId: row.season_id,
+      episodeNo: row.episode_no,
+      title: row.title,
+    }),
+    fromDoc: (doc) => ({
+      id: doc.id,
+      novelId: doc.novelId,
+      seasonId: doc.seasonId || null,
+      episodeNo: doc.episodeNo ?? 1,
+      title: doc.title || '',
+    }),
+  },
+  assets: {
+    table: 'novel_asset_images',
+    order: ['sort_order', 'asc'],
+    toDoc: (row) => ({
+      ...(row.payload || {}),
+      id: row.id,
+      novelId: row.novel_id,
+      category: row.category,
+      name: row.name,
+      status: row.status,
+    }),
+    fromDoc: (doc) => ({
+      id: doc.id,
+      novelId: doc.novelId,
+      category: doc.category || '',
+      name: doc.name || '',
+      status: doc.status || 'draft',
+    }),
+  },
 }
 
 export const CHILD_KINDS = Object.keys(SPECS)
@@ -59,6 +109,9 @@ const COLUMN_FIELDS = {
   chunks: ['id', 'novelId', 'index', 'text'],
   characters: ['id', 'novelId', 'name'],
   entities: ['id', 'novelId', 'name', 'type'],
+  seasons: ['id', 'novelId', 'seasonNo', 'title'],
+  episodes: ['id', 'novelId', 'seasonId', 'episodeNo', 'title'],
+  assets: ['id', 'novelId', 'category', 'name', 'status'],
 }
 
 export function toChildPayload(kind, doc) {

@@ -9,6 +9,19 @@ const docs = {
   ],
   characters: [{ id: 'c1', novelId: 'n1', name: '甲', description: '主角' }],
   entities: [{ id: 'e1', novelId: 'n1', name: '废土', type: 'location' }],
+  seasons: [
+    { id: 's2', novelId: 'n1', seasonNo: 2, title: '第二季' },
+    { id: 's1', novelId: 'n1', seasonNo: 1, title: '第一季' },
+  ],
+  episodes: [
+    { id: 'ep12', novelId: 'n1', seasonId: 's1', episodeNo: 2, title: '第二集' },
+    { id: 'ep11', novelId: 'n1', seasonId: 's1', episodeNo: 1, title: '第一集' },
+    { id: 'ep21', novelId: 'n1', seasonId: 's2', episodeNo: 1, title: '另一季' },
+  ],
+  assets: [
+    { id: 'a1', novelId: 'n1', category: 'character', name: '甲', status: 'draft', createdAt: '2026-01-01T00:00:00.000Z' },
+    { id: 'a2', novelId: 'n1', category: 'scene', name: '废墟', status: 'draft', createdAt: '2026-02-01T00:00:00.000Z' },
+  ],
 }
 
 function legacyImpl(data = docs) {
@@ -91,5 +104,39 @@ describe('novelChildReadService', () => {
     const rows = await service.list('chunks', 'n1', { requestId: 'r3' })
     assert.equal(rows.length, 2)
     assert.match(log.warnings[0][0], /回退 legacy/)
+  })
+})
+
+describe('novelChildReadService · 季/集/设定图', () => {
+  it('postgres：季按 seasonNo 升序', async () => {
+    const service = createNovelChildReadService({
+      legacy: legacyImpl(),
+      getRepo: () => repoImpl(),
+      mode: 'postgres',
+    })
+    const rows = await service.list('seasons', 'n1')
+    assert.deepEqual(rows.map((r) => r.id), ['s1', 's2'])
+  })
+
+  it('postgres：集按 seasonId 过滤并按 episodeNo 升序', async () => {
+    const service = createNovelChildReadService({
+      legacy: legacyImpl(),
+      getRepo: () => repoImpl(),
+      mode: 'postgres',
+    })
+    const rows = await service.list('episodes', 'n1', { seasonId: 's1' })
+    assert.deepEqual(rows.map((r) => r.id), ['ep11', 'ep12'])
+  })
+
+  it('postgres：设定图按类别过滤且 createdAt 降序', async () => {
+    const service = createNovelChildReadService({
+      legacy: legacyImpl(),
+      getRepo: () => repoImpl(),
+      mode: 'postgres',
+    })
+    const all = await service.list('assets', 'n1')
+    assert.deepEqual(all.map((r) => r.id), ['a2', 'a1'])
+    const chars = await service.list('assets', 'n1', { category: 'character' })
+    assert.deepEqual(chars.map((r) => r.id), ['a1'])
   })
 })

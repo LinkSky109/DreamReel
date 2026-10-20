@@ -24,8 +24,6 @@ import {
 } from '../services/characterGrowthService.js'
 import {
   planSeries,
-  listSeasons,
-  listEpisodes,
   checkConsistency,
   seriesEstimate,
 } from '../services/seriesPlannerService.js'
@@ -51,7 +49,7 @@ import { makeSpeakerId, registerVoiceAsset, deleteVoiceAsset, listVoiceAssets, r
 import { cloneVoice, designVoice } from '../services/volcVoiceApi.js'
 import { getTTSProvider } from '../providers/ttsProviderFactory.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
-import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
+import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, assetStatsFromRows, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
 import { beginRun, cancelRun, isCancelled, finishRun, getRunStatus } from '../services/bulkControl.js'
 import { validateBody } from '../middleware/validate.js'
 import { bulkGenerateAssetsSchema } from '../contracts/assets.js'
@@ -762,10 +760,11 @@ router.post('/:id/series/plan', (req, res) => {
 })
 
 // 季列表
-router.get('/:id/seasons', (req, res) => {
+router.get('/:id/seasons', async (req, res) => {
   try {
     getNovelProject(req.params.id)
-    res.json({ success: true, data: listSeasons(req.params.id) })
+    const rows = await novelChildReadService.list('seasons', req.params.id, { requestId: req.id })
+    res.json({ success: true, data: rows })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -813,10 +812,14 @@ router.post('/:id/seasons/:sid/bulk', async (req, res) => {
 })
 
 // 集列表（可按 seasonId 过滤）
-router.get('/:id/episodes', (req, res) => {
+router.get('/:id/episodes', async (req, res) => {
   try {
     getNovelProject(req.params.id)
-    res.json({ success: true, data: listEpisodes(req.params.id, req.query.seasonId) })
+    const rows = await novelChildReadService.list('episodes', req.params.id, {
+      requestId: req.id,
+      seasonId: req.query.seasonId,
+    })
+    res.json({ success: true, data: rows })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1181,9 +1184,13 @@ router.post('/:id/model-config/test', async (req, res) => {
 // ===== 设定图集（Sprint 28：角色/衣物/装备/建筑/场景/道具…，供图生视频） =====
 
 // 列表（可按类别过滤）+ 统计
-router.get('/:id/assets', (req, res) => {
+router.get('/:id/assets', async (req, res) => {
   try {
-    res.json({ success: true, data: { assets: listAssets(req.params.id, { category: req.query.category }), stats: assetStats(req.params.id) } })
+    const assets = await novelChildReadService.list('assets', req.params.id, {
+      requestId: req.id,
+      category: req.query.category,
+    })
+    res.json({ success: true, data: { assets, stats: assetStatsFromRows(assets) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

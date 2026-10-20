@@ -172,3 +172,39 @@ JSON 对象插入顺序是角色/实体列表的隐含契约；`created_at` 可�
 
 角色/世界观列表会按 `selectedCharacterSet` / `selectedWorldSet` 过滤。迁移期这两个配置仍在 JSON，
 PG 读取后在服务层做同样的过滤与排序，保证响应语义不变。
+
+## Phase 4 扩面：季 / 集 / 设定图（只读）
+
+同一 `NOVEL_REPO_MODE` 继续覆盖：
+
+- `GET /api/novels/:id/seasons`
+- `GET /api/novels/:id/episodes`（支持 `?seasonId=`）
+- `GET /api/novels/:id/assets`（支持 `?category=`，统计由返回行计算）
+
+迁移：
+
+```bash
+npm run db:migrate:novel-children
+npm run db:verify:novel-children
+```
+
+实测（真实数据）：
+
+| 集合 | 行数 | 迁移差异 | shadow 告警 | PG vs JSON |
+|---|---:|---:|---:|---|
+| seasons | 41 | 0 | 0 | 内容与顺序一致 |
+| episodes | 8378 | 0 | 0 | 内容与顺序一致（含 seasonId 过滤） |
+| assets | 1621 | 0 | 0 | 内容/顺序/统计一致（含 category 过滤） |
+
+累计迁移 **12,530 行**（6 个集合）。
+
+### 顺序与统计
+
+- 季按 `seasonNo` 升序、集按 `episodeNo` 升序；
+- 设定图按 `createdAt` 降序，`sort_order` 作为稳定次级顺序（006 迁移）；
+- 资产统计改为由返回行计算，避免"列表走 PG、统计走 JSON"的口径分裂。
+
+### 重要边界
+
+季/集/设定图的**写路径尚未镜像**：重新抽取或生成新数据后，PG 会滞后于 JSON。
+因此当前 `postgres` 读模式只用于迁移验证，正式切换前必须先补写镜像（下一步）。

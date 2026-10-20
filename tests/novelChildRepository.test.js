@@ -38,6 +38,24 @@ describe('NovelChildRepository · PostgreSQL', { skip: !DATABASE_URL && '未配�
        ON CONFLICT (id) DO NOTHING`,
       [`${novelId}-e1`, orgId, novelId]
     )
+    await getPool().query(
+      `INSERT INTO seasons (id, org_id, novel_id, season_no, title, payload, sort_order)
+       VALUES ($1,$2,$3,1,'第一季','{"synopsis":"开端"}'::jsonb,0)
+       ON CONFLICT (id) DO NOTHING`,
+      [`${novelId}-s1`, orgId, novelId]
+    )
+    await getPool().query(
+      `INSERT INTO episodes (id, org_id, novel_id, season_id, episode_no, title, payload, sort_order)
+       VALUES ($1,$2,$3,$4,1,'第一集','{"status":"draft"}'::jsonb,0)
+       ON CONFLICT (id) DO NOTHING`,
+      [`${novelId}-ep1`, orgId, novelId, `${novelId}-s1`]
+    )
+    await getPool().query(
+      `INSERT INTO novel_asset_images (id, org_id, novel_id, category, name, status, payload, sort_order)
+       VALUES ($1,$2,$3,'character','甲','draft','{"prompt":"x"}'::jsonb,0)
+       ON CONFLICT (id) DO NOTHING`,
+      [`${novelId}-a1`, orgId, novelId]
+    )
     repo = createPostgresNovelChildRepository(getDb())
   })
 
@@ -66,6 +84,31 @@ describe('NovelChildRepository · PostgreSQL', { skip: !DATABASE_URL && '未配�
     assert.equal(rows.length, 1)
     assert.equal(rows[0].name, '废土')
     assert.equal(rows[0].type, 'location')
+  })
+
+  it('seasons 映射 seasonNo/title', async () => {
+    const rows = await repo.list('seasons', novelId, { orgId })
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].seasonNo, 1)
+    assert.equal(rows[0].title, '第一季')
+    assert.equal(rows[0].synopsis, '开端')
+  })
+
+  it('episodes 映射 seasonId/episodeNo/title', async () => {
+    const rows = await repo.list('episodes', novelId, { orgId })
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].seasonId, `${novelId}-s1`)
+    assert.equal(rows[0].episodeNo, 1)
+    assert.equal(rows[0].title, '第一集')
+  })
+
+  it('assets 映射 category/name/status', async () => {
+    const rows = await repo.list('assets', novelId, { orgId })
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].category, 'character')
+    assert.equal(rows[0].name, '甲')
+    assert.equal(rows[0].status, 'draft')
+    assert.equal(rows[0].prompt, 'x')
   })
 
   it('按 org 隔离', async () => {

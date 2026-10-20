@@ -6,6 +6,8 @@ import { stableStringify } from '../utils/stableJson.js'
 import { listChunks } from './novelChunkService.js'
 import { listCharacters } from './characterExtractionService.js'
 import { listEntities } from './worldbuildingService.js'
+import { listSeasons, listEpisodes } from './seriesPlannerService.js'
+import { listAssets } from './novelAssetService.js'
 
 /**
  * 小说子集合只读切换（chunks / characters / entities）。
@@ -30,8 +32,18 @@ export function createNovelChildReadService({
     }
   }
 
-  function normalizePg(kind, novelId, rows) {
+  function normalizePg(kind, novelId, rows, opts = {}) {
     if (kind === 'chunks') return [...rows].sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+    if (kind === 'seasons') return [...rows].sort((a, b) => (a.seasonNo ?? 0) - (b.seasonNo ?? 0))
+    if (kind === 'episodes') {
+      const filtered = opts.seasonId ? rows.filter((row) => row.seasonId === opts.seasonId) : rows
+      return [...filtered].sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
+    }
+    if (kind === 'assets') {
+      const filtered = opts.category ? rows.filter((row) => row.category === opts.category) : rows
+      // 先按源顺序，再按 createdAt 降序稳定排序，和旧接口一致
+      return [...filtered].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    }
     const selected = selectionIds(novelId)
     if (kind === 'characters' && selected.characters) {
       return rows.filter((row) => selected.characters.has(row.id))
@@ -67,8 +79,8 @@ export function createNovelChildReadService({
   return {
     mode,
 
-    async list(kind, novelId, { requestId } = {}) {
-      const legacyRows = legacy.list(kind, novelId)
+    async list(kind, novelId, { requestId, seasonId, category } = {}) {
+      const legacyRows = legacy.list(kind, novelId, { seasonId, category })
       if (mode === 'legacy') return legacyRows
       let pgRows
       try {
@@ -83,7 +95,7 @@ export function createNovelChildReadService({
         })
         return legacyRows
       }
-      const normalizedPg = normalizePg(kind, novelId, pgRows)
+      const normalizedPg = normalizePg(kind, novelId, pgRows, { seasonId, category })
       if (mode === 'shadow') {
         compare(kind, novelId, legacyRows, normalizedPg, requestId)
         return legacyRows
@@ -104,10 +116,13 @@ function getRepoLazy() {
 
 export const novelChildReadService = createNovelChildReadService({
   legacy: {
-    list: (kind, novelId) => {
+    list: (kind, novelId, opts = {}) => {
       if (kind === 'chunks') return listChunks(novelId)
       if (kind === 'characters') return listCharacters(novelId)
       if (kind === 'entities') return listEntities(novelId)
+      if (kind === 'seasons') return listSeasons(novelId)
+      if (kind === 'episodes') return listEpisodes(novelId, opts.seasonId)
+      if (kind === 'assets') return listAssets(novelId, { category: opts.category })
       throw new Error(`未知子集合：${kind}`)
     },
   },
