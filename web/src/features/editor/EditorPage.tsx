@@ -14,6 +14,8 @@ import { aspectRatioOf, totalDuration } from './utils'
 import { ScriptStage } from './ScriptStage'
 import { StoryboardStage } from './StoryboardStage'
 import { GenerateStage } from './GenerateStage'
+import { DubbingStage } from './DubbingStage'
+import { EditStage } from './EditStage'
 import { LegacyEditorStage } from './LegacyEditorStage'
 import './editor.css'
 
@@ -27,6 +29,7 @@ export function EditorPage() {
   const { t, lang } = useLang()
 
   const stage = normalizeStage(searchParams.get('tab'))
+  const legacyAudio = stage === 'dubbing' && searchParams.get('legacy') === '1'
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [renameOpen, setRenameOpen] = useState(false)
@@ -89,6 +92,7 @@ export function EditorPage() {
   const setStage = (next: string) => {
     const params = new URLSearchParams(searchParams)
     params.set('tab', next)
+    params.delete('legacy')
     setSearchParams(params, { replace: true })
   }
 
@@ -277,7 +281,17 @@ export function EditorPage() {
 
         {stage === 'generate' ? <GenerateStage project={project} onRefresh={refresh} /> : null}
 
-        {stage !== 'script' && stage !== 'shots' && stage !== 'generate' ? (
+        {stage === 'dubbing' && !legacyAudio ? (
+          <DubbingStage project={project} onUpdated={onUpdated} onSaveState={setSaveState} />
+        ) : null}
+
+        {stage === 'edit' ? <EditStage project={project} onSaveState={setSaveState} /> : null}
+
+        {stage !== 'script' &&
+        stage !== 'shots' &&
+        stage !== 'generate' &&
+        stage !== 'edit' &&
+        !(stage === 'dubbing' && !legacyAudio) ? (
           <LegacyEditorStage projectId={project.id} tab={stage} />
         ) : null}
       </div>

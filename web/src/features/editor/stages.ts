@@ -25,8 +25,8 @@ export const PRIMARY_STAGES: StageDef[] = [
   { id: 'script', zh: '剧本', en: 'Script', icon: 'file-text' },
   { id: 'shots', zh: '分镜', en: 'Storyboard', icon: 'film' },
   { id: 'generate', zh: '生成', en: 'Generate', icon: 'sparkles' },
-  { id: 'dubbing', zh: '配音', en: 'Dubbing', icon: 'message', legacy: true },
-  { id: 'edit', zh: '剪辑', en: 'Edit', icon: 'clapper', legacy: true },
+  { id: 'dubbing', zh: '配音', en: 'Dubbing', icon: 'message' },
+  { id: 'edit', zh: '剪辑', en: 'Edit', icon: 'clapper' },
 ]
 
 export const EXTENDED_STAGES: StageDef[] = [

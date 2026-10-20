@@ -1,10 +1,16 @@
 import type {
+  BgmItem,
   CurrentUser,
+  DubbingResult,
+  EditPlan,
+  EditProfile,
+  EditRenderResult,
   ModerationLog,
   NotificationItem,
   Project,
   ProjectListResponse,
   ProjectScript,
+  Voice,
   QuotaOverview,
   TemplateListResponse,
 } from '../domain/types'
@@ -181,6 +187,41 @@ export const api = {
       method: 'POST',
       body: {},
     }),
+
+  // Dubbing
+  getVoices: () => request<{ voices: Voice[] }>('/dubbing/voices'),
+  previewVoice: (body: { text: string; language?: string; voiceId?: string; speed?: number; projectId?: string }) =>
+    request<{ audioUrl?: string; duration?: number; placeholder?: boolean }>('/dubbing/preview', {
+      method: 'POST',
+      body,
+    }),
+  generateDubbing: (body: {
+    projectId: string
+    language?: string
+    voiceId?: string
+    speed?: number
+    burnSubtitles?: boolean
+    dialogueAssignments?: Record<string, string>
+    pauseSeconds?: number
+  }) => request<DubbingResult>('/dubbing/generate', { method: 'POST', body }),
+
+  // Edit plans
+  getEditProfiles: () => request<{ items: EditProfile[] }>('/edit-plans/profiles'),
+  generateEditPlan: (body: {
+    projectId: string
+    profile?: string
+    targetDuration?: number
+    bgmId?: string | null
+  }) => request<EditPlan>('/edit-plans/generate', { method: 'POST', body }),
+  getEditPlan: (projectId: string) => request<EditPlan>(`/edit-plans/${projectId}`),
+  clearEditPlan: (projectId: string) =>
+    request<{ cleared: boolean }>(`/edit-plans/${projectId}`, { method: 'DELETE' }),
+  renderEditPlan: (projectId: string) =>
+    request<EditRenderResult>(`/edit-plans/${projectId}/render`, { method: 'POST', body: {} }),
+  getTransitionSupport: (projectId: string) =>
+    request<{ xfade: boolean }>(`/edit-plans/${projectId}/transition-support`),
+  listBgm: (params: { emotion?: string; search?: string } = {}) =>
+    request<{ items: BgmItem[] }>(`/audio/bgm${buildQuery(params)}`),
 
   // Templates
   listTemplates: (params: { category?: string; search?: string; type?: string } = {}) =>

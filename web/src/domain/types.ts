@@ -71,6 +71,17 @@ export interface Project {
   shots: Shot[]
   script?: ProjectScript
   characters?: Character[]
+  audioConfig?: {
+    bgmId?: string | null
+    sfxIds?: string[]
+    voiceVolume?: number
+    bgmVolume?: number
+    sfxVolume?: number
+    bgmFadeIn?: number
+    bgmFadeOut?: number
+  }
+  dialogueAssignments?: Record<string, string>
+  editPlan?: EditPlan | null
   tags: string[]
   isFavorite: boolean
   isArchived: boolean
@@ -139,4 +150,89 @@ export interface ModerationLog {
   level?: string
   createdAt?: string
   [key: string]: unknown
+}
+
+export interface Voice {
+  id: string
+  name: string
+  language?: string
+  gender?: string
+  provider?: string
+}
+
+export interface DubbingTrack {
+  shotIndex: number
+  text: string
+  type?: string
+  characterId?: string | null
+  voiceId?: string
+  audioUrl?: string
+  duration: number
+  placeholder?: boolean
+  provider?: string
+  startTime: number
+  endTime: number
+}
+
+export interface DubbingResult {
+  success: boolean
+  message?: string
+  audioTracks: DubbingTrack[]
+  subtitles?: { format: string; content: string; language?: string } | null
+  totalDuration?: number
+  dialogueAssignments?: Record<string, string>
+  burnSubtitles?: boolean
+  placeholderVoices?: boolean
+  ttsProvider?: string
+}
+
+export interface EditProfile {
+  id: string
+  name: string
+  description: string
+  rhythmExponent?: number
+  transition?: string
+  transitionDuration?: number
+}
+
+export interface EditPlanShot {
+  shotId: string
+  index: number
+  in: number
+  out: number
+  duration: number
+  transition: string
+  reason: string
+}
+
+export interface EditPlan {
+  id: string
+  profile: string
+  profileName: string
+  targetDuration: number
+  totalDuration: number
+  transition: string
+  transitionDuration: number
+  bpm?: number | null
+  beatGrid?: number | null
+  bgmId?: string | null
+  shots: EditPlanShot[]
+  summary: string
+}
+
+export interface EditRenderResult {
+  outputUrl: string
+  shotCount?: number
+  duration?: number
+  transitionApplied?: string
+  transitionFallback?: boolean
+  hasAudio?: boolean
+}
+
+export interface BgmItem {
+  id: string
+  name: string
+  emotion?: string
+  bpm?: number
+  available?: boolean
 }
