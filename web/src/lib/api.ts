@@ -1,15 +1,19 @@
 import type {
   BgmItem,
+  Character,
   CurrentUser,
   DubbingResult,
   EditPlan,
   EditProfile,
   EditRenderResult,
+  ImageAsset,
+  ImageProviderInfo,
   ModerationLog,
   NotificationItem,
   Project,
   ProjectListResponse,
   ProjectScript,
+  SceneItem,
   Voice,
   QuotaOverview,
   TemplateListResponse,
@@ -187,6 +191,42 @@ export const api = {
       method: 'POST',
       body: {},
     }),
+
+  // Images
+  getImageProviders: () => request<ImageProviderInfo>('/images/providers'),
+  generateImages: (body: {
+    projectId: string
+    prompt: string
+    aspectRatio?: string
+    style?: string
+    count?: number
+  }) =>
+    request<{ count: number; assets: ImageAsset[] }>('/images/generate', {
+      method: 'POST',
+      body,
+    }),
+  listImageAssets: (params: { projectId?: string; status?: string } = {}) =>
+    request<{ items: ImageAsset[]; total?: number }>(`/images/assets${buildQuery(params)}`),
+  applyImageAsset: (
+    assetId: string,
+    body: { targetType: 'shot' | 'character' | 'scene'; targetId: string; projectId: string }
+  ) => request<{ targetType: string; targetId: string }>(`/images/assets/${assetId}/apply`, { method: 'POST', body }),
+  deleteImageAsset: (assetId: string) =>
+    request<{ success: boolean }>(`/images/assets/${assetId}`, { method: 'DELETE' }),
+
+  // Characters
+  listCharacters: (projectId: string) =>
+    request<{ total: number; items: Character[] }>(`/characters?projectId=${encodeURIComponent(projectId)}`),
+  createCharacter: (body: { name: string; description?: string; projectId: string; referenceImages?: string[] }) =>
+    request<Character>('/characters', { method: 'POST', body }),
+  lockCharacter: (characterId: string, body: { projectId: string; referenceImages: string[] }) =>
+    request<Character>(`/characters/${characterId}/lock`, { method: 'POST', body }),
+
+  // Scenes
+  listScenes: (params: { category?: string; search?: string } = {}) =>
+    request<{ items: SceneItem[]; total?: number }>(`/scenes${buildQuery(params)}`),
+  createScene: (body: { name: string; description?: string; category?: string; tags?: string[] }) =>
+    request<SceneItem>('/scenes', { method: 'POST', body }),
 
   // Dubbing
   getVoices: () => request<{ voices: Voice[] }>('/dubbing/voices'),

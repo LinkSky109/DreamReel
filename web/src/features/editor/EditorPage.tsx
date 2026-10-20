@@ -16,6 +16,9 @@ import { StoryboardStage } from './StoryboardStage'
 import { GenerateStage } from './GenerateStage'
 import { DubbingStage } from './DubbingStage'
 import { EditStage } from './EditStage'
+import { ImagesStage } from './ImagesStage'
+import { CharactersStage } from './CharactersStage'
+import { ScenesStage } from './ScenesStage'
 import { LegacyEditorStage } from './LegacyEditorStage'
 import './editor.css'
 
@@ -287,10 +290,25 @@ export function EditorPage() {
 
         {stage === 'edit' ? <EditStage project={project} onSaveState={setSaveState} /> : null}
 
+        {stage === 'images' ? (
+          <ImagesStage project={project} onRefresh={refresh} onNavigateStage={setStage} />
+        ) : null}
+
+        {stage === 'characters' ? (
+          <CharactersStage project={project} onRefresh={refresh} onNavigateStage={setStage} />
+        ) : null}
+
+        {stage === 'scenes' ? (
+          <ScenesStage project={project} onUpdated={onUpdated} onNavigateStage={setStage} />
+        ) : null}
+
         {stage !== 'script' &&
         stage !== 'shots' &&
         stage !== 'generate' &&
         stage !== 'edit' &&
+        stage !== 'images' &&
+        stage !== 'characters' &&
+        stage !== 'scenes' &&
         !(stage === 'dubbing' && !legacyAudio) ? (
           <LegacyEditorStage projectId={project.id} tab={stage} />
         ) : null}

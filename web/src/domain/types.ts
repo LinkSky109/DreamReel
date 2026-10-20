@@ -25,6 +25,8 @@ export interface Shot {
   dialogue?: string
   narration?: string
   characterIds?: string[]
+  referenceImages?: string[]
+  sceneId?: string | null
   consistencyScore?: number | null
   errorMessage?: string
   updatedAt?: string
@@ -52,13 +54,6 @@ export interface ProjectScript {
   shots?: ScriptScene[]
 }
 
-export interface Character {
-  id: string
-  name: string
-  description?: string
-  personality?: string
-}
-
 export interface Project {
   id: string
   name: string
@@ -71,6 +66,7 @@ export interface Project {
   shots: Shot[]
   script?: ProjectScript
   characters?: Character[]
+  scenes?: ProjectScene[]
   audioConfig?: {
     bgmId?: string | null
     sfxIds?: string[]
@@ -235,4 +231,62 @@ export interface BgmItem {
   emotion?: string
   bpm?: number
   available?: boolean
+}
+
+export interface Character {
+  id: string
+  name: string
+  description?: string
+  referenceImages?: string[]
+  isLocked?: boolean
+  projectId?: string
+  wardrobe?: string
+  makeup?: string
+  styling?: string
+}
+
+export interface ProjectScene {
+  id: string
+  name: string
+  description?: string
+  referenceImages?: string[]
+  category?: string
+  environmentType?: string
+}
+
+export interface SceneItem {
+  id: string
+  name: string
+  description?: string
+  category?: string
+  tags?: string[]
+  lighting?: string
+  referenceImage?: string | null
+  isBuiltin?: boolean
+  userId?: string
+}
+
+export interface ImageAsset {
+  id: string
+  projectId?: string | null
+  prompt: string
+  provider?: string
+  model?: string
+  size?: string
+  width?: number
+  height?: number
+  aspectRatio?: string
+  style?: string
+  status: 'generating' | 'completed' | 'failed' | string
+  url?: string | null
+  textRendered?: boolean
+  errorMessage?: string
+  createdAt?: string
+  completedAt?: string | null
+}
+
+export interface ImageProviderInfo {
+  current: string
+  available?: string[]
+  models: { id: string; name?: string; realGeneration?: boolean; configured?: boolean }[]
 }

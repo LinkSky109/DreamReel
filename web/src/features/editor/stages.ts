@@ -30,9 +30,9 @@ export const PRIMARY_STAGES: StageDef[] = [
 ]
 
 export const EXTENDED_STAGES: StageDef[] = [
-  { id: 'images', zh: '图片', en: 'Images', icon: 'template', legacy: true },
-  { id: 'characters', zh: '角色', en: 'Characters', icon: 'user', legacy: true },
-  { id: 'scenes', zh: '场景库', en: 'Scenes', icon: 'compass', legacy: true },
+  { id: 'images', zh: '图片', en: 'Images', icon: 'template' },
+  { id: 'characters', zh: '角色', en: 'Characters', icon: 'user' },
+  { id: 'scenes', zh: '场景库', en: 'Scenes', icon: 'compass' },
   { id: 'analysis', zh: 'AI 影评', en: 'AI Review', icon: 'chart', legacy: true },
   { id: 'collab', zh: '协作', en: 'Collaboration', icon: 'users', legacy: true },
   { id: 'versions', zh: '版本', en: 'Versions', icon: 'file-text', legacy: true },

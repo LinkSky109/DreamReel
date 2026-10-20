@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aspectRatioCss, aspectRatioOf, scriptToText, totalDuration } from './utils'
+import { aspectRatioCss, aspectRatioOf, buildShotFromScene, scriptToText, totalDuration } from './utils'
 import type { Shot } from '../../domain/types'
 
 function shot(duration: number): Shot {
@@ -42,5 +42,27 @@ describe('editor utils', () => {
     expect(text).toContain('S01 火星表面，主角蹲下')
     expect(text).toContain('远景 · 缓慢推进 · 5s')
     expect(text).toContain('对白：林：开始吧。')
+  })
+})
+
+
+describe('scene to shot', () => {
+  it('场景转为 5s 待生成镜头并带参考图', () => {
+    const shot = buildShotFromScene(
+      {
+        id: 'scene-mars',
+        name: '火星表面',
+        description: '红色荒漠，橙红色天空',
+        referenceImage: '/storage/scenes/mars.png',
+      },
+      2
+    )
+    expect(shot.index).toBe(2)
+    expect(shot.duration).toBe(5)
+    expect(shot.status).toBe('pending')
+    expect(shot.sceneId).toBe('scene-mars')
+    expect(shot.referenceImages).toEqual(['/storage/scenes/mars.png'])
+    expect(shot.description).toContain('火星表面')
+    expect(shot.description).toContain('红色荒漠')
   })
 })

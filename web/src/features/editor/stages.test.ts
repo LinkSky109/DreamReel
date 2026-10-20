@@ -26,3 +26,11 @@ describe('editor stages', () => {
     expect(stageLabel('shots', 'en')).toBe('Storyboard')
   })
 })
+
+
+describe('migration status', () => {
+  it('图片/角色/场景已迁移，影评/协作/版本/设置仍为 legacy', () => {
+    const legacy = ALL_STAGES.filter((stage) => stage.legacy).map((stage) => stage.id)
+    expect(legacy).toEqual(['analysis', 'collab', 'versions', 'settings'])
+  })
+})

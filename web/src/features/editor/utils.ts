@@ -1,4 +1,4 @@
-import type { Project, ProjectScript, Shot } from '../../domain/types'
+import type { Project, ProjectScript, SceneItem, Shot } from '../../domain/types'
 
 export function aspectRatioOf(project: Pick<Project, 'platform'>): string {
   if (project.platform === 'portrait') return '9:16'
@@ -80,4 +80,26 @@ export function downloadText(filename: string, content: string): void {
   anchor.click()
   anchor.remove()
   URL.revokeObjectURL(url)
+}
+
+
+export function buildShotFromScene(scene: SceneItem, index: number): Shot {
+  const id =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `shot_${Date.now()}_${index}`
+  return {
+    id,
+    index,
+    description: scene.description ? `${scene.name}：${scene.description}` : scene.name,
+    duration: 5,
+    status: 'pending',
+    shotType: 'medium',
+    cameraMovement: 'static',
+    characterIds: [],
+    referenceImages: scene.referenceImage ? [scene.referenceImage] : [],
+    sceneId: scene.id,
+    locked: false,
+    versions: [],
+  }
 }
