@@ -27,6 +27,8 @@ import type {
   NovelDetail,
   NovelEpisode,
   NovelEpisodeAssets,
+  NovelEpisodeCharacterState,
+  NovelEpisodeStates,
   NovelExtractJobs,
   NovelSchema,
   NovelSeason,
@@ -36,6 +38,7 @@ import type {
   NovelSeasonAssetSubset,
   NovelSyncLedger,
   NovelSyncResult,
+  NovelShot,
   NovelSyncScope,
   NovelWorldEntity,
   NovelWorldRelation,
@@ -488,6 +491,50 @@ export const api = {
     requestData<QuarkQrStatus>(`/cloud-drive/quark/qr/${encodeURIComponent(token)}/status`),
   logoutCloudDrive: () =>
     requestData<unknown>('/cloud-drive/quark/logout', { method: 'POST', body: {} }),
+  listEpisodeShots: (id: string, eid: string) =>
+    requestData<NovelShot[]>(`/novels/${id}/episodes/${eid}/shots`),
+  setEpisodeShotRefs: (id: string, eid: string, index: number, referenceImages: string[]) =>
+    requestData<NovelShot>(`/novels/${id}/episodes/${eid}/shots/${index}/refs`, {
+      method: 'PUT',
+      body: { referenceImages },
+    }),
+  autoRefsEpisodeShots: (id: string, eid: string) =>
+    requestData<{ shotsTouched: number; refsAdded: number }>(
+      `/novels/${id}/episodes/${eid}/shots/auto-refs`,
+      { method: 'POST', body: {} }
+    ),
+  exportEpisodeShotHandoff: (id: string, eid: string) =>
+    requestData<{ dir: string; shotCount: number; refCount: number }>(
+      `/novels/${id}/episodes/${eid}/handoff/shots`,
+      { method: 'POST', body: {} }
+    ),
+  importEpisodeShotVideos: (id: string, eid: string) =>
+    requestData<{ imported: string[]; total: number; missing: string[] }>(
+      `/novels/${id}/episodes/${eid}/shots/import`,
+      { method: 'POST', body: {} }
+    ),
+  listEpisodeStates: (id: string, eid: string) =>
+    requestData<NovelEpisodeStates>(`/novels/${id}/episodes/${eid}/states`),
+  generateEpisodeStates: (id: string, eid: string) =>
+    requestData<{ count: number; states: NovelEpisodeCharacterState[] }>(
+      `/novels/${id}/episodes/${eid}/states`,
+      { method: 'POST', body: {} }
+    ),
+  upsertCharacterState: (
+    id: string,
+    cid: string,
+    episodeNo: number,
+    body: {
+      appearance?: string
+      equipment?: string
+      injuries?: string
+      abilities?: string
+    }
+  ) =>
+    requestData<NovelEpisodeCharacterState>(`/novels/${id}/characters/${cid}/states/${episodeNo}`, {
+      method: 'PUT',
+      body,
+    }),
   listNovelAssets: (id: string) =>
     requestData<{ assets: NovelAsset[]; stats: NovelAssetStats }>(`/novels/${id}/assets`),
   createNovelAsset: (

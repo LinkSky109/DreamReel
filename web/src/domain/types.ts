@@ -766,6 +766,40 @@ export interface QuarkQrStatus {
   message?: string
 }
 
+export interface NovelShot {
+  index: number
+  description: string
+  dialogue?: string
+  duration: number
+  referenceImages: string[]
+  videoUrl?: string | null
+}
+
+export interface NovelEpisodeCharacterState {
+  id?: string
+  novelId?: string
+  characterId?: string
+  episodeNo?: number
+  appearance?: string
+  equipment?: string
+  injuries?: string
+  abilities?: string
+  source?: string
+  updatedAt?: string
+}
+
+export interface NovelEpisodeStateItem {
+  characterId: string
+  name: string
+  exact: NovelEpisodeCharacterState | null
+  effective: NovelEpisodeCharacterState | null
+}
+
+export interface NovelEpisodeStates {
+  episodeNo: number | null
+  items: NovelEpisodeStateItem[]
+}
+
 export interface NovelSeasonAssetSubset {
   seasonId: string
   seasonTitle: string

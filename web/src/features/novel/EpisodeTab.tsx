@@ -312,7 +312,7 @@ export function EpisodeTab({ novel, onChanged }: { novel: NovelDetail; onChanged
                   >
                     {episodeBusy && busy?.label ? busy.label : episode.screenplay ? t('重生成剧本', 'Regenerate script') : t('生成剧本', 'Generate script')}
                   </button>
-                  <Link className="dr-btn" to={`/novel-legacy/${novel.id}?tab=episode&eid=${episode.id}`}>
+                  <Link className="dr-btn" to={`/novel/${novel.id}/shots/${episode.id}`}>
                     {t('分镜', 'Shots')}
                     {episode.screenplay?.shots?.length ? `（${episode.screenplay.shots.length}）` : ''}
                   </Link>

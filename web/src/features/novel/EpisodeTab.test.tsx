@@ -130,12 +130,12 @@ describe('EpisodeTab', () => {
     expect(within(item).getByRole('button', { name: '生成资产' })).toBeDisabled()
   })
 
-  it('分镜入口带 eid 跳到旧版', async () => {
+  it('分镜入口跳到新版分镜页', async () => {
     renderTab()
     const item = (await screen.findByText(/第一章 起风/)).closest('.dr-episode-item') as HTMLElement
     expect(within(item).getByRole('link', { name: /分镜/ })).toHaveAttribute(
       'href',
-      '/novel-legacy/n1?tab=episode&eid=ep1'
+      '/novel/n1/shots/ep1'
     )
   })
 })
