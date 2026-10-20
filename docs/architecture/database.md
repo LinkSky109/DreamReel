@@ -104,3 +104,34 @@ NOVEL_REPO_MODE=postgres   # 列表/详情走 PG（写仍走 JSON）
 - PG 不可用时自动回退 legacy 并告警。
 
 写入路径（create/update/delete）仍在 `novelProjectService` 中走 JSON，属于下一步。
+
+## Phase 4 写路径：双写（JSON 为准）
+
+开关：
+
+```bash
+NOVEL_WRITE_MODE=legacy   # 默认，不写 PG
+NOVEL_WRITE_MODE=dual     # JSON 写入成功后异步镜像 PG
+```
+
+覆盖：`createNovelProject`、`updateNovelProject`、`deleteNovelProject`。
+
+行为：
+
+- JSON 仍是事实源，请求不等待 PG；
+- 镜像失败只记录 `[novel-write]` 告警，不影响接口；
+- 删除在 PG 侧是**软删除**，便于回滚与审计；
+- `postgres` 写模式尚未开放，配置为 `postgres` 时等同 `legacy`，避免误判。
+
+联调实测：
+
+- `POST /api/novels` → PG 出现同名记录（`status=created`，`stage=source`）；
+- `DELETE /api/novels/:id` → PG `deleted_at` 置位；
+- 无 `[novel-write]` 告警；
+- 清理测试记录后 `db:verify:novels` 仍为 `mismatches=0`。
+
+已知限制：
+
+- 镜像为 fire-and-forget，进程退出前可能未落库；
+- `updateNovelProject` 调用频繁（如重算 counts），双写期间 PG 写放大会高于 JSON；
+- 需定期执行 `npm run db:verify:novels` 对账。

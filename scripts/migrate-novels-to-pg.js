@@ -105,8 +105,8 @@ async function main() {
         mismatches.push(`${doc.id}: title '${doc.title}' != '${row.title}'`)
       }
       const payload = row.payload || {}
-      if (stableStringify(payload.counts || null) !== stableStringify(doc.counts || null)) {
-        mismatches.push(`${doc.id}: counts mismatch`)
+      if (stableStringify(payload) !== stableStringify(toNovelPayload(doc))) {
+        mismatches.push(`${doc.id}: payload mismatch`)
       }
     }
     console.log(`verify: postgres=${rows.length} source=${novels.length} mismatches=${mismatches.length}`)

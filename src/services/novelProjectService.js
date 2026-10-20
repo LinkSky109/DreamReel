@@ -4,6 +4,7 @@ import config from '../config/index.js'
 import { storageService } from './storageService.js'
 import { NovelProject } from '../models/NovelProject.js'
 import { STAGES } from '../models/NovelProject.js'
+import { novelMirror } from './novelWriteSync.js'
 
 const NOVELS_ROOT = path.resolve(config.storage.path, 'novels')
 
@@ -23,7 +24,9 @@ export function createNovelProject(data = {}) {
   project.dir = novelDir(project.id)
   ensureDir(project.dir)
   for (const sub of SUB_DIRS) ensureDir(path.join(project.dir, sub))
-  return storageService.createNovelProject(project)
+  const saved = storageService.createNovelProject(project)
+  novelMirror.scheduleUpsert(saved)
+  return saved
 }
 
 export function listNovelProjects() {
@@ -41,7 +44,9 @@ export function getNovelProject(id) {
 export function updateNovelProject(id, patch = {}) {
   const project = getNovelProject(id)
   Object.assign(project, patch, { updatedAt: new Date().toISOString() })
-  return storageService.updateNovelProject(project)
+  const saved = storageService.updateNovelProject(project)
+  novelMirror.scheduleUpsert(saved)
+  return saved
 }
 
 /**
@@ -119,6 +124,7 @@ export function deleteNovelProject(id) {
     }
   }
   const db = storageService.deleteNovelProjectCascade(id)
+  novelMirror.scheduleDelete(id)
   return { id, deleted: db.deleted, removedDirs, removedRecords: db.removed }
 }
 
