@@ -480,6 +480,38 @@ router.post('/:id/review/confirm-all', (req, res) => {
   }
 })
 
+// 批量审校（角色 / 世界观）
+router.post('/:id/review/bulk', (req, res) => {
+  try {
+    const { kind = 'characters', ids, status, note } = req.body || {}
+    if (!Array.isArray(ids) || !ids.length) {
+      return res.status(400).json({ success: false, error: 'ids 不能为空' })
+    }
+    const isCharacter = kind === 'characters'
+    const allowed = isCharacter ? ['pending', 'approved', 'revision'] : ['pending', 'confirmed', 'revision']
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ success: false, error: `status 必须是 ${allowed.join('/')}` })
+    }
+    let updated = 0
+    for (const id of ids) {
+      const item = isCharacter ? storageService.getNovelCharacter(id) : storageService.getWorldEntity(id)
+      if (!item || item.novelId !== req.params.id) continue
+      item.status = status
+      if (note !== undefined) item.note = String(note).slice(0, 2000)
+      if (isCharacter) {
+        item.updatedAt = new Date().toISOString()
+        storageService.updateNovelCharacter(item)
+      } else {
+        storageService.updateWorldEntity(item)
+      }
+      updated++
+    }
+    res.json({ success: true, data: { updated } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
 // 审核统计（修订率）
 router.get('/:id/review-stats', (req, res) => {
   try {

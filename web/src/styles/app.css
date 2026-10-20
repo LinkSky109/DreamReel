@@ -1558,3 +1558,37 @@ p {
   padding: 4px 9px;
   font-size: 12px;
 }
+
+/* 批量审校 */
+.dr-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dr-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.dr-bulk-bar .dr-btn {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
+.dr-select-check {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  flex: none;
+  cursor: pointer;
+}

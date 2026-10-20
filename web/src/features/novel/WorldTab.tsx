@@ -33,6 +33,8 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
   const [typeFilter, setTypeFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const locked = novelStageIndex(novel.stage) > novelStageIndex('world')
 
@@ -70,6 +72,17 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
       } else {
         showToast(t(`已生成世界观备选：${result.entities} 个实体`, `Generated ${result.entities} world entities`), 'success')
       }
+      refresh()
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  })
+
+  const bulkReview = useMutation({
+    mutationFn: (status: 'pending' | 'confirmed' | 'revision') =>
+      api.bulkReviewNovel(novel.id, { kind: 'world', ids: [...selected], status }),
+    onSuccess: (result) => {
+      showToast(t(`已更新 ${result.updated} 个世界观实体`, `Updated ${result.updated} entities`), 'success')
+      setSelected(new Set())
       refresh()
     },
     onError: (error: Error) => showToast(error.message, 'error'),
@@ -116,12 +129,15 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
   const filtered = entities.filter((entity) => {
     const term = query.trim().toLowerCase()
     const matchesType = typeFilter === 'all' || entity.type === typeFilter
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'confirmed' ? (entity.status ?? 'pending') === 'confirmed' : (entity.status ?? 'pending') === statusFilter)
     const matchesQuery =
       !term ||
       entity.name.toLowerCase().includes(term) ||
       (entity.aliases ?? []).some((alias) => alias.toLowerCase().includes(term)) ||
       (entity.description ?? '').toLowerCase().includes(term)
-    return matchesType && matchesQuery
+    return matchesType && matchesStatus && matchesQuery
   })
   const PAGE_SIZE = 30
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -256,7 +272,61 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
                 setPage(1)
               }}
             />
+            <div className="dr-character-status" role="group" aria-label={t('审校状态', 'Review status')}>
+              {[
+                ['all', t('全部', 'All')],
+                ['pending', t('待审', 'Pending')],
+                ['confirmed', t('已确认', 'Confirmed')],
+                ['revision', t('需修订', 'Revision')],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`dr-chip ${statusFilter === value ? 'is-active' : ''}`}
+                  aria-pressed={statusFilter === value}
+                  onClick={() => {
+                    setStatusFilter(value)
+                    setPage(1)
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <span>{t('匹配', 'Matched')} {filtered.length} / {entities.length}</span>
+          </div>
+
+          <div className="dr-bulk-bar">
+            <label className="dr-select-all">
+              <input
+                type="checkbox"
+                checked={filtered.length > 0 && filtered.every((entity) => selected.has(entity.id))}
+                onChange={(event) => {
+                  setSelected((current) => {
+                    const next = new Set(current)
+                    for (const entity of filtered) {
+                      if (event.target.checked) next.add(entity.id)
+                      else next.delete(entity.id)
+                    }
+                    return next
+                  })
+                }}
+              />
+              {t('全选筛选结果', 'Select all filtered')}
+            </label>
+            <span>{t('已选', 'Selected')} {selected.size}</span>
+            <button className="dr-btn" type="button" disabled={!selected.size || bulkReview.isPending} onClick={() => bulkReview.mutate('confirmed')}>
+              {t('确认', 'Confirm')}
+            </button>
+            <button className="dr-btn" type="button" disabled={!selected.size || bulkReview.isPending} onClick={() => bulkReview.mutate('revision')}>
+              {t('需修订', 'Revision')}
+            </button>
+            <button className="dr-btn" type="button" disabled={!selected.size || bulkReview.isPending} onClick={() => bulkReview.mutate('pending')}>
+              {t('设为待审', 'Set pending')}
+            </button>
+            <button className="dr-btn" type="button" disabled={!selected.size} onClick={() => setSelected(new Set())}>
+              {t('清除选择', 'Clear')}
+            </button>
           </div>
 
           <div className="dr-world-grid">
@@ -275,6 +345,21 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
                     return (
                       <details className="dr-world-entity" key={entity.id}>
                         <summary>
+                          <input
+                            type="checkbox"
+                            className="dr-select-check"
+                            checked={selected.has(entity.id)}
+                            aria-label={t(`选择 ${entity.name}`, `Select ${entity.name}`)}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={() =>
+                              setSelected((current) => {
+                                const next = new Set(current)
+                                if (next.has(entity.id)) next.delete(entity.id)
+                                else next.add(entity.id)
+                                return next
+                              })
+                            }
+                          />
                           <span className="dr-tag">{typeLabels[entity.type] ?? entity.type}</span>
                           <strong>{entity.name}</strong>
                           <span className="dr-world-mentions">×{entity.mentions ?? 0}</span>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CharactersTab } from './CharactersTab'
@@ -13,6 +13,7 @@ const getNovelSchema = vi.fn()
 const getNovelExtractStatus = vi.fn()
 const approveNovelCharacter = vi.fn()
 const patchNovelCharacter = vi.fn()
+const bulkReviewNovel = vi.fn()
 
 vi.mock('../../lib/api', () => ({
   api: {
@@ -23,6 +24,7 @@ vi.mock('../../lib/api', () => ({
     getNovelExtractStatus: (id: string) => getNovelExtractStatus(id),
     approveNovelCharacter: (id: string, cid: string) => approveNovelCharacter(id, cid),
     patchNovelCharacter: (id: string, cid: string, patch: unknown) => patchNovelCharacter(id, cid, patch),
+    bulkReviewNovel: (id: string, body: unknown) => bulkReviewNovel(id, body),
     extractNovelCharacters: vi.fn(),
     extractNovelAll: vi.fn(),
     selectNovelCharacterSet: vi.fn(),
@@ -81,6 +83,7 @@ describe('CharactersTab', () => {
     getNovelExtractStatus.mockResolvedValue({})
     approveNovelCharacter.mockResolvedValue({ ...character, status: 'approved' })
     patchNovelCharacter.mockResolvedValue(character)
+    bulkReviewNovel.mockResolvedValue({ updated: 1 })
   })
 
   it('渲染角色卡字段与审核状态', async () => {
@@ -95,8 +98,23 @@ describe('CharactersTab', () => {
   it('通过角色调用审核接口', async () => {
     const user = userEvent.setup()
     renderTab()
-    await user.click(await screen.findByRole('button', { name: '通过' }))
+    const card = (await screen.findByText('林川')).closest('.dr-character-card') as HTMLElement
+    await user.click(within(card).getByRole('button', { name: '通过' }))
     await waitFor(() => expect(approveNovelCharacter).toHaveBeenCalledWith('n1', 'c1'))
+  })
+
+  it('批量通过选中角色', async () => {
+    const user = userEvent.setup()
+    renderTab()
+    await user.click(await screen.findByRole('checkbox', { name: '选择 林川' }))
+    await user.click(within(document.querySelector('.dr-bulk-bar') as HTMLElement).getByRole('button', { name: '通过' }))
+    await waitFor(() =>
+      expect(bulkReviewNovel).toHaveBeenCalledWith('n1', {
+        kind: 'characters',
+        ids: ['c1'],
+        status: 'approved',
+      })
+    )
   })
 
   it('修订字段保存到 card', async () => {

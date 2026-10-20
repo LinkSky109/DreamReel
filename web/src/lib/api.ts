@@ -478,6 +478,10 @@ export const api = {
     eid: string,
     body: { status?: 'pending' | 'confirmed' | 'revision'; note?: string }
   ) => requestData<unknown>(`/novels/${id}/world/entities/${eid}/review`, { method: 'PATCH', body }),
+  bulkReviewNovel: (
+    id: string,
+    body: { kind: 'characters' | 'world'; ids: string[]; status: string; note?: string }
+  ) => requestData<{ updated: number }>(`/novels/${id}/review/bulk`, { method: 'POST', body }),
   confirmAllNovelReview: (id: string) =>
     requestData<{ characters: number; entities: number }>(`/novels/${id}/review/confirm-all`, {
       method: 'POST',

@@ -25,6 +25,7 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [page, setPage] = useState(1)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [editing, setEditing] = useState<{ character: NovelCharacter; field: string; value: string } | null>(null)
 
   const locked = novelStageIndex(novel.stage) > novelStageIndex('characters')
@@ -78,6 +79,17 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
       } else {
         showToast(t(`已生成角色 ${result.characters.length} 个（含世界观）`, `Generated ${result.characters.length} characters (with world)`), 'success')
       }
+      refresh()
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  })
+
+  const bulkReview = useMutation({
+    mutationFn: (status: 'pending' | 'approved' | 'revision') =>
+      api.bulkReviewNovel(novel.id, { kind: 'characters', ids: [...selected], status }),
+    onSuccess: (result) => {
+      showToast(t(`已更新 ${result.updated} 个角色`, `Updated ${result.updated} characters`), 'success')
+      setSelected(new Set())
       refresh()
     },
     onError: (error: Error) => showToast(error.message, 'error'),
@@ -243,6 +255,39 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
           </span>
         </div>
 
+        <div className="dr-bulk-bar">
+          <label className="dr-select-all">
+            <input
+              type="checkbox"
+              checked={filtered.length > 0 && filtered.every((character) => selected.has(character.id))}
+              onChange={(event) => {
+                setSelected((current) => {
+                  const next = new Set(current)
+                  for (const character of filtered) {
+                    if (event.target.checked) next.add(character.id)
+                    else next.delete(character.id)
+                  }
+                  return next
+                })
+              }}
+            />
+            {t('全选筛选结果', 'Select all filtered')}
+          </label>
+          <span>{t('已选', 'Selected')} {selected.size}</span>
+          <button className="dr-btn" type="button" disabled={!selected.size || bulkReview.isPending} onClick={() => bulkReview.mutate('approved')}>
+            {t('通过', 'Approve')}
+          </button>
+          <button className="dr-btn" type="button" disabled={!selected.size || bulkReview.isPending} onClick={() => bulkReview.mutate('revision')}>
+            {t('需修订', 'Revision')}
+          </button>
+          <button className="dr-btn" type="button" disabled={!selected.size || bulkReview.isPending} onClick={() => bulkReview.mutate('pending')}>
+            {t('设为待审', 'Set pending')}
+          </button>
+          <button className="dr-btn" type="button" disabled={!selected.size} onClick={() => setSelected(new Set())}>
+            {t('清除选择', 'Clear')}
+          </button>
+        </div>
+
         {sets.length ? (
           <div className="dr-character-sets">
             <span>{t('备选集合：', 'Candidate sets:')}</span>
@@ -290,6 +335,20 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
             <article className="dr-card dr-character-card" key={character.id}>
               <div className="dr-character-head">
                 <div className="dr-character-name">
+                  <input
+                    type="checkbox"
+                    className="dr-select-check"
+                    checked={selected.has(character.id)}
+                    aria-label={t(`选择 ${character.name}`, `Select ${character.name}`)}
+                    onChange={() =>
+                      setSelected((current) => {
+                        const next = new Set(current)
+                        if (next.has(character.id)) next.delete(character.id)
+                        else next.add(character.id)
+                        return next
+                      })
+                    }
+                  />
                   <strong>{character.name}</strong>
                   {character.aliases?.length ? <span>{t('别名', 'Aliases')} {character.aliases.join('/')}</span> : null}
                   {character.kind === 'group' ? <span className="dr-tag">{t('群体', 'Group')}</span> : null}

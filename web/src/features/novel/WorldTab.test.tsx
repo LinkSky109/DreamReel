@@ -13,6 +13,7 @@ const listNovelWorldSets = vi.fn()
 const getNovelSchema = vi.fn()
 const getNovelExtractStatus = vi.fn()
 const extractNovelWorld = vi.fn()
+const bulkReviewNovel = vi.fn()
 
 vi.mock('../../lib/api', () => ({
   api: {
@@ -23,6 +24,7 @@ vi.mock('../../lib/api', () => ({
     getNovelSchema: (id: string) => getNovelSchema(id),
     getNovelExtractStatus: (id: string) => getNovelExtractStatus(id),
     extractNovelWorld: (id: string, body: unknown) => extractNovelWorld(id, body),
+    bulkReviewNovel: (id: string, body: unknown) => bulkReviewNovel(id, body),
     selectNovelWorldSet: vi.fn(),
   },
 }))
@@ -103,6 +105,7 @@ describe('WorldTab', () => {
     })
     getNovelExtractStatus.mockResolvedValue({})
     extractNovelWorld.mockResolvedValue({ provider: 'heuristic', entities: 2 })
+    bulkReviewNovel.mockResolvedValue({ updated: 1 })
   })
 
   it('渲染实体、属性与关系', async () => {
@@ -122,6 +125,20 @@ describe('WorldTab', () => {
     const entityList = document.querySelector('.dr-world-entity-list') as HTMLElement
     expect(within(entityList).queryByText('边城镖局')).not.toBeInTheDocument()
     expect(within(entityList).getByText('夜行押镖')).toBeInTheDocument()
+  })
+
+  it('批量确认选中实体', async () => {
+    const user = userEvent.setup()
+    renderTab()
+    await user.click(await screen.findByRole('checkbox', { name: '选择 边城镖局' }))
+    await user.click(within(document.querySelector('.dr-bulk-bar') as HTMLElement).getByRole('button', { name: '确认' }))
+    await waitFor(() =>
+      expect(bulkReviewNovel).toHaveBeenCalledWith('n1', {
+        kind: 'world',
+        ids: ['e1'],
+        status: 'confirmed',
+      })
+    )
   })
 
   it('生成世界观调用接口', async () => {
