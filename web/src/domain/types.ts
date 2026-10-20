@@ -96,6 +96,36 @@ export interface StatsDashboard {
 }
 
 
+
+export interface DirectorProfile {
+  id: string
+  name: string
+  tagline: string
+  era: string
+  statement: string
+  camera: { style: string; moves: string[] }
+  pacing: { tempo: string; shotDurationBias: number; description: string }
+  performance: { style: string; cues: string[] }
+  colorLighting: { palette: string; lighting: string; description: string }
+  musicMood: string
+}
+
+export interface DirectorGuidance {
+  index: number
+  cameraMovement: string
+  duration: number
+  directorGuidance: string
+}
+
+export interface ApplyDirectorResult {
+  director: DirectorProfile
+  project: Project
+  guidance: DirectorGuidance[]
+  appliedCount: number
+  skippedCount: number
+  skipped: { index: number; shotId: string }[]
+}
+
 export interface Challenge {
   id: string
   title: string
@@ -136,6 +166,7 @@ export interface Project {
   style: string
   platform: 'landscape' | 'portrait' | string
   challengeId?: string | null
+  directorMode?: { enabled?: boolean; directorId?: string | null; appliedAt?: string | null }
   shots: Shot[]
   script?: ProjectScript
   characters?: Character[]

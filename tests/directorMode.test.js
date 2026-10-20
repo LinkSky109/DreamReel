@@ -235,6 +235,34 @@ describe('R29 directorService 应用/关闭导演模式', () => {
     assert.equal(result.project.directorMode.directorId, 'kubrick')
   })
 
+  it('applyDirector 跳过锁定镜头且不覆盖其内容', async () => {
+    const project = await projectService.createProject({ name: '导演锁定测试', userId: TEST_USER })
+    try {
+      for (let i = 0; i < 3; i += 1) {
+        project.addShot({ description: `镜头${i + 1}`, shotType: i % 2 === 0 ? 'close-up' : 'wide' })
+      }
+      const locked = project.addShot({ description: '已锁定镜头', shotType: 'medium' })
+      locked.locked = true
+      locked.cameraMovement = '用户锁定运镜'
+      locked.directorGuidance = '用户锁定指导'
+      const lockedDuration = locked.duration
+
+      const result = await directorService.applyDirector(project.id, 'noir')
+      assert.equal(result.appliedCount, 3)
+      assert.equal(result.skippedCount, 1)
+      assert.deepEqual(result.skipped, [{ index: 3, shotId: locked.id }])
+
+      const persisted = await projectService.getProject(project.id)
+      const after = persisted.shots.find((shot) => shot.id === locked.id)
+      assert.equal(after.cameraMovement, '用户锁定运镜')
+      assert.equal(after.directorGuidance, '用户锁定指导')
+      assert.equal(after.duration, lockedDuration)
+    } finally {
+      await projectService.deleteProject(project.id)
+      storageService._flush()
+    }
+  })
+
   it('applyDirector 后 shot.cameraMovement/directorGuidance 落到模型实例', async () => {
     const project = await projectService.getProject(testProjectId)
     for (const shot of project.shots) {

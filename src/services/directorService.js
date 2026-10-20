@@ -59,9 +59,15 @@ export class DirectorService {
     }
 
     const guidance = []
+    const skipped = []
     const shots = project.shots || []
     for (let i = 0; i < shots.length; i += 1) {
       const shot = shots[i]
+      // 已锁定镜头视为用户确认结果，导演编排不得覆盖
+      if (shot.locked) {
+        skipped.push({ index: i, shotId: shot.id })
+        continue
+      }
       const result = orchestrateShot(director, shot, i)
       shot.cameraMovement = result.cameraMovement
       shot.duration = result.duration
@@ -77,9 +83,16 @@ export class DirectorService {
     project.updatedAt = new Date().toISOString()
 
     await projectService.updateProject(projectId, { directorMode: project.directorMode })
-    logger.info(`Director ${directorId} applied to project ${projectId}, ${guidance.length} shots orchestrated`)
+    logger.info(`Director ${directorId} applied to project ${projectId}, ${guidance.length} shots orchestrated, ${skipped.length} locked skipped`)
 
-    return { director, project: project.toJSON(), guidance }
+    return {
+      director,
+      project: project.toJSON(),
+      guidance,
+      appliedCount: guidance.length,
+      skippedCount: skipped.length,
+      skipped,
+    }
   }
 
   /**

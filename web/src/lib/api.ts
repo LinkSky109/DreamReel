@@ -1,6 +1,8 @@
 import type {
   Challenge,
   ChallengeDetail,
+  DirectorProfile,
+  ApplyDirectorResult,
   AiMessage,
   AiQuickAction,
   AudioPreviewResult,
@@ -707,6 +709,11 @@ export const api = {
       method: 'PATCH',
       body: updates,
     }),
+  listDirectors: () => request<{ total: number; items: DirectorProfile[] }>('/directors'),
+  applyDirector: (directorId: string, projectId: string) =>
+    request<ApplyDirectorResult>(`/directors/${directorId}/apply`, { method: 'POST', body: { projectId } }),
+  disableDirector: (projectId: string) =>
+    request<Project>('/directors/disable', { method: 'POST', body: { projectId } }),
   listChallenges: (status?: string) =>
     request<{ total: number; items: Challenge[] }>(`/challenges${status && status !== 'all' ? `?status=${status}` : ''}`),
   getChallengeDetail: (id: string) => request<ChallengeDetail>(`/challenges/${id}`),
