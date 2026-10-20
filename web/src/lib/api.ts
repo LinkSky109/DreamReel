@@ -58,6 +58,8 @@ import type {
   ProjectScript,
   ProjectVersion,
   RecycleBinItem,
+  StatsDashboard,
+  StatsTrendPoint,
   ProviderStatus,
   SceneItem,
   SfxItem,
@@ -176,6 +178,8 @@ export const api = {
   }) => request<Project>('/projects', { method: 'POST', body }),
   updateProject: (id: string, body: Partial<Project>) =>
     request<Project>(`/projects/${id}`, { method: 'PUT', body }),
+  getStatsDashboard: () => request<StatsDashboard>('/stats/dashboard'),
+  getStatsTrend: (days = 14) => request<StatsTrendPoint[]>(`/stats/trend?days=${days}`),
   getRecycleBin: (limit = 50) =>
     request<{ total: number; items: RecycleBinItem[] }>(`/projects/recycle-bin/list${buildQuery({ limit })}`),
   getRecycleBinStats: () =>

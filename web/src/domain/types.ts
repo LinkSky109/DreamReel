@@ -56,6 +56,45 @@ export interface ProjectScript {
   shots?: ScriptScene[]
 }
 
+export interface StatsOverview {
+  totalProjects: number
+  totalShots: number
+  completedShots: number
+  completionRate: number
+  totalCharacters: number
+  totalVideoGenerations: number
+  totalExports: number
+  totalDubbingMinutes: number
+  lastActive?: string | null
+}
+
+export interface StatsTrendPoint {
+  date: string
+  projectsCreated: number
+  videoGenerations: number
+  exports: number
+}
+
+export interface StatsDistributionItem {
+  styleId?: string
+  platform?: string
+  count: number
+}
+
+export interface StatsQuota {
+  video: { daily: { used: number; limit: number; remaining: number } }
+  dubbing: { monthly: { used: number; limit: number; remaining: number } }
+}
+
+export interface StatsDashboard {
+  overview: StatsOverview
+  trend: StatsTrendPoint[]
+  styleDistribution: StatsDistributionItem[]
+  platformDistribution: StatsDistributionItem[]
+  quotaUsage: StatsQuota
+  recentProjects: Project[]
+}
+
 export interface RecycleBinItem extends Project {
   deletedAt?: string
   deletedBy?: string
