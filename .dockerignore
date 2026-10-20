@@ -1,9 +1,15 @@
 node_modules
+*/node_modules
 storage
+web/dist
+public/assets
 .git
 .gitignore
 *.md
 docs
 tests
 .env
+.env.*
+!.env.example
+*.log
 .DS_Store

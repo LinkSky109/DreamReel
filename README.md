@@ -152,6 +152,29 @@ docker-compose logs -f
 docker-compose down
 ```
 
+### 前后端分离部署
+
+后端默认仍可同时托管前端（`SERVE_STATIC=true`，保持旧行为）。前后端分离时：
+
+```bash
+# 1) 前端独立构建到 web/dist（含 legacy 资源与静态素材）
+npm run build:web
+
+# 2) 只启动 API（不托管 SPA）
+SERVE_STATIC=false PORT=3000 CORS_ORIGINS=https://app.example.com npm run start:api
+
+# 3) 用 Nginx 托管 web/dist，并把 /api、/storage 反代到 API
+#    配置示例见 deploy/nginx.conf
+
+# 一键本地验证（web + api）
+docker compose -f deploy/docker-compose.dev.yml up --build
+
+# 架构清单（路由、鉴权分布、存储规模）
+npm run inventory
+```
+
+关键环境变量：`SERVE_STATIC`、`CORS_ORIGINS`、`DB_DRIVER`（`json|postgres|dual`）、`DATABASE_URL`、`REDIS_URL`、`AUTH_MODE`、`TENANCY_MODE`。决策记录见 `docs/adr/`。
+
 ### 完整创作流程
 
 1. **创建项目** — 从模板创建或空白创建

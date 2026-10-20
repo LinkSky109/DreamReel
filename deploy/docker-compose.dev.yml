@@ -1,0 +1,71 @@
+# 本地/开发环境：web + api；基础设施按需启用
+#   docker compose -f deploy/docker-compose.dev.yml up --build
+#   docker compose -f deploy/docker-compose.dev.yml --profile infra up -d postgres redis minio
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile.api
+    environment:
+      NODE_ENV: production
+      SERVE_STATIC: "false"
+      PORT: "3000"
+      STORAGE_PATH: /app/storage
+      DB_DRIVER: ${DB_DRIVER:-json}
+      DATABASE_URL: ${DATABASE_URL:-postgres://dreamreel:dreamreel@postgres:5432/dreamreel}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+    volumes:
+      - ../storage:/app/storage
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile.web
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["infra"]
+    environment:
+      POSTGRES_USER: dreamreel
+      POSTGRES_PASSWORD: dreamreel
+      POSTGRES_DB: dreamreel
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["infra"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:latest
+    profiles: ["infra"]
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: dreamreel
+      MINIO_ROOT_PASSWORD: dreamreel123
+    volumes:
+      - miniodata:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

@@ -5,9 +5,37 @@ dotenv.config()
 
 const storagePath = process.env.STORAGE_PATH || './storage'
 
+const splitList = (value) =>
+  (value || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
 const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT, 10) || 3000,
+
+  // ---- 部署与架构开关（Phase 0/1）----
+  // 后端是否托管前端静态文件；前后端分离部署时设为 false
+  serveStatic: process.env.SERVE_STATIC !== 'false',
+  // 前端独立构建产物目录（相对仓库根）
+  webDist: process.env.WEB_DIST || 'web/dist',
+  // CORS 白名单，逗号分隔；留空时开发环境放开，生产环境只允许同源
+  corsOrigins: splitList(process.env.CORS_ORIGINS),
+  // 数据驱动：json（当前）| postgres | dual
+  db: {
+    driver: process.env.DB_DRIVER || 'json',
+    url: process.env.DATABASE_URL || '',
+    poolMax: parseInt(process.env.DB_POOL_MAX, 10) || 10,
+  },
+  redis: {
+    url: process.env.REDIS_URL || '',
+  },
+  // legacy | session
+  authMode: process.env.AUTH_MODE || 'legacy',
+  // single | organization
+  tenancyMode: process.env.TENANCY_MODE || 'single',
+
 
   video: {
     provider: process.env.VIDEO_PROVIDER || 'mock',

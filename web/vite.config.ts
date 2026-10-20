@@ -3,15 +3,20 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 const webRoot = fileURLToPath(new URL('.', import.meta.url))
+// WEB_OUT_DIR=dist 时输出到 web/dist，用于前后端分离部署；
+// 未设置时保持旧行为（输出到 ../public），避免打断单进程托管模式。
+const outDir = process.env.WEB_OUT_DIR
+  ? new URL(process.env.WEB_OUT_DIR, new URL('.', import.meta.url)).pathname
+  : fileURLToPath(new URL('../public', import.meta.url))
+const apiProxy = process.env.API_PROXY || 'http://localhost:3001'
 
 export default defineConfig({
   root: webRoot,
   plugins: [react()],
   base: '/',
   build: {
-    // 构建产物直接落到 Express 静态目录；保留 legacy 前端文件用于渐进迁移
-    outDir: fileURLToPath(new URL('../public', import.meta.url)),
-    emptyOutDir: false,
+    outDir,
+    emptyOutDir: process.env.WEB_OUT_DIR ? true : false,
     sourcemap: false,
     chunkSizeWarningLimit: 900,
   },
@@ -19,13 +24,15 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      '/api': 'http://localhost:3000',
-      '/storage': 'http://localhost:3000',
-      '/js': 'http://localhost:3000',
-      '/css': 'http://localhost:3000',
-      '/icons': 'http://localhost:3000',
-      '/manifest.webmanifest': 'http://localhost:3000',
-      '/sw.js': 'http://localhost:3000',
+      '/api': apiProxy,
+      '/storage': apiProxy,
+      '/legacy': apiProxy,
+      // 过渡期兼容旧路径
+      '/js': apiProxy,
+      '/css': apiProxy,
+      '/icons': apiProxy,
+      '/manifest.webmanifest': apiProxy,
+      '/sw.js': apiProxy,
     },
   },
   test: {

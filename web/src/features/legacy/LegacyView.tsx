@@ -12,7 +12,8 @@ type LegacyViewProps = {
 
 /**
  * 渐进迁移桥：把尚未迁移的 legacy 视图挂载到 React 外壳内。
- * 视图模块仍是原生 ESM，由 Express 静态服务提供；不参与 Vite 打包。
+ * 视图模块仍是原生 ESM，位于 `web/public/legacy/js`（构建后由静态服务器托管），
+ * 不参与 Vite 打包；前后端分离后不再依赖 Express。
  */
 export function LegacyView({ module, renderer, param, title }: LegacyViewProps) {
   const mountRef = useRef<HTMLDivElement>(null)
@@ -27,7 +28,9 @@ export function LegacyView({ module, renderer, param, title }: LegacyViewProps) 
 
     const load = async () => {
       try {
-        const mod = (await import(/* @vite-ignore */ `/js/views/${module}.js`)) as Record<
+        const mod = (await import(
+          /* @vite-ignore */ `${import.meta.env.BASE_URL}legacy/js/views/${module}.js`
+        )) as Record<
           string,
           unknown
         >

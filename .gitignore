@@ -8,3 +8,6 @@ coverage/
 
 # Vite/Vitest cache inside web/
 web/node_modules/
+
+# Vite standalone build output
+web/dist/
