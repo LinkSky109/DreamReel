@@ -31,6 +31,8 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
   const queryClient = useQueryClient()
   const [provider, setProvider] = useState<'llm' | 'heuristic'>('llm')
   const [typeFilter, setTypeFilter] = useState('all')
+  const [query, setQuery] = useState('')
+  const [page, setPage] = useState(1)
 
   const locked = novelStageIndex(novel.stage) > novelStageIndex('world')
 
@@ -111,7 +113,20 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
   }, [schema])
 
   const attrLabels = schema?.world?.attributes ?? {}
-  const filtered = typeFilter === 'all' ? entities : entities.filter((entity) => entity.type === typeFilter)
+  const filtered = entities.filter((entity) => {
+    const term = query.trim().toLowerCase()
+    const matchesType = typeFilter === 'all' || entity.type === typeFilter
+    const matchesQuery =
+      !term ||
+      entity.name.toLowerCase().includes(term) ||
+      (entity.aliases ?? []).some((alias) => alias.toLowerCase().includes(term)) ||
+      (entity.description ?? '').toLowerCase().includes(term)
+    return matchesType && matchesQuery
+  })
+  const PAGE_SIZE = 30
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
   const typeKeys = Object.keys(typeLabels).filter((key) => (summary?.byType?.[key] ?? 0) > 0)
   const busy = extract.isPending
 
@@ -214,7 +229,7 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
               type="button"
               className={`dr-chip ${typeFilter === 'all' ? 'is-active' : ''}`}
               aria-pressed={typeFilter === 'all'}
-              onClick={() => setTypeFilter('all')}
+              onClick={() => { setTypeFilter('all'); setPage(1) }}
             >
               {t('全部', 'All')} {entities.length}
             </button>
@@ -224,11 +239,24 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
                 type="button"
                 className={`dr-chip ${typeFilter === key ? 'is-active' : ''}`}
                 aria-pressed={typeFilter === key}
-                onClick={() => setTypeFilter(key)}
+                onClick={() => { setTypeFilter(key); setPage(1) }}
               >
                 {typeLabels[key]} {summary?.byType?.[key] ?? 0}
               </button>
             ))}
+          </div>
+
+          <div className="dr-world-search">
+            <input
+              className="dr-input"
+              placeholder={t('搜索实体名、别名或描述', 'Search name, alias or description')}
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value)
+                setPage(1)
+              }}
+            />
+            <span>{t('匹配', 'Matched')} {filtered.length} / {entities.length}</span>
           </div>
 
           <div className="dr-world-grid">
@@ -238,8 +266,8 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
                 {typeFilter === 'all' ? '' : ` · ${typeLabels[typeFilter] ?? typeFilter}`}
               </h3>
               <div className="dr-world-entity-list">
-                {filtered.length ? (
-                  filtered.map((entity) => {
+                {pageItems.length ? (
+                  pageItems.map((entity) => {
                     const labels = Object.fromEntries(
                       (attrLabels[entity.type] ?? []).map((attr) => [attr.key, attr.label])
                     )
@@ -281,6 +309,17 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
                 ) : (
                   <p className="dr-novel-note">{t('暂无', 'None')}</p>
                 )}
+                {filtered.length > PAGE_SIZE ? (
+                  <div className="dr-list-pager">
+                    <span>{t('第', 'Page')} {currentPage}/{totalPages} · {filtered.length} {t('个实体', 'entities')}</span>
+                    <button className="dr-btn" type="button" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
+                      {t('上一页', 'Previous')}
+                    </button>
+                    <button className="dr-btn" type="button" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>
+                      {t('下一页', 'Next')}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </section>
 

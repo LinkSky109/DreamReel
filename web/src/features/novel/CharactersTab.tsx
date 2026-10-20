@@ -22,6 +22,9 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
   const { t } = useLang()
   const queryClient = useQueryClient()
   const [provider, setProvider] = useState<'llm' | 'heuristic'>('llm')
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<{ character: NovelCharacter; field: string; value: string } | null>(null)
 
   const locked = novelStageIndex(novel.stage) > novelStageIndex('characters')
@@ -119,6 +122,24 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
   const stats = data?.stats ?? {}
   const characters = data?.characters ?? []
   const sets = data?.sets ?? []
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase()
+    return characters.filter((character) => {
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'approved' ? character.status === 'approved' : character.status === statusFilter)
+      const matchesQuery =
+        !term ||
+        character.name.toLowerCase().includes(term) ||
+        (character.aliases ?? []).some((alias) => alias.toLowerCase().includes(term)) ||
+        (character.description ?? '').toLowerCase().includes(term)
+      return matchesStatus && matchesQuery
+    })
+  }, [characters, query, statusFilter])
+  const PAGE_SIZE = 20
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
   const busy = extract.isPending || extractAll.isPending
 
   const fieldOptions = useMemo(
@@ -186,6 +207,42 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
           {stats.approved ?? 0} / {characters.length}
         </p>
 
+        <div className="dr-character-filters">
+          <input
+            className="dr-input"
+            placeholder={t('搜索角色名、别名或描述', 'Search name, alias or description')}
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setPage(1)
+            }}
+          />
+          <div className="dr-character-status" role="group" aria-label={t('审核状态', 'Review status')}>
+            {[
+              ['all', t('全部', 'All')],
+              ['pending', t('待审', 'Pending')],
+              ['approved', t('已通过', 'Approved')],
+              ['revision', t('需修订', 'Revision')],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`dr-chip ${statusFilter === value ? 'is-active' : ''}`}
+                aria-pressed={statusFilter === value}
+                onClick={() => {
+                  setStatusFilter(value)
+                  setPage(1)
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="dr-character-filter-count">
+            {t('匹配', 'Matched')} {filtered.length} / {characters.length}
+          </span>
+        </div>
+
         {sets.length ? (
           <div className="dr-character-sets">
             <span>{t('备选集合：', 'Candidate sets:')}</span>
@@ -229,15 +286,23 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
         </div>
       ) : (
         <div className="dr-characters-list">
-          {characters.map((character) => (
+          {pageItems.map((character) => (
             <article className="dr-card dr-character-card" key={character.id}>
               <div className="dr-character-head">
                 <div className="dr-character-name">
                   <strong>{character.name}</strong>
                   {character.aliases?.length ? <span>{t('别名', 'Aliases')} {character.aliases.join('/')}</span> : null}
                   {character.kind === 'group' ? <span className="dr-tag">{t('群体', 'Group')}</span> : null}
-                  <span className={`dr-tag ${character.status === 'approved' ? 'is-active' : ''}`}>
-                    {character.status === 'approved' ? t('已通过', 'Approved') : t('待审核', 'Pending')}
+                  <span
+                    className={`dr-tag ${
+                      character.status === 'approved' ? 'is-active' : character.status === 'revision' ? 'is-revision' : ''
+                    }`}
+                  >
+                    {character.status === 'approved'
+                      ? t('已通过', 'Approved')
+                      : character.status === 'revision'
+                        ? t('需修订', 'Revision')
+                        : t('待审核', 'Pending')}
                   </span>
                   <span className="dr-character-provider">{character.provider}</span>
                 </div>
@@ -284,8 +349,30 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
               </div>
             </article>
           ))}
+          {filtered.length === 0 ? (
+            <div className="dr-card dr-state">
+              <p>{t('没有匹配的角色', 'No matching characters')}</p>
+              <button className="dr-btn" type="button" onClick={() => { setQuery(''); setStatusFilter('all') }}>
+                {t('清除筛选', 'Clear filters')}
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
+
+      {filtered.length > PAGE_SIZE ? (
+        <div className="dr-list-pager">
+          <span>
+            {t('第', 'Page')} {currentPage}/{totalPages} · {filtered.length} {t('个角色', 'characters')}
+          </span>
+          <button className="dr-btn" type="button" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
+            {t('上一页', 'Previous')}
+          </button>
+          <button className="dr-btn" type="button" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>
+            {t('下一页', 'Next')}
+          </button>
+        </div>
+      ) : null}
 
       <Modal
         open={Boolean(editing)}

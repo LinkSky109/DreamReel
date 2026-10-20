@@ -1480,3 +1480,81 @@ p {
   0% { background-position: 100% 50%; }
   100% { background-position: 0 50%; }
 }
+
+/* 列表筛选与分页（角色/世界观） */
+.dr-character-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dr-character-filters .dr-input {
+  flex: 1;
+  min-width: 200px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.dr-character-status {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.dr-character-status .dr-chip {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
+.dr-character-filter-count {
+  font-size: 11px;
+  color: var(--meta);
+  margin-left: auto;
+}
+
+.dr-tag.is-revision {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.dr-world-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.dr-world-search .dr-input {
+  flex: 1;
+  max-width: 360px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.dr-world-search span {
+  font-size: 11px;
+  color: var(--meta);
+}
+
+.dr-list-pager {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 11px;
+  color: var(--meta);
+}
+
+.dr-list-pager span {
+  margin-right: auto;
+}
+
+.dr-list-pager .dr-btn {
+  padding: 4px 9px;
+  font-size: 12px;
+}

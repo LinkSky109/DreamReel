@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -118,7 +118,7 @@ describe('NovelDetail review', () => {
     const groups = document.querySelectorAll('.nv-rail-group')
     await user.click(groups[2].querySelectorAll('.nv-rail-item')[0] as HTMLElement)
     expect(await screen.findByText('审校检查器')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '需修订' }))
+    await user.click(within(document.querySelector('.nv-inspector') as HTMLElement).getByRole('button', { name: '需修订' }))
     await waitFor(() =>
       expect(reviewNovelCharacter).toHaveBeenCalledWith('n1', 'c1', { status: 'revision', note: '待核对年龄' })
     )
