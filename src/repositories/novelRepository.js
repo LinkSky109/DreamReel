@@ -135,7 +135,7 @@ function rowToDoc(row) {
 
 const COLUMN_FIELDS = ['id', 'orgId', 'ownerId', 'title', 'status', 'version', 'createdAt', 'updatedAt', 'deletedAt']
 
-function docToPayload(doc) {
+export function toNovelPayload(doc) {
   const payload = { ...doc }
   for (const field of COLUMN_FIELDS) delete payload[field]
   return payload
@@ -181,7 +181,7 @@ export function createPostgresNovelRepository(db) {
             owner_id: doc.ownerId || null,
             title: doc.title || '',
             status: doc.status || 'draft',
-            payload: JSON.stringify(docToPayload(doc)),
+            payload: JSON.stringify(toNovelPayload(doc)),
             created_at: new Date(doc.createdAt),
             updated_at: new Date(doc.updatedAt),
             version: 1,
@@ -210,7 +210,7 @@ export function createPostgresNovelRepository(db) {
           owner_id: merged.ownerId || null,
           title: merged.title || '',
           status: merged.status || 'draft',
-          payload: JSON.stringify(docToPayload(merged)),
+          payload: JSON.stringify(toNovelPayload(merged)),
           updated_at: new Date(merged.updatedAt),
           version: merged.version,
         })

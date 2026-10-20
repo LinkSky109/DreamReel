@@ -47,6 +47,11 @@ const config = {
   idempotency: {
     ttlMs: parseInt(process.env.IDEMPOTENCY_TTL_MS, 10) || 24 * 60 * 60 * 1000,
   },
+  // novels 读写切换：legacy(默认) | shadow(影子读) | postgres
+  novels: {
+    repoMode: process.env.NOVEL_REPO_MODE || 'legacy',
+    orgId: process.env.DEFAULT_ORG_ID || 'default',
+  },
 
 
   video: {

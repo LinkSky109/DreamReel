@@ -1,8 +1,8 @@
 import express, { Router } from 'express'
 import { storageService } from '../services/storageService.js'
+import { novelReadService } from '../services/novelReadService.js'
 import {
   createNovelProject,
-  listNovelProjects,
   getNovelProject,
   updateNovelProject,
   deleteNovelProject,
@@ -111,9 +111,10 @@ function withListStats(project) {
   }
 }
 
-router.get('/', (_req, res) => {
+router.get('/', async (req, res) => {
   try {
-    res.json({ success: true, data: listNovelProjects().map(withListStats) })
+    const projects = await novelReadService.list({ requestId: req.id })
+    res.json({ success: true, data: projects.map(withListStats) })
   } catch (error) {
     res.status(400).json({ success: false, error: error.message })
   }
@@ -130,9 +131,9 @@ router.delete('/:id', (req, res) => {
 })
 
 // 项目详情（含审核统计）
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const project = getNovelProject(req.params.id)
+    const project = await novelReadService.get(req.params.id, { requestId: req.id })
     res.json({ success: true, data: { ...project, reviewStats: reviewStats(project.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })

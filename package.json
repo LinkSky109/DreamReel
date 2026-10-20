@@ -28,7 +28,9 @@
     "start:api": "node src/server.js",
     "inventory": "node scripts/inventory.js",
     "db:migrate": "node scripts/db-migrate.js",
-    "db:status": "node scripts/db-migrate.js --status"
+    "db:status": "node scripts/db-migrate.js --status",
+    "db:migrate:novels": "node scripts/migrate-novels-to-pg.js",
+    "db:verify:novels": "node scripts/migrate-novels-to-pg.js --verify"
   },
   "keywords": [
     "ai-video",

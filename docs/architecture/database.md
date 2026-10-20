@@ -73,3 +73,34 @@ softDelete(id, { orgId }) -> boolean
 5. `audit/usage/billing`
 
 每迁一个领域：Repository 契约测试 → 原单测 → 关键 E2E → 才允许删除旧存储调用。
+
+## Phase 4 试点：novels 只读切换
+
+已验证：`novelProjects` → `novels` 迁移后，PostgreSQL 返回与 JSON 语义一致。
+
+```bash
+npm run db:migrate:novels -- --dry-run   # 预览
+npm run db:migrate:novels                # 幂等 upsert
+npm run db:verify:novels                 # 逐条核对 title/counts
+```
+
+运行时开关（默认 `legacy`，不改变现有行为）：
+
+```bash
+NOVEL_REPO_MODE=legacy     # 全部走 JSON
+NOVEL_REPO_MODE=shadow     # 返回 JSON，同时读 PG 比对并告警
+NOVEL_REPO_MODE=postgres   # 列表/详情走 PG（写仍走 JSON）
+```
+
+覆盖范围：`GET /api/novels`、`GET /api/novels/:id`。
+
+影子读比对字段：`title/status/updatedAt/counts/stage`；不一致写 `[novel-shadow]` 告警，仍返回 JSON 结果，避免影响线上。
+
+实测：
+
+- 迁移 `inserted=1 updated=0`，`verify mismatches=0`；
+- shadow 模式 0 条告警；
+- postgres 模式列表/详情与 legacy 响应**语义完全一致**（内部字段 `orgId/version/deletedAt` 不对外暴露）；
+- PG 不可用时自动回退 legacy 并告警。
+
+写入路径（create/update/delete）仍在 `novelProjectService` 中走 JSON，属于下一步。
