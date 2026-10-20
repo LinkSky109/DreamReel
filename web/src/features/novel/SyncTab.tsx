@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { useLang } from '../../lib/i18n'
 import { showToast } from '../../lib/toast'
 import type { NovelDetail, NovelSyncResult } from '../../domain/types'
-import { Icon } from '../../components/Icon'
+import { VoicePanel } from './VoicePanel'
 import './SyncTab.css'
 
 type BusyKey = 'style' | 'local-plan' | 'local' | 'webdav-plan' | 'webdav' | 'quark-plan' | 'quark' | 'drive' | 'qr' | 'logout' | null
@@ -232,21 +231,7 @@ export function SyncTab({ novel, onChanged }: { novel: NovelDetail; onChanged: (
         )}
       </section>
 
-      <section className="dr-card dr-voice-bridge">
-        <div>
-          <h2>{t('角色音色（固定，跨全集一致）', 'Character voices')}</h2>
-          <p className="dr-novel-note">
-            {t(
-              '音色分配、试听、声音复刻/音色设计仍在旧版制作台。',
-              'Voice assignment, previews, cloning and design remain in the legacy workspace.'
-            )}
-          </p>
-        </div>
-        <Link className="dr-btn" to={`/novel-legacy/${novel.id}?tab=sync`}>
-          <Icon name="sparkles" size={14} />
-          {t('打开旧版音色管理', 'Open legacy voice manager')}
-        </Link>
-      </section>
+      <VoicePanel novelId={novel.id} />
 
       <section className="dr-card dr-quark-card">
         <div className="dr-quark-head">

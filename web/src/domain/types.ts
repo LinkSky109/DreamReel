@@ -506,6 +506,26 @@ export interface NovelReviewStats {
   revisionRate?: number
 }
 
+export interface NovelListStats {
+  words: number
+  chapters: number
+  characters: number
+  worldEntities: number
+  approved: number
+  revisionRate: number
+  progress: number
+  status: 'draft' | 'in-progress' | 'completed' | string
+}
+
+export interface NovelChunk {
+  id: string
+  novelId: string
+  index: number
+  chapterTitle: string
+  text: string
+  wordCount?: number
+}
+
 export interface NovelProject {
   id: string
   title: string
@@ -519,6 +539,7 @@ export interface NovelProject {
   counts: NovelCounts
   createdAt: string
   updatedAt: string
+  stats?: NovelListStats
 }
 
 export interface NovelDetail extends NovelProject {
@@ -798,6 +819,34 @@ export interface NovelEpisodeStateItem {
 export interface NovelEpisodeStates {
   episodeNo: number | null
   items: NovelEpisodeStateItem[]
+}
+
+export interface NovelVoiceOption {
+  id: string
+  name: string
+  gender?: string
+  tags?: string[]
+  type?: string
+}
+
+export interface NovelVoiceCharacter {
+  name: string
+  gender?: string
+  voice: string
+}
+
+export interface NovelVoiceAssignment {
+  narrator: string
+  catalog: NovelVoiceOption[]
+  custom: NovelVoiceOption[]
+  characters: NovelVoiceCharacter[]
+  map: Record<string, string>
+}
+
+export interface NovelVoicePreview {
+  audioUrl: string
+  duration?: number | string
+  provider?: string
 }
 
 export interface NovelSeasonAssetSubset {

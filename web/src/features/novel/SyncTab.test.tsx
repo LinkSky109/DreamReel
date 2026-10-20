@@ -27,6 +27,7 @@ vi.mock('../../lib/api', () => ({
     createQuarkQr: () => createQuarkQr(),
     getQuarkQrStatus: vi.fn(),
     logoutCloudDrive: () => logoutCloudDrive(),
+    getNovelVoices: async () => ({ narrator: 'v1', catalog: [], custom: [], characters: [], map: {} }),
   },
 }))
 
@@ -140,11 +141,9 @@ describe('SyncTab', () => {
     )
   })
 
-  it('音色管理提供旧版入口', async () => {
+  it('音色面板显示旁白与角色分配', async () => {
     renderTab()
-    expect(await screen.findByRole('link', { name: /打开旧版音色管理/ })).toHaveAttribute(
-      'href',
-      '/novel-legacy/n1?tab=sync'
-    )
+    expect(await screen.findByText(/角色音色/)).toBeInTheDocument()
+    expect(screen.getByText('旁白')).toBeInTheDocument()
   })
 })

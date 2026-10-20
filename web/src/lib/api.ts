@@ -17,6 +17,7 @@ import type {
   NotificationItem,
   NotificationPreferences,
   NovelCharacter,
+  NovelChunk,
   NovelCharacterSet,
   CloudDriveStatus,
   NovelAsset,
@@ -40,6 +41,8 @@ import type {
   NovelSyncResult,
   NovelShot,
   NovelSyncScope,
+  NovelVoiceAssignment,
+  NovelVoicePreview,
   NovelWorldEntity,
   NovelWorldRelation,
   NovelWorldSet,
@@ -436,6 +439,7 @@ export const api = {
   deleteNovel: (id: string) =>
     requestData<{ deleted?: boolean }>(`/novels/${id}`, { method: 'DELETE' }),
   getNovel: (id: string) => requestData<NovelDetail>(`/novels/${id}`),
+  getNovelChunks: (id: string) => requestData<NovelChunk[]>(`/novels/${id}/chunks`),
   advanceNovel: (id: string, to?: string) =>
     requestData<{ stage: string }>(`/novels/${id}/advance`, { method: 'POST', body: to ? { to } : {} }),
   ingestNovel: (
@@ -475,6 +479,23 @@ export const api = {
     requestData<NovelSeriesPlanResult>(`/novels/${id}/series/plan`, { method: 'POST', body }),
   generateNovelStyle: (id: string) =>
     requestData<unknown>(`/novels/${id}/style/generate`, { method: 'POST', body: {} }),
+  getNovelVoices: (id: string) => requestData<NovelVoiceAssignment>(`/novels/${id}/voices`),
+  setNovelVoice: (id: string, body: { speaker: string; voice: string }) =>
+    requestData<Record<string, string>>(`/novels/${id}/voices`, { method: 'PUT', body }),
+  resetNovelVoices: (id: string) =>
+    requestData<Record<string, string>>(`/novels/${id}/voices/reset`, { method: 'POST', body: {} }),
+  previewNovelVoice: (id: string, body: { voice?: string; text?: string }) =>
+    requestData<NovelVoicePreview>(`/novels/${id}/voices/preview`, { method: 'POST', body }),
+  cloneNovelVoice: (id: string, body: Record<string, unknown>) =>
+    requestData<{ voice: unknown; map?: Record<string, string> }>(`/novels/${id}/voices/clone`, {
+      method: 'POST',
+      body,
+    }),
+  designNovelVoice: (id: string, body: Record<string, unknown>) =>
+    requestData<{ voice: unknown; map?: Record<string, string> }>(`/novels/${id}/voices/design`, {
+      method: 'POST',
+      body,
+    }),
   getNovelSyncScopes: (id: string) => requestData<NovelSyncScope[]>(`/novels/${id}/sync/scopes`),
   getNovelManifest: (id: string, scope?: string) =>
     requestData<NovelManifest>(
