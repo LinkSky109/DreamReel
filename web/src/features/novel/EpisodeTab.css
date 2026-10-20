@@ -1,0 +1,155 @@
+.dr-episode-head {
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.dr-episode-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dr-episode-toolbar .dr-input {
+  padding: 5px 7px;
+  font-size: 12px;
+}
+
+.dr-episode-locks {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dr-episode-spacer {
+  flex: 1;
+}
+
+.dr-episode-bulk {
+  font-size: 12px;
+  color: #7c3aed;
+}
+
+.dr-episode-subset {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dr-episode-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dr-episode-filters .dr-input {
+  max-width: 240px;
+  padding: 5px 8px;
+}
+
+.dr-episode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dr-episode-item {
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dr-episode-main {
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dr-episode-title {
+  font-size: 13px;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.dr-episode-title span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dr-episode-badges {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--meta);
+}
+
+.dr-episode-badges .is-ok {
+  color: #16a34a;
+}
+
+.dr-episode-badges .is-err {
+  color: #dc2626;
+}
+
+.dr-episode-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dr-episode-actions .dr-btn {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
+.dr-episode-empty {
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 36px 20px;
+}
+
+.dr-episode-empty h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.dr-episode-hint {
+  margin-top: 12px;
+}
+
+@media (max-width: 767px) {
+  .dr-episode-toolbar .dr-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  .dr-episode-actions {
+    width: 100%;
+  }
+  .dr-episode-actions .dr-btn {
+    flex: 1 1 30%;
+    justify-content: center;
+  }
+  .dr-episode-filters .dr-input {
+    max-width: none;
+    width: 100%;
+  }
+}

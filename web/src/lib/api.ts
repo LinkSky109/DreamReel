@@ -18,12 +18,16 @@ import type {
   NotificationPreferences,
   NovelCharacter,
   NovelCharacterSet,
+  NovelBulkResult,
   NovelDetail,
+  NovelEpisode,
+  NovelEpisodeAssets,
   NovelExtractJobs,
   NovelSchema,
   NovelSeason,
   NovelSeriesEstimate,
   NovelSeriesPlanResult,
+  NovelSeasonAssetSubset,
   NovelWorldEntity,
   NovelWorldRelation,
   NovelWorldSet,
@@ -455,6 +459,36 @@ export const api = {
     requestData<NovelSeriesEstimate>(`/novels/${id}/series/estimate`),
   planNovelSeries: (id: string, body: Record<string, unknown> = {}) =>
     requestData<NovelSeriesPlanResult>(`/novels/${id}/series/plan`, { method: 'POST', body }),
+  listNovelEpisodes: (id: string, seasonId?: string) =>
+    requestData<NovelEpisode[]>(
+      `/novels/${id}/episodes${seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''}`
+    ),
+  getSeasonAssetSubset: (id: string, seasonId: string) =>
+    requestData<NovelSeasonAssetSubset>(`/novels/${id}/seasons/${seasonId}/assets`),
+  bulkGenerateSeason: (id: string, seasonId: string, body: Record<string, unknown>) =>
+    requestData<NovelBulkResult>(`/novels/${id}/seasons/${seasonId}/bulk`, { method: 'POST', body }),
+  bulkGenerateSeasonAssets: (id: string, seasonId: string, body: Record<string, unknown>) =>
+    requestData<NovelSeasonAssetSubset & { processed: number; ok: number; failed: number }>(
+      `/novels/${id}/seasons/${seasonId}/assets/bulk-generate`,
+      { method: 'POST', body }
+    ),
+  generateEpisodeScript: (id: string, eid: string, body: Record<string, unknown> = {}) =>
+    requestData<NovelEpisode>(`/novels/${id}/episodes/${eid}/script`, { method: 'POST', body }),
+  generateEpisodeAssets: (id: string, eid: string, body: Record<string, unknown> = {}) =>
+    requestData<{ episodeId: string; status?: string; assets?: NovelEpisodeAssets }>(
+      `/novels/${id}/episodes/${eid}/assets`,
+      { method: 'POST', body }
+    ),
+  composeEpisode: (id: string, eid: string, body: Record<string, unknown> = {}) =>
+    requestData<{ fileName?: string; [key: string]: unknown }>(
+      `/novels/${id}/episodes/${eid}/compose`,
+      { method: 'POST', body }
+    ),
+  exportEpisodeHandoff: (id: string, eid: string) =>
+    requestData<{ dir?: string; [key: string]: unknown }>(`/novels/${id}/episodes/${eid}/handoff`, {
+      method: 'POST',
+      body: {},
+    }),
   getNovelWorld: (id: string) => requestData<NovelWorldSummary>(`/novels/${id}/world`),
   listNovelWorldEntities: (id: string, type?: string) =>
     requestData<NovelWorldEntity[]>(`/novels/${id}/world/entities${type ? `?type=${encodeURIComponent(type)}` : ''}`),

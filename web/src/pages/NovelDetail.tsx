@@ -10,6 +10,7 @@ import { Icon } from '../components/Icon'
 import { CharactersTab } from '../features/novel/CharactersTab'
 import { WorldTab } from '../features/novel/WorldTab'
 import { SeriesTab } from '../features/novel/SeriesTab'
+import { EpisodeTab } from '../features/novel/EpisodeTab'
 import { Modal } from '../components/Modal'
 import './NovelDetail.css'
 
@@ -21,7 +22,7 @@ const TABS: { key: TabKey; zh: string; en: string; migrated: boolean }[] = [
   { key: 'characters', zh: '角色', en: 'Characters', migrated: true },
   { key: 'world', zh: '世界观', en: 'World', migrated: true },
   { key: 'series', zh: '分季分集', en: 'Seasons', migrated: true },
-  { key: 'episode', zh: '单集', en: 'Episodes', migrated: false },
+  { key: 'episode', zh: '单集', en: 'Episodes', migrated: true },
   { key: 'art', zh: '设定图集', en: 'Art', migrated: false },
   { key: 'sync', zh: '风格/同步', en: 'Style / Sync', migrated: false },
 ]
@@ -119,6 +120,7 @@ export function NovelDetailPage() {
       {tab === 'characters' ? <CharactersTab novel={novel} onChanged={invalidate} /> : null}
       {tab === 'world' ? <WorldTab novel={novel} onChanged={invalidate} /> : null}
       {tab === 'series' ? <SeriesTab novel={novel} onChanged={invalidate} /> : null}
+      {tab === 'episode' ? <EpisodeTab novel={novel} onChanged={invalidate} /> : null}
       {tabMeta && !tabMeta.migrated ? <LegacyTab novelId={id} tab={tab} label={lang === 'en' ? tabMeta.en : tabMeta.zh} /> : null}
     </div>
   )

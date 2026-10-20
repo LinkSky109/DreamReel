@@ -183,6 +183,9 @@ export async function renderNovelsPage(container, novelId) {
     const q = new URLSearchParams((location.hash.split('?')[1] || ''))
     const qtab = q.get('tab')
     if (qtab && LEGACY_TABS.includes(qtab)) state.tab = qtab
+    // 新版单集页的「分镜」入口：直接打开对应集的分镜详情
+    const qeid = q.get('eid')
+    if (qeid && state.tab === 'episode') state.shotEpisodeId = qeid
     return renderDetail(container)
   }
   return renderList(container)

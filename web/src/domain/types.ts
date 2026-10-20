@@ -630,6 +630,53 @@ export interface NovelSeason {
   createdAt?: string
 }
 
+export interface NovelEpisodeAssets {
+  image?: { url?: string; error?: string }
+  video?: { url?: string; error?: string }
+}
+
+export interface NovelEpisodeScreenplay {
+  totalSeconds?: number
+  shots?: { index: number; description?: string; duration?: number; videoUrl?: string }[]
+}
+
+export interface NovelEpisode {
+  id: string
+  novelId: string
+  seasonId: string
+  episodeNo: number
+  chapterIndex?: number | null
+  chapterTitle?: string
+  title: string
+  targetSeconds: number
+  sourceFile?: string
+  screenplay?: NovelEpisodeScreenplay | null
+  status?: string
+  assets?: NovelEpisodeAssets
+  createdAt?: string
+}
+
+export interface NovelSeasonAssetSubset {
+  seasonId: string
+  seasonTitle: string
+  chapters: string
+  episodes: number
+  totalAssets: number
+  subsetCount: number
+  withImages: number
+  remaining: number
+}
+
+export interface NovelBulkResult {
+  task: 'script' | 'assets'
+  processed: number
+  ok: number
+  failed: number
+  total: number
+  done: number
+  remaining: number
+}
+
 export interface NovelSeriesEstimate {
   chapters: number
   totalChars: number

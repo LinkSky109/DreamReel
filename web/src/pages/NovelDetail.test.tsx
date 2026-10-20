@@ -82,11 +82,11 @@ describe('NovelDetailPage', () => {
   it('未迁移标签给出旧版入口', async () => {
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('tab', { name: '单集' }))
+    await user.click(await screen.findByRole('tab', { name: '设定图集' }))
     expect(await screen.findByText(/仍在旧版制作台/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /在旧版打开此模块/ })).toHaveAttribute(
       'href',
-      '/novel-legacy/n1?tab=episode'
+      '/novel-legacy/n1?tab=art'
     )
   })
 })
