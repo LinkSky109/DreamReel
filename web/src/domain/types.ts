@@ -29,6 +29,8 @@ export interface Shot {
   sceneId?: string | null
   consistencyScore?: number | null
   errorMessage?: string
+  sourceNovelId?: string | null
+  sourceStoryboardId?: string | null
   updatedAt?: string
   createdAt?: string
 }

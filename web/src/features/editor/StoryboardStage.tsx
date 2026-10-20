@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { useLang } from '../../lib/i18n'
 import { showToast } from '../../lib/toast'
@@ -41,6 +42,15 @@ export function StoryboardStage({
   const dirtyRef = useRef(false)
 
   const shots = project.shots ?? []
+  const hasNovelSource = shots.some((shot) => shot.sourceNovelId)
+  const novelsQuery = useQuery({
+    queryKey: ['novels', 'shot-source'],
+    queryFn: () => api.listNovels(),
+    enabled: hasNovelSource,
+    staleTime: 60_000,
+  })
+  const novelTitle = (id?: string | null) =>
+    (novelsQuery.data ?? []).find((novel) => novel.id === id)?.title ?? id ?? ''
   const selectedShot = shots.find((shot) => shot.id === selectedShotId) ?? shots[0]
   const filtered = filter === 'all' ? shots : shots.filter((shot) => shot.status === filter)
   const completed = shots.filter((shot) => shot.status === 'completed').length
@@ -257,6 +267,11 @@ export function StoryboardStage({
               <ShotCard
                 key={shot.id}
                 shot={shot}
+                source={
+                  shot.sourceNovelId
+                    ? { id: shot.sourceNovelId, title: novelTitle(shot.sourceNovelId) }
+                    : null
+                }
                 selected={selectedShot?.id === shot.id}
                 onSelect={() => onSelect(shot.id)}
                 onGenerate={() => {
@@ -310,6 +325,16 @@ export function StoryboardStage({
                   onBlur={() => void saveShot()}
                 />
               </div>
+
+              {selectedShot.sourceNovelId ? (
+                <div className="dr-field">
+                  <span className="dr-label">{t('来源', 'Source')}</span>
+                  <Link className="ed-shot-source" to={`/novel/${selectedShot.sourceNovelId}?tab=storyboard`}>
+                    《{novelTitle(selectedShot.sourceNovelId)}》· {t('分镜板', 'Storyboard')}
+                    <Icon name="arrow-right" size={13} />
+                  </Link>
+                </div>
+              ) : null}
 
               <div className="ed-inspector-grid">
                 <div className="dr-field">
@@ -451,12 +476,14 @@ export function StoryboardStage({
 
 function ShotCard({
   shot,
+  source,
   selected,
   onSelect,
   onGenerate,
   generating,
 }: {
   shot: Shot
+  source: { id: string; title: string } | null
   selected: boolean
   onSelect: () => void
   onGenerate: () => void
@@ -509,6 +536,15 @@ function ShotCard({
             <span>{shotTypeLabel(shot.shotType)}</span>
             <span>{cameraLabel(shot.cameraMovement)}</span>
             {(shot.versions?.length ?? 0) > 0 ? <span>v{(shot.versions?.length ?? 0) + 1}</span> : null}
+            {source ? (
+              <Link
+                className="ed-shot-source"
+                to={`/novel/${source.id}?tab=storyboard`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {t('小说', 'Novel')} · {source.title}
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>

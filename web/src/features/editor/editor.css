@@ -2030,3 +2030,20 @@
     width: 100%;
   }
 }
+
+
+.ed-shot-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent);
+  text-decoration: none;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ed-shot-source:hover {
+  text-decoration: underline;
+}
