@@ -2,6 +2,10 @@ import type {
   Challenge,
   ChallengeDetail,
   DirectorProfile,
+  CommunityLeaderboardItem,
+  CommunityReview,
+  CommunityReviewInput,
+  CommunityReport,
   TitleSequenceTemplate,
   TitleSequenceResult,
   ApplyDirectorResult,
@@ -711,6 +715,47 @@ export const api = {
       method: 'PATCH',
       body: updates,
     }),
+  getCommunityLeaderboard: async (period = 'weekly', limit = 20) => {
+    const response = await request<{ success: boolean; data: { period: string; leaderboard: CommunityLeaderboardItem[] } }>(
+      `/community/leaderboard?period=${period}&limit=${limit}`
+    )
+    return response.data
+  },
+  listCommunityReviews: async (params: { limit?: number; userId?: string; movieId?: string } = {}) => {
+    const search = new URLSearchParams()
+    if (params.limit) search.set('limit', String(params.limit))
+    if (params.userId) search.set('userId', params.userId)
+    if (params.movieId) search.set('movieId', params.movieId)
+    const response = await request<{ success: boolean; data: CommunityReview[] }>(
+      `/community/reviews${search.toString() ? `?${search}` : ''}`
+    )
+    return response.data
+  },
+  getCommunityReview: async (id: string) => {
+    const response = await request<{ success: boolean; data: CommunityReview }>(`/community/reviews/${id}`)
+    return response.data
+  },
+  createCommunityReview: async (body: CommunityReviewInput & { userId: string }) => {
+    const response = await request<{ success: boolean; data: CommunityReview }>('/community/reviews', {
+      method: 'POST',
+      body,
+    })
+    return response.data
+  },
+  likeCommunityReview: async (id: string, userId: string) => {
+    const response = await request<{ success: boolean; data: CommunityReview }>(`/community/reviews/${id}/like`, {
+      method: 'POST',
+      body: { userId },
+    })
+    return response.data
+  },
+  createCommunityReport: async (body: { reviewId: string; reporterId: string; reason: string }) => {
+    const response = await request<{ success: boolean; data: CommunityReport }>('/community/reports', {
+      method: 'POST',
+      body,
+    })
+    return response.data
+  },
   listTitleSequences: () => request<{ total: number; items: TitleSequenceTemplate[] }>('/title-sequences'),
   generateTitleSequence: (templateId: string, body: { projectId: string; title: string; subtitle?: string }) =>
     request<TitleSequenceResult>(`/title-sequences/${templateId}/generate`, { method: 'POST', body }),

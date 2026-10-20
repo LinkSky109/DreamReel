@@ -98,6 +98,55 @@ export interface StatsDashboard {
 
 
 
+
+export interface CommunityReview {
+  id: string
+  userId: string
+  movieId?: string
+  title: string
+  content: string
+  movieTags: string[]
+  storyScore: number
+  visualScore: number
+  performanceScore: number
+  soundtrackScore: number
+  overallScore: number
+  likeCount: number
+  commentCount: number
+  createdAt: string
+  status: string
+}
+
+export interface CommunityLeaderboardItem {
+  rank: number
+  reviewId: string
+  title: string
+  userId: string
+  overallScore: number
+  likeCount: number
+  heat: number
+  createdAt: string
+}
+
+export interface CommunityReport {
+  id: string
+  reviewId: string
+  reporterId: string
+  reason: string
+  status: string
+}
+
+export interface CommunityReviewInput {
+  title: string
+  movieId?: string
+  content?: string
+  movieTags?: string[]
+  storyScore?: number
+  visualScore?: number
+  performanceScore?: number
+  soundtrackScore?: number
+}
+
 export interface TitleSequenceTemplate {
   id: string
   name: string
