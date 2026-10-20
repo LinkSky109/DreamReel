@@ -59,7 +59,7 @@ export function NovelDetailPage() {
   })
   const chunksQuery = useQuery({
     queryKey: ['novel-chunks', id],
-    queryFn: () => api.getNovelChunks(id),
+    queryFn: () => api.getNovelChunks(id, true),
     enabled: Boolean(id),
   })
 
@@ -68,6 +68,19 @@ export function NovelDetailPage() {
     queryClient.invalidateQueries({ queryKey: ['novel-characters', id] })
     queryClient.invalidateQueries({ queryKey: ['novel-world-entities', id] })
     queryClient.invalidateQueries({ queryKey: ['novels'] })
+  }
+
+  const openChapter = async (chunk: NovelChunk) => {
+    if (chunk.text) {
+      setChapterOpen(chunk)
+      return
+    }
+    try {
+      const full = await api.getNovelChunk(id, chunk.id)
+      setChapterOpen(full)
+    } catch (error) {
+      showToast((error as Error).message, 'error')
+    }
   }
 
   const markMutation = useMutation({
@@ -269,7 +282,7 @@ export function NovelDetailPage() {
             {chunks.slice(0, 8).map((chunk) => {
               const markedCount = marks.filter((mark) => mark.chapter === chunk.index).length
               return (
-                <button key={chunk.id} type="button" className="nv-rail-item" onClick={() => setChapterOpen(chunk)}>
+                <button key={chunk.id} type="button" className="nv-rail-item" onClick={() => void openChapter(chunk)}>
                   <span className="nv-rail-no">{String(chunk.index + 1).padStart(2, '0')}</span>
                   <span className="nv-rail-name">{chunk.chapterTitle || t('未命名章节', 'Untitled')}</span>
                   {markedCount ? <span className="nv-rail-badge">{markedCount}</span> : null}

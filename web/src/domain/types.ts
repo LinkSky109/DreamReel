@@ -528,7 +528,7 @@ export interface NovelChunk {
   novelId: string
   index: number
   chapterTitle: string
-  text: string
+  text?: string
   wordCount?: number
 }
 

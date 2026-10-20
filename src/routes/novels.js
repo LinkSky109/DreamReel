@@ -179,11 +179,30 @@ router.post('/:id/ingest', async (req, res) => {
   }
 })
 
-// 切片列表
+// 切片列表（?meta=1 只返回目录信息，避免真本书一次传 10MB 正文）
 router.get('/:id/chunks', (req, res) => {
   try {
     getNovelProject(req.params.id)
-    res.json({ success: true, data: listChunks(req.params.id) })
+    const chunks = listChunks(req.params.id)
+    if (req.query.meta === '1') {
+      return res.json({
+        success: true,
+        data: chunks.map(({ id, index, chapterTitle, wordCount }) => ({ id, index, chapterTitle, wordCount })),
+      })
+    }
+    res.json({ success: true, data: chunks })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 单章正文（阅读器按需加载）
+router.get('/:id/chunks/:chunkId', (req, res) => {
+  try {
+    getNovelProject(req.params.id)
+    const chunk = storageService.getNovelChunk(req.params.chunkId)
+    if (!chunk || chunk.novelId !== req.params.id) throw new Error('chunk not found')
+    res.json({ success: true, data: chunk })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

@@ -440,7 +440,10 @@ export const api = {
   deleteNovel: (id: string) =>
     requestData<{ deleted?: boolean }>(`/novels/${id}`, { method: 'DELETE' }),
   getNovel: (id: string) => requestData<NovelDetail>(`/novels/${id}`),
-  getNovelChunks: (id: string) => requestData<NovelChunk[]>(`/novels/${id}/chunks`),
+  getNovelChunks: (id: string, meta = false) =>
+    requestData<NovelChunk[]>(`/novels/${id}/chunks${meta ? '?meta=1' : ''}`),
+  getNovelChunk: (id: string, chunkId: string) =>
+    requestData<NovelChunk>(`/novels/${id}/chunks/${chunkId}`),
   toggleNovelMark: (id: string, chapter: number, para: number) =>
     requestData<{ marks: NovelMark[]; marked: boolean }>(`/novels/${id}/marks/toggle`, {
       method: 'POST',
