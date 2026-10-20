@@ -2,6 +2,8 @@ import type {
   Challenge,
   ChallengeDetail,
   DirectorProfile,
+  TitleSequenceTemplate,
+  TitleSequenceResult,
   ApplyDirectorResult,
   AiMessage,
   AiQuickAction,
@@ -709,6 +711,9 @@ export const api = {
       method: 'PATCH',
       body: updates,
     }),
+  listTitleSequences: () => request<{ total: number; items: TitleSequenceTemplate[] }>('/title-sequences'),
+  generateTitleSequence: (templateId: string, body: { projectId: string; title: string; subtitle?: string }) =>
+    request<TitleSequenceResult>(`/title-sequences/${templateId}/generate`, { method: 'POST', body }),
   listDirectors: () => request<{ total: number; items: DirectorProfile[] }>('/directors'),
   applyDirector: (directorId: string, projectId: string) =>
     request<ApplyDirectorResult>(`/directors/${directorId}/apply`, { method: 'POST', body: { projectId } }),

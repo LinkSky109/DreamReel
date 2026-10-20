@@ -97,6 +97,36 @@ export interface StatsDashboard {
 
 
 
+
+export interface TitleSequenceTemplate {
+  id: string
+  name: string
+  visualDescription: string
+  musicMood: string
+  ffmpeg: {
+    duration: number
+    resolution: string
+    aspectRatio: string
+    bgColors: string[]
+    titleColor: string
+  }
+}
+
+export interface TitleSequenceResult {
+  templateId: string
+  templateName: string
+  projectId: string | null
+  title: string
+  subtitle: string
+  duration: number
+  videoUrl: string
+  filePath: string
+  titleRendered: boolean
+  audioTrack: boolean
+  audio: string
+  musicMood: string
+}
+
 export interface DirectorProfile {
   id: string
   name: string
