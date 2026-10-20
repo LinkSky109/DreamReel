@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aspectRatioCss, aspectRatioOf, buildShotFromScene, scriptToText, totalDuration } from './utils'
+import { aspectRatioCss, aspectRatioOf, buildShareUrl, buildShotFromScene, scriptToText, totalDuration } from './utils'
 import type { Shot } from '../../domain/types'
 
 function shot(duration: number): Shot {
@@ -64,5 +64,14 @@ describe('scene to shot', () => {
     expect(shot.referenceImages).toEqual(['/storage/scenes/mars.png'])
     expect(shot.description).toContain('火星表面')
     expect(shot.description).toContain('红色荒漠')
+  })
+})
+
+
+describe('share url', () => {
+  it('生成 hash 分享链接', () => {
+    expect(buildShareUrl('https://example.com', '/', 'abc123')).toBe(
+      'https://example.com/#/share/abc123'
+    )
   })
 })

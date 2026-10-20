@@ -12,6 +12,7 @@ import { NotFoundPage } from '../pages/NotFound'
 import { LogoutPage } from '../pages/Logout'
 import { LegacyView } from '../features/legacy/LegacyView'
 import { EditorPage } from '../features/editor/EditorPage'
+import { SharedProjectPage } from '../pages/SharedProject'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -60,6 +61,7 @@ export function App() {
           <Route path="/docs" element={<DocsPage />} />
           <Route path="/moderation" element={<ModerationPage />} />
           <Route path="/logout" element={<LogoutPage />} />
+          <Route path="/share/:token" element={<SharedProjectPage />} />
 
           {/* 别名与旧链接兼容 */}
           <Route path="/project/new" element={<Navigate to="/projects?create=1" replace />} />

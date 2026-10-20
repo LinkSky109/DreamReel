@@ -290,3 +290,98 @@ export interface ImageProviderInfo {
   available?: string[]
   models: { id: string; name?: string; realGeneration?: boolean; configured?: boolean }[]
 }
+
+export interface AnalysisDimensions {
+  cinematography?: number
+  narrative?: number
+  pacing?: number
+  characterConsistency?: number
+}
+
+export interface ShotAnalysis {
+  index: number
+  comment: string
+  score?: number
+}
+
+export interface FilmAnalysis {
+  projectId?: string
+  projectName?: string
+  analyzedAt?: string
+  overallScore: number
+  dimensions: AnalysisDimensions
+  strengths?: string[]
+  weaknesses?: string[]
+  suggestions?: string[]
+  objectiveMetrics?: Record<string, number | string>
+  shotByShot?: ShotAnalysis[]
+  note?: string
+}
+
+export interface CommentItem {
+  id: string
+  projectId?: string
+  shotId?: string | null
+  parentId?: string | null
+  userId?: string
+  userName?: string
+  content: string
+  likes?: string[]
+  likeCount?: number
+  createdAt: string
+  resolved?: boolean
+}
+
+export interface ShareSettings {
+  projectId?: string
+  isPublic: boolean
+  allowComments: boolean
+  password?: string | null
+  shareToken?: string | null
+  updatedAt?: string | null
+}
+
+export interface ProjectVersion {
+  id: string
+  projectId?: string
+  versionNumber: number
+  label: string
+  description?: string
+  auto?: boolean
+  createdAt: string
+  shotCount?: number
+  completedShots?: number
+  characterCount?: number
+  hasScript?: boolean
+}
+
+export interface VersionCompare {
+  version1: { id: string; versionNumber: number; label: string; createdAt: string }
+  version2: { id: string; versionNumber: number; label: string; createdAt: string }
+  differences: {
+    name: boolean
+    script: boolean
+    style: boolean
+    shots: {
+      countChanged: boolean
+      from: number
+      to: number
+      completedChanged: boolean
+      completedFrom: number
+      completedTo: number
+    }
+    characters: { countChanged: boolean; from: number; to: number }
+  }
+}
+
+export interface AiMessage {
+  role: 'user' | 'assistant'
+  content: string
+  timestamp?: string
+}
+
+export interface AiQuickAction {
+  id: string
+  label: string
+  prompt: string
+}

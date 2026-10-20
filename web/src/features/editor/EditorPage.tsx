@@ -19,6 +19,11 @@ import { EditStage } from './EditStage'
 import { ImagesStage } from './ImagesStage'
 import { CharactersStage } from './CharactersStage'
 import { ScenesStage } from './ScenesStage'
+import { AnalysisStage } from './AnalysisStage'
+import { CollaborationStage } from './CollaborationStage'
+import { VersionsStage } from './VersionsStage'
+import { SettingsStage } from './SettingsStage'
+import { AiAssistantPanel } from './AiAssistantPanel'
 import { LegacyEditorStage } from './LegacyEditorStage'
 import './editor.css'
 
@@ -302,17 +307,26 @@ export function EditorPage() {
           <ScenesStage project={project} onUpdated={onUpdated} onNavigateStage={setStage} />
         ) : null}
 
-        {stage !== 'script' &&
-        stage !== 'shots' &&
-        stage !== 'generate' &&
-        stage !== 'edit' &&
-        stage !== 'images' &&
-        stage !== 'characters' &&
-        stage !== 'scenes' &&
-        !(stage === 'dubbing' && !legacyAudio) ? (
-          <LegacyEditorStage projectId={project.id} tab={stage} />
+        {stage === 'analysis' ? <AnalysisStage project={project} /> : null}
+
+        {stage === 'collab' ? <CollaborationStage project={project} /> : null}
+
+        {stage === 'versions' ? <VersionsStage project={project} /> : null}
+
+        {stage === 'settings' ? (
+          <SettingsStage
+            project={project}
+            styles={stylesQuery.data?.items ?? []}
+            onUpdated={onUpdated}
+          />
+        ) : null}
+
+        {stage === 'dubbing' && legacyAudio ? (
+          <LegacyEditorStage projectId={project.id} tab="dubbing" />
         ) : null}
       </div>
+
+      {!legacyAudio ? <AiAssistantPanel projectId={project.id} /> : null}
 
       <footer className="ed-statusbar">
         <span>{t('连接正常', 'Connected')}</span>

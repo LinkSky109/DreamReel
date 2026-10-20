@@ -1,11 +1,15 @@
 import type {
+  AiMessage,
+  AiQuickAction,
   BgmItem,
   Character,
+  CommentItem,
   CurrentUser,
   DubbingResult,
   EditPlan,
   EditProfile,
   EditRenderResult,
+  FilmAnalysis,
   ImageAsset,
   ImageProviderInfo,
   ModerationLog,
@@ -13,7 +17,10 @@ import type {
   Project,
   ProjectListResponse,
   ProjectScript,
+  ProjectVersion,
   SceneItem,
+  ShareSettings,
+  VersionCompare,
   Voice,
   QuotaOverview,
   TemplateListResponse,
@@ -293,6 +300,68 @@ export const api = {
   getModerationStats: () => request<Record<string, number>>('/moderation/stats'),
   getModerationLogs: (limit = 50) =>
     request<{ logs: ModerationLog[]; total: number }>(`/moderation/logs${buildQuery({ limit })}`),
+
+  // Analysis
+  analyzeProject: (projectId: string) =>
+    request<{ status: string; message: string }>(`/analysis/project/${projectId}`, { method: 'POST', body: {} }),
+  getAnalysis: (projectId: string) => request<FilmAnalysis>(`/analysis/project/${projectId}`),
+
+  // Collaboration
+  getComments: (projectId: string, shotId?: string) =>
+    request<{ total: number; items: CommentItem[] }>(
+      `/collab/${projectId}/comments${shotId ? `?shotId=${encodeURIComponent(shotId)}` : ''}`
+    ),
+  addComment: (
+    projectId: string,
+    body: { content: string; userName?: string; userId?: string; shotId?: string | null }
+  ) => request<CommentItem>(`/collab/${projectId}/comments`, { method: 'POST', body }),
+  resolveComment: (projectId: string, commentId: string, resolved: boolean) =>
+    request<CommentItem>(`/collab/${projectId}/comments/${commentId}/resolve`, {
+      method: 'PATCH',
+      body: { resolved },
+    }),
+  deleteComment: (projectId: string, commentId: string) =>
+    request<{ success: boolean }>(`/collab/${projectId}/comments/${commentId}`, { method: 'DELETE' }),
+  getCommentStats: (projectId: string) =>
+    request<{ total?: number; resolved?: number; open?: number; unresolved?: number }>(
+      `/collab/${projectId}/comments/stats`
+    ),
+  getShareSettings: (projectId: string) =>
+    request<ShareSettings>(`/collab/${projectId}/share`),
+  getSharedProject: (token: string) =>
+    request<{ projectId: string; share: ShareSettings }>(`/collab/shared/${encodeURIComponent(token)}`),
+  updateShareSettings: (
+    projectId: string,
+    body: { isPublic?: boolean; allowComments?: boolean; password?: string | null }
+  ) => request<ShareSettings>(`/collab/${projectId}/share`, { method: 'PUT', body }),
+
+  // Versions
+  getVersions: (projectId: string) =>
+    request<{ total: number; items: ProjectVersion[] }>(`/projects/${projectId}/versions`),
+  saveVersion: (projectId: string, body: { label?: string; description?: string }) =>
+    request<ProjectVersion>(`/projects/${projectId}/versions`, { method: 'POST', body }),
+  rollbackVersion: (projectId: string, versionId: string) =>
+    request<{ success: boolean }>(`/projects/${projectId}/versions/${versionId}/rollback`, {
+      method: 'POST',
+      body: {},
+    }),
+  deleteVersion: (projectId: string, versionId: string) =>
+    request<{ success: boolean }>(`/projects/${projectId}/versions/${versionId}`, { method: 'DELETE' }),
+  compareVersions: (projectId: string, from: string, to: string) =>
+    request<VersionCompare>(
+      `/projects/${projectId}/versions/compare?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+    ),
+
+  // AI assistant
+  getAiQuickActions: () => request<{ actions: AiQuickAction[] }>('/ai-assistant/quick-actions'),
+  getAiConversation: (projectId: string) =>
+    request<{ conversation: AiMessage[]; total: number }>(`/ai-assistant/conversation/${projectId}`),
+  sendAiMessage: (projectId: string, message: string) =>
+    request<AiMessage>(`/ai-assistant/chat/${projectId}`, { method: 'POST', body: { message } }),
+  runAiQuickAction: (projectId: string, actionId: string) =>
+    request<AiMessage>(`/ai-assistant/quick-action/${projectId}`, { method: 'POST', body: { actionId } }),
+  clearAiConversation: (projectId: string) =>
+    request<{ success: boolean }>(`/ai-assistant/conversation/${projectId}`, { method: 'DELETE' }),
 
   // System
   getSystemInfo: () =>

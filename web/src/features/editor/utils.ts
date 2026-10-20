@@ -103,3 +103,8 @@ export function buildShotFromScene(scene: SceneItem, index: number): Shot {
     versions: [],
   }
 }
+
+
+export function buildShareUrl(origin: string, pathname: string, token: string): string {
+  return `${origin}${pathname}#/share/${encodeURIComponent(token)}`
+}

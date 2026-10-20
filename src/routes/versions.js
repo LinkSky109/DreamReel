@@ -41,6 +41,23 @@ router.post('/:projectId/versions', async (req, res) => {
 })
 
 /**
+ * 对比两个版本
+ * GET /api/projects/:projectId/versions/compare?from=v1&to=v2
+ */
+router.get('/:projectId/versions/compare', (req, res) => {
+  try {
+    const { from, to } = req.query
+    if (!from || !to) {
+      return res.status(400).json({ error: '需要指定 from 和 to 版本 ID' })
+    }
+    const result = versionService.compareVersions(req.params.projectId, from, to)
+    res.json(result)
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
+})
+
+/**
  * 获取版本详情
  * GET /api/projects/:projectId/versions/:versionId
  */
@@ -74,23 +91,6 @@ router.delete('/:projectId/versions/:versionId', (req, res) => {
   try {
     versionService.deleteVersion(req.params.projectId, req.params.versionId)
     res.json({ success: true })
-  } catch (error) {
-    res.status(400).json({ error: error.message })
-  }
-})
-
-/**
- * 对比两个版本
- * GET /api/projects/:projectId/versions/compare?from=v1&to=v2
- */
-router.get('/:projectId/versions/compare', (req, res) => {
-  try {
-    const { from, to } = req.query
-    if (!from || !to) {
-      return res.status(400).json({ error: '需要指定 from 和 to 版本 ID' })
-    }
-    const result = versionService.compareVersions(req.params.projectId, from, to)
-    res.json(result)
   } catch (error) {
     res.status(400).json({ error: error.message })
   }

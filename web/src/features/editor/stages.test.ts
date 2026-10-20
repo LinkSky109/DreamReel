@@ -29,8 +29,7 @@ describe('editor stages', () => {
 
 
 describe('migration status', () => {
-  it('图片/角色/场景已迁移，影评/协作/版本/设置仍为 legacy', () => {
-    const legacy = ALL_STAGES.filter((stage) => stage.legacy).map((stage) => stage.id)
-    expect(legacy).toEqual(['analysis', 'collab', 'versions', 'settings'])
+  it('所有 12 个阶段均已迁移，无默认 legacy 阶段', () => {
+    expect(ALL_STAGES.filter((stage) => stage.legacy)).toHaveLength(0)
   })
 })
