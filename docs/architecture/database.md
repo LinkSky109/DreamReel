@@ -208,3 +208,35 @@ npm run db:verify:novel-children
 
 季/集/设定图的**写路径尚未镜像**：重新抽取或生成新数据后，PG 会滞后于 JSON。
 因此当前 `postgres` 读模式只用于迁移验证，正式切换前必须先补写镜像（下一步）。
+
+## Phase 4 写镜像：六类子集合
+
+`NOVEL_WRITE_MODE=dual` 现在覆盖：
+
+| 集合 | 触发方法 |
+|---|---|
+| chunks | `createNovelChunk` |
+| characters | `createNovelCharacter` / `updateNovelCharacter` |
+| entities | `createWorldEntity` / `updateWorldEntity` |
+| seasons | `createSeason` |
+| episodes | `createEpisode` / `updateEpisode` |
+| assets | `createNovelAssetImage` / `updateNovelAssetImage` / `deleteNovelAssetImage` |
+
+实现要点：
+
+- 写入进入**写后队列**，同 id 合并，串行 flush，避免批量抽取时打满连接池；
+- 删除为软删除；同一 id 重新写入会清除 `deleted_at`；
+- 删除作品时按 `novel_id` 软删除六类子集合；
+- `sort_order` 对新增行使用毫秒时间戳追加到末尾（007 迁移改为 bigint，避免 int4 溢出）；
+- 失败只告警，不回滚 JSON；进程关闭时 `flushNow()` 尽量排空。
+
+联调实测（真实 PostgreSQL）：
+
+- 六类 upsert 各 1 行，更新角色名后 PG 同步为「甲-改」；
+- `deleteNovelProjectCascade` 后六类未删除行均为 0（软删除生效）。
+
+仍存在的边界：
+
+- 队列为进程内、fire-and-forget；进程崩溃会丢最后一批写；
+- 多实例部署时各自写库，需要后续换 outbox/队列；
+- `novel_character_states`、角色集/世界观集尚未迁移。
