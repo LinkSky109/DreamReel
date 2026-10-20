@@ -27,7 +27,7 @@ type WorldData = {
 }
 
 export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: () => void }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const queryClient = useQueryClient()
   const [provider, setProvider] = useState<'llm' | 'heuristic'>('llm')
   const [typeFilter, setTypeFilter] = useState('all')
@@ -106,24 +106,27 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
 
   const typeLabels = useMemo(() => {
     const fromSchema = Object.fromEntries((schema?.world?.types ?? []).map((item) => [item.key, item.label]))
-    const fallback: Record<string, string> = {
-      world: '世界规则',
-      power: '力量体系',
-      rule: '律法与禁忌',
-      race: '种族物种',
-      faction: '势力组织',
-      event: '重大事件',
-      item: '装备宝物',
-      location: '地域风貌',
-      culture: '文化风俗',
-      prophecy: '预言传说',
-      conflict: '冲突体系',
-      civilization: '文明体系',
-      narrative: '叙事特色',
-      other: '其他',
+    const fallback: Record<string, { zh: string; en: string }> = {
+      world: { zh: '世界规则', en: 'World rules' },
+      power: { zh: '力量体系', en: 'Power system' },
+      rule: { zh: '律法与禁忌', en: 'Laws & taboos' },
+      race: { zh: '种族物种', en: 'Races & species' },
+      faction: { zh: '势力组织', en: 'Factions' },
+      event: { zh: '重大事件', en: 'Major events' },
+      item: { zh: '装备宝物', en: 'Artifacts' },
+      location: { zh: '地域风貌', en: 'Geography' },
+      culture: { zh: '文化风俗', en: 'Culture & customs' },
+      prophecy: { zh: '预言传说', en: 'Prophecy & legends' },
+      conflict: { zh: '冲突体系', en: 'Conflicts' },
+      civilization: { zh: '文明体系', en: 'Civilizations' },
+      narrative: { zh: '叙事特色', en: 'Narrative style' },
+      other: { zh: '其他', en: 'Other' },
     }
-    return { ...fallback, ...fromSchema }
-  }, [schema])
+    const localized = Object.fromEntries(
+      Object.entries(fallback).map(([key, value]) => [key, lang === 'en' ? value.en : value.zh])
+    )
+    return { ...localized, ...fromSchema }
+  }, [schema, lang])
 
   const attrLabels = schema?.world?.attributes ?? {}
   const filtered = entities.filter((entity) => {
@@ -341,7 +344,7 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
                     const labels = Object.fromEntries(
                       (attrLabels[entity.type] ?? []).map((attr) => [attr.key, attr.label])
                     )
-                    const rows = Object.entries(entity.attributes ?? {}).filter(([, value]) => formatValue(value))
+                    const rows = Object.entries(entity.attributes ?? {}).filter(([, value]) => formatValue(value, lang))
                     return (
                       <details className="dr-world-entity" key={entity.id}>
                         <summary>
@@ -372,7 +375,7 @@ export function WorldTab({ novel, onChanged }: { novel: NovelDetail; onChanged: 
                               {rows.map(([key, value]) => (
                                 <div className="dr-world-row" key={key}>
                                   <dt>{labels[key] ?? key}</dt>
-                                  <dd>{formatValue(value)}</dd>
+                                  <dd>{formatValue(value, lang)}</dd>
                                 </div>
                               ))}
                             </dl>

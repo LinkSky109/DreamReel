@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aspectRatioCss, aspectRatioOf, buildShareUrl, buildShotFromScene, scriptToText, totalDuration } from './utils'
+import { aspectRatioCss, aspectRatioOf, buildShareUrl, buildShotFromScene, cameraLabel, scriptToText, shotTypeLabel, totalDuration } from './utils'
 import type { Shot } from '../../domain/types'
 
 function shot(duration: number): Shot {
@@ -73,5 +73,13 @@ describe('share url', () => {
     expect(buildShareUrl('https://example.com', '/', 'abc123')).toBe(
       'https://example.com/#/share/abc123'
     )
+  })
+
+  it('景别与运镜支持中英标签', () => {
+    expect(shotTypeLabel('close-up')).toBe('特写')
+    expect(shotTypeLabel('close-up', 'en')).toBe('Close-up')
+    expect(cameraLabel('slow_push_in', 'en')).toBe('Slow push-in')
+    expect(cameraLabel(undefined, 'en')).toBe('Static')
+    expect(cameraLabel('unknown', 'en')).toBe('unknown')
   })
 })

@@ -16,7 +16,7 @@
     "typecheck": "tsc -p web/tsconfig.json --noEmit",
     "test": "node scripts/run-tests.js",
     "test:web": "vitest run --config web/vite.config.ts",
-    "check": "npm run lint && npm run typecheck && npm test && npm run test:web",
+    "check": "npm run lint && npm run typecheck && npm run check:docs && npm test && npm run test:web",
     "lint": "eslint src/ tests/ public/js/",
     "seed:audio": "node scripts/seed_audio_pack.js",
     "seed:community": "node scripts/seed-community.js",
@@ -26,7 +26,8 @@
     "prebuild": "node scripts/clean-web-build.js",
     "build:web:embed": "vite build --config web/vite.config.ts",
     "start:api": "node src/server.js",
-    "inventory": "node scripts/inventory.js"
+    "inventory": "node scripts/inventory.js",
+    "check:docs": "node scripts/check-docs-endpoints.js"
   },
   "keywords": [
     "ai-video",

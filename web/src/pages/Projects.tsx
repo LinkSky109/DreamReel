@@ -6,14 +6,12 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { api } from '../lib/api'
 import { useLang } from '../lib/i18n'
 import { showToast } from '../lib/toast'
-import {
-  progressOf,
+import {progressOf,
   projectStatus,
   relativeTime,
   statusLabel,
   statusTone,
-  totalDuration,
-} from '../lib/format'
+  totalDuration, pluralize } from '../lib/format'
 import type { Project } from '../domain/types'
 import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
@@ -171,6 +169,7 @@ export function ProjectsPage() {
             type="file"
             accept="application/json,.json"
             className="sr-only"
+            aria-label={t('导入项目 JSON', 'Import project JSON')}
             onChange={(event) => {
               const file = event.target.files?.[0]
               if (file) importMutation.mutate(file)
@@ -505,7 +504,7 @@ function ProjectCard({
   onExport,
   onDelete,
 }: ProjectCardProps) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const status = projectStatus(project)
 
   return (
@@ -516,7 +515,7 @@ function ProjectCard({
         role="presentation"
       >
         <img src={projectCover(project)} alt="" loading="lazy" />
-        <span className={`dr-project-status ${statusTone(status)}`}>{statusLabel(status)}</span>
+        <span className={`dr-project-status ${statusTone(status)}`}>{statusLabel(status, lang)}</span>
         <span className="dr-project-duration">{totalDuration(project)}s</span>
         <button
           type="button"
@@ -550,11 +549,11 @@ function ProjectCard({
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
           <button
             type="button"
+            className="dr-project-open"
             onClick={onOpen}
             style={{
               border: 0,
               background: 'transparent',
-              padding: 0,
               textAlign: 'left',
               cursor: 'pointer',
               flex: 1,
@@ -604,9 +603,9 @@ function ProjectCard({
         <div className="dr-project-meta">
           <span className={`dr-status ${statusTone(status)}`}>
             <span className="dr-dot" />
-            {statusLabel(status)}
+            {statusLabel(status, lang)}
           </span>
-          <span>{project.shots?.length ?? 0} {t('镜', 'shots')}</span>
+          <span>{project.shots?.length ?? 0} {t('镜', pluralize(project.shots?.length ?? 0, 'shot'))}</span>
           <span>{totalDuration(project)}s</span>
         </div>
 
@@ -621,7 +620,7 @@ function ProjectCard({
         ) : null}
 
         <div className="dr-project-foot">
-          <span className="dr-hint">{relativeTime(project.updatedAt)}</span>
+          <span className="dr-hint">{relativeTime(project.updatedAt, lang)}</span>
           <span className="dr-hint">{progressOf(project)}%</span>
         </div>
       </div>

@@ -8,6 +8,7 @@ import type { NovelDetail, NovelStoryboardShot } from '../../domain/types'
 import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import './StoryboardTab.css'
+import { pluralize } from '../../lib/format'
 
 const SHOT_TYPES = ['远景', '全景', '中景', '近景', '特写']
 const CAMERAS = ['固定', '推', '拉', '摇', '移', '跟']
@@ -220,7 +221,7 @@ export function StoryboardTab({ novel, onChanged }: { novel: NovelDetail; onChan
                 <option value="">{t('请选择项目', 'Select a project')}</option>
                 {(projectsQuery.data?.items ?? []).map((project) => (
                   <option value={project.id} key={project.id}>
-                    {project.name}（{project.shots?.length ?? 0} {t('镜', 'shots')}）
+                    {project.name}（{project.shots?.length ?? 0} {t('镜', pluralize(project.shots?.length ?? 0, 'shot'))}）
                   </option>
                 ))}
               </select>

@@ -1,6 +1,19 @@
 import type {
+  ApiKeyCreated,
+  ApiKeyListResponse,
+  AuditLogResponse,
   Challenge,
   ChallengeDetail,
+  CreatorPageData,
+  EnterpriseConfig,
+  EnterpriseDeployment,
+  EnterpriseOverview,
+  GalleryListResponse,
+  RemixResult,
+  Team,
+  TeamListResponse,
+  TeamProjectListResponse,
+  TeamRole,
   DirectorProfile,
   CommunityLeaderboardItem,
   Studio,
@@ -74,6 +87,7 @@ import type {
   RecycleBinItem,
   StatsDashboard,
   StatsTrendPoint,
+  PerformanceReport,
   ProviderStatus,
   SceneItem,
   SfxItem,
@@ -85,6 +99,8 @@ import type {
   Voice,
   QuotaOverview,
   TemplateListResponse,
+  WebhookDelivery,
+  WebhookEndpoint,
 } from '../domain/types'
 
 const TOKEN_KEY = 'dreamreel_token'
@@ -709,6 +725,76 @@ export const api = {
       body: patch,
     }),
 
+  // Teams
+  listTeams: (userId?: string) =>
+    request<TeamListResponse>(`/teams${buildQuery({ userId })}`),
+  getTeam: (teamId: string) => request<Team>(`/teams/${encodeURIComponent(teamId)}`),
+  createTeam: (body: { name: string; description?: string }) =>
+    request<Team>('/teams', { method: 'POST', body }),
+  updateTeam: (teamId: string, body: { name?: string; description?: string }) =>
+    request<Team>(`/teams/${encodeURIComponent(teamId)}`, { method: 'PUT', body }),
+  addTeamMember: (teamId: string, body: { userId: string; name?: string; role: TeamRole }) =>
+    request<Team>(`/teams/${encodeURIComponent(teamId)}/members`, { method: 'POST', body }),
+  updateTeamMemberRole: (teamId: string, userId: string, role: TeamRole) =>
+    request<Team>(`/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}`, {
+      method: 'PUT',
+      body: { role },
+    }),
+  removeTeamMember: (teamId: string, userId: string) =>
+    request<Team>(`/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}`, {
+      method: 'DELETE',
+    }),
+  listTeamProjects: (teamId: string) =>
+    request<TeamProjectListResponse>(`/teams/${encodeURIComponent(teamId)}/projects`),
+  addTeamProject: (teamId: string, projectId: string) =>
+    request<Team>(`/teams/${encodeURIComponent(teamId)}/projects/${projectId}`, {
+      method: 'POST',
+      body: {},
+    }),
+
+  // API keys
+  listApiKeys: (userId?: string) =>
+    request<ApiKeyListResponse>(`/api-keys${buildQuery({ userId })}`),
+  createApiKey: (body: { name: string; scopes?: string[] }) =>
+    request<ApiKeyCreated>('/api-keys', { method: 'POST', body }),
+  revokeApiKey: (id: string) =>
+    request<{ success: boolean }>(`/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  // Enterprise
+  getEnterpriseOverview: () => request<EnterpriseOverview>('/enterprise/overview'),
+  getEnterpriseConfig: () => request<EnterpriseConfig>('/enterprise/config'),
+  updateEnterpriseConfig: (body: Partial<EnterpriseConfig>) =>
+    request<EnterpriseConfig>('/enterprise/config', { method: 'PUT', body }),
+  getEnterpriseAudit: (params: { limit?: number; actor?: string; action?: string; result?: string } = {}) =>
+    request<AuditLogResponse>(`/enterprise/audit${buildQuery(params)}`),
+  getEnterpriseDeployment: () => request<EnterpriseDeployment>('/enterprise/deployment'),
+
+  // Gallery & creators
+  listGallery: (params: { category?: string; sort?: string } = {}) =>
+    request<GalleryListResponse>(`/gallery${buildQuery(params)}`),
+  recordGalleryView: (projectId: string) =>
+    request<{ viewCount: number }>(`/gallery/${encodeURIComponent(projectId)}/view`, { method: 'POST' }),
+  likeGalleryWork: (projectId: string, userId: string) =>
+    request<{ liked: boolean; likeCount: number }>(`/gallery/${encodeURIComponent(projectId)}/like`, {
+      method: 'POST',
+      body: { userId },
+    }),
+  remixGalleryWork: (projectId: string, userId: string) =>
+    request<RemixResult>(`/gallery/${encodeURIComponent(projectId)}/remix`, {
+      method: 'POST',
+      body: { userId },
+    }),
+  getCreatorPage: (userId: string) =>
+    request<CreatorPageData>(`/creators/${encodeURIComponent(userId)}`),
+  updateCreatorProfile: (
+    userId: string,
+    body: { displayName?: string; bio?: string; isPublic?: boolean }
+  ) =>
+    request<{ success: boolean; profile: CreatorPageData['profile'] }>(
+      `/creators/${encodeURIComponent(userId)}`,
+      { method: 'PUT', body }
+    ),
+
   // Settings & system
   getSystemInfo: () => request<SystemInfo>('/system/info'),
   getProviderStatus: () => request<ProviderStatus>('/providers/status'),
@@ -809,7 +895,28 @@ export const api = {
     request<{ success?: boolean }>('/subscription/subscribe', { method: 'POST', body }),
   cancelSubscription: () =>
     request<{ success?: boolean }>('/subscription/cancel', { method: 'POST', body: {} }),
-  getPerformance: () => request<Record<string, unknown>>('/system/performance'),
+  getPerformance: () => request<PerformanceReport>('/system/performance'),
+
+  // Webhooks
+  listWebhooks: () => request<{ webhooks: WebhookEndpoint[] }>('/webhooks'),
+  getWebhookEvents: () => request<{ events: string[] }>('/webhooks/events'),
+  createWebhook: (body: { name: string; url: string; events: string[]; secret?: string }) =>
+    request<WebhookEndpoint>('/webhooks', { method: 'POST', body }),
+  updateWebhook: (
+    id: string,
+    body: { name?: string; url?: string; events?: string[]; active?: boolean; secret?: string }
+  ) => request<WebhookEndpoint>(`/webhooks/${encodeURIComponent(id)}`, { method: 'PUT', body }),
+  deleteWebhook: (id: string) =>
+    request<{ success: boolean }>(`/webhooks/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  testWebhook: (id: string) =>
+    request<{ success: boolean; error?: string; statusCode?: number }>(
+      `/webhooks/${encodeURIComponent(id)}/test`,
+      { method: 'POST', body: {} }
+    ),
+  getWebhookDeliveries: (id: string, limit = 50) =>
+    request<{ deliveries: WebhookDelivery[] }>(
+      `/webhooks/${encodeURIComponent(id)}/deliveries?limit=${limit}`
+    ),
 }
 
 export function hasToken(): boolean {

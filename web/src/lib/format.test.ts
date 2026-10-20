@@ -3,6 +3,10 @@ import {
   platformLabel,
   progressOf,
   projectStatus,
+  pluralize,
+  formatNumber,
+  formatValue,
+  relativeTime,
   statusLabel,
   totalDuration,
 } from '../lib/format'
@@ -64,5 +68,24 @@ describe('project formatting', () => {
     expect(statusLabel('failed')).toBe('需重试')
     expect(platformLabel('portrait')).toBe('9:16 竖屏')
     expect(platformLabel('landscape')).toBe('16:9 横屏')
+  })
+
+  it('英文状态下状态、画幅与相对时间使用英文', () => {
+    expect(statusLabel('generating', 'en')).toBe('Generating')
+    expect(statusLabel('failed', 'en')).toBe('Retry')
+    expect(platformLabel('portrait', 'en')).toBe('9:16 Portrait')
+    expect(relativeTime(new Date(Date.now() - 2 * 60_000).toISOString(), 'en')).toBe('2 min ago')
+    expect(relativeTime(null, 'en')).toBe('Never')
+  })
+
+  it('英文复数与数字格式化', () => {
+    expect(pluralize(1, 'shot')).toBe('shot')
+    expect(pluralize(2, 'shot')).toBe('shots')
+    expect(pluralize(0, 'file')).toBe('files')
+    expect(formatNumber(1234567, 'en')).toBe('1,234,567')
+    expect(formatNumber(1234567, 'zh')).toBe('1,234,567')
+    expect(formatValue(['a', 'b'], 'en')).toBe('a, b')
+    expect(formatValue(['a', 'b'], 'zh')).toBe('a、b')
+    expect(formatValue({ a: 'x', b: 'y' }, 'en')).toBe('a x; b y')
   })
 })

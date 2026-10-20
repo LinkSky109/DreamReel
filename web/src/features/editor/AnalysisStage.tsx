@@ -19,7 +19,7 @@ const DIMENSIONS: { key: keyof NonNullable<FilmAnalysis['dimensions']>; zh: stri
 ]
 
 export function AnalysisStage({ project }: Props) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [polling, setPolling] = useState(false)
 
   const analysisQuery = useQuery({
@@ -83,7 +83,7 @@ export function AnalysisStage({ project }: Props) {
           <strong>{t('AI 影评', 'AI review')}</strong>
           <div className="dr-hint">
             {analysis
-              ? `${t('最近分析', 'Analyzed')} ${relativeTime(analysis.analyzedAt)}${
+              ? `${t('最近分析', 'Analyzed')} ${relativeTime(analysis.analyzedAt, lang)}${
                   analysis.note ? ` · ${analysis.note}` : ''
                 }`
               : t(

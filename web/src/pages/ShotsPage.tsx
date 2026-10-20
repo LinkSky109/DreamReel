@@ -13,19 +13,24 @@ import './ShotsPage.css'
 
 type StateDraft = { appearance: string; equipment: string; injuries: string; abilities: string }
 
-const CATEGORY_LABEL: Record<string, string> = {
-  character: '角色',
-  clothing: '衣物',
-  equipment: '装备',
-  architecture: '建筑',
-  scene: '场景',
-  prop: '道具',
-  other: '其他',
+const CATEGORY_LABEL: Record<string, { zh: string; en: string }> = {
+  character: { zh: '角色', en: 'Character' },
+  clothing: { zh: '衣物', en: 'Clothing' },
+  equipment: { zh: '装备', en: 'Equipment' },
+  architecture: { zh: '建筑', en: 'Architecture' },
+  scene: { zh: '场景', en: 'Scene' },
+  prop: { zh: '道具', en: 'Prop' },
+  other: { zh: '其他', en: 'Other' },
+}
+
+function categoryLabel(category: string, lang: 'zh' | 'en'): string {
+  const item = CATEGORY_LABEL[category]
+  return item ? (lang === 'en' ? item.en : item.zh) : category
 }
 
 export function ShotsPage() {
   const { id = '', eid = '' } = useParams()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const queryClient = useQueryClient()
   const [busy, setBusy] = useState<string | null>(null)
   const [pickerShot, setPickerShot] = useState<number | null>(null)
@@ -149,7 +154,7 @@ export function ShotsPage() {
     const term = pickerSearch.trim()
     return (
       (!pickerCat || asset.category === pickerCat) &&
-      (!term || asset.name.includes(term) || (CATEGORY_LABEL[asset.category] ?? asset.category).includes(term))
+      (!term || asset.name.includes(term) || categoryLabel(asset.category, lang).includes(term))
     )
   })
 
@@ -365,7 +370,7 @@ export function ShotsPage() {
               <option value="">{t('全部类别', 'All categories')}</option>
               {categories.map((category) => (
                 <option key={category} value={category}>
-                  {CATEGORY_LABEL[category] ?? category}
+                  {categoryLabel(category, lang)}
                 </option>
               ))}
             </select>

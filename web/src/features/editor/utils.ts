@@ -10,32 +10,39 @@ export function aspectRatioCss(project: Pick<Project, 'platform'>): string {
   return aspectRatioOf(project).replace(':', ' / ')
 }
 
-export const SHOT_TYPE_LABELS: Record<string, string> = {
-  'close-up': '特写',
-  medium: '中景',
-  wide: '远景',
-  'extreme-wide': '大远景',
+type Label = { zh: string; en: string }
+
+export const SHOT_TYPE_LABELS: Record<string, Label> = {
+  'close-up': { zh: '特写', en: 'Close-up' },
+  medium: { zh: '中景', en: 'Medium shot' },
+  wide: { zh: '远景', en: 'Wide shot' },
+  'extreme-wide': { zh: '大远景', en: 'Extreme wide' },
 }
 
-export const CAMERA_LABELS: Record<string, string> = {
-  static: '固定',
-  slow_push_in: '缓慢推进',
-  pull_back: '拉远',
-  pan_left: '左摇',
-  pan_right: '右摇',
-  handheld: '手持',
-  dolly: '推轨',
-  crane: '升降',
+export const CAMERA_LABELS: Record<string, Label> = {
+  static: { zh: '固定', en: 'Static' },
+  slow_push_in: { zh: '缓慢推进', en: 'Slow push-in' },
+  pull_back: { zh: '拉远', en: 'Pull back' },
+  pan_left: { zh: '左摇', en: 'Pan left' },
+  pan_right: { zh: '右摇', en: 'Pan right' },
+  handheld: { zh: '手持', en: 'Handheld' },
+  dolly: { zh: '推轨', en: 'Dolly' },
+  crane: { zh: '升降', en: 'Crane' },
 }
 
-export function shotTypeLabel(value?: string): string {
-  if (!value) return '中景'
-  return SHOT_TYPE_LABELS[value] ?? value
+function labelOf(map: Record<string, Label>, value: string, lang: 'zh' | 'en'): string {
+  const item = map[value]
+  return item ? (lang === 'en' ? item.en : item.zh) : value
 }
 
-export function cameraLabel(value?: string): string {
-  if (!value) return '固定'
-  return CAMERA_LABELS[value] ?? value
+export function shotTypeLabel(value?: string, lang: 'zh' | 'en' = 'zh'): string {
+  if (!value) return lang === 'en' ? 'Medium shot' : '中景'
+  return labelOf(SHOT_TYPE_LABELS, value, lang)
+}
+
+export function cameraLabel(value?: string, lang: 'zh' | 'en' = 'zh'): string {
+  if (!value) return lang === 'en' ? 'Static' : '固定'
+  return labelOf(CAMERA_LABELS, value, lang)
 }
 
 export function totalDuration(shots: Shot[]): number {

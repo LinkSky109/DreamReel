@@ -123,10 +123,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   const user = meQuery.data?.user
   const unread = notificationsQuery.data?.unreadCount ?? 0
 
+  // 公开分享页独立布局：不渲染侧栏 / 顶栏 / 命令面板
+  if (pathname.startsWith('/share/')) return <>{children}</>
+
   return (
     <div className="dr-app">
+      <a
+        className="dr-skip-link"
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault()
+          document.getElementById('main-content')?.focus()
+        }}
+      >
+        {t('跳到主内容', 'Skip to content')}
+      </a>
       <aside className={`dr-sidebar${mobileOpen ? ' is-open' : ''}`} aria-label={t('侧栏导航', 'Sidebar')}>
-        <NavLink to="/" className="dr-brand" aria-label="DreamReel 工作台">
+        <NavLink to="/" className="dr-brand">
           <span className="dr-brand-mark">
             <Icon name="clapper" size={18} />
           </span>
@@ -197,7 +210,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           type="button"
           className="dr-command-trigger"
           onClick={openPalette}
-          aria-label={t('打开命令面板', 'Open command palette')}
+          aria-keyshortcuts="Meta+K Control+K"
         >
           <Icon name="search" size={15} />
           <span>{t('搜索或跳转…', 'Search or jump to…')}</span>
@@ -289,7 +302,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       >
                         <div className="dr-notif-title">{item.title}</div>
                         <div className="dr-notif-msg">{item.message}</div>
-                        <div className="dr-notif-time">{relativeTime(item.createdAt)}</div>
+                        <div className="dr-notif-time">{relativeTime(item.createdAt, lang)}</div>
                       </button>
                     ))
                   )}

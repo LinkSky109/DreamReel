@@ -6,6 +6,7 @@ import { showToast } from '../../lib/toast'
 import type { NovelDetail, NovelSyncResult } from '../../domain/types'
 import { VoicePanel } from './VoicePanel'
 import './SyncTab.css'
+import { pluralize } from '../../lib/format'
 
 type BusyKey = 'style' | 'local-plan' | 'local' | 'webdav-plan' | 'webdav' | 'quark-plan' | 'quark' | 'drive' | 'qr' | 'logout' | null
 
@@ -23,6 +24,12 @@ function summarize(result: NovelSyncResult, backend: string, t: (zh: string, en:
     parts.push(`${t('远端缺失', 'Remote missing')} ${result.remoteCheck.missing?.length ?? '?'}`)
   }
   return parts.join(' / ')
+}
+
+const SCOPE_LABELS: Record<string, { zh: string; en: string }> = {
+  deliverables: { zh: '产物 + 文档', en: 'Deliverables + docs' },
+  media: { zh: '仅产物', en: 'Media only' },
+  all: { zh: '全部', en: 'All' },
 }
 
 export function SyncTab({ novel, onChanged }: { novel: NovelDetail; onChanged: () => void }) {
@@ -282,7 +289,7 @@ export function SyncTab({ novel, onChanged }: { novel: NovelDetail; onChanged: (
               <select className="dr-input" value={scope} onChange={(event) => setScope(event.target.value)}>
                 {scopes.map((item) => (
                   <option key={item.key} value={item.key}>
-                    {item.label}
+                    {SCOPE_LABELS[item.key] ? t(SCOPE_LABELS[item.key].zh, SCOPE_LABELS[item.key].en) : item.label}
                   </option>
                 ))}
               </select>
@@ -290,7 +297,7 @@ export function SyncTab({ novel, onChanged }: { novel: NovelDetail; onChanged: (
             <span className="dr-sync-count">
               {manifestQuery.isLoading
                 ? t('统计中…', 'Counting…')
-                : t(`${manifest?.fileCount ?? 0} 个文件（增量同步）`, `${manifest?.fileCount ?? 0} files (incremental)`)}
+                : t(`${manifest?.fileCount ?? 0} 个文件（增量同步）`, `${manifest?.fileCount ?? 0} ${pluralize(manifest?.fileCount ?? 0, 'file')} (incremental)`)}
             </span>
           </div>
         </div>

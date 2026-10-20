@@ -7,6 +7,7 @@ import type { StorePack } from '../domain/types'
 import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import './Store.css'
+import { pluralize } from '../lib/format'
 
 type Category = 'all' | 'style_pack' | 'template_pack' | 'audio_pack'
 
@@ -77,7 +78,7 @@ export function StorePage() {
         <div className="store-cover">
           <img src={COVERS[pack.type] ?? '/media/img/fog-mountain.jpg'} alt="" loading="lazy" />
           <span>{typeLabel(pack.type, t)}</span>
-          <small>{pack.items} {t('项内容', 'items')}</small>
+          <small>{pack.items} {t('项内容', pluralize(pack.items, 'item'))}</small>
         </div>
         <div className="store-body">
           <h2>{pack.name}</h2>
@@ -202,7 +203,7 @@ export function StorePage() {
             <h3>{selected.name}</h3>
             <p>{selected.description}</p>
             <dl>
-              <div><dt>{t('内容', 'Contents')}</dt><dd>{selected.items} {t('项', 'items')}</dd></div>
+              <div><dt>{t('内容', 'Contents')}</dt><dd>{selected.items} {t('项', pluralize(selected.items, 'item'))}</dd></div>
               <div><dt>{t('作者', 'Author')}</dt><dd>{selected.author}</dd></div>
             </dl>
             <p className="store-demo-note">

@@ -1164,3 +1164,239 @@ export interface NovelIngestResult {
   chunks?: number
   [key: string]: unknown
 }
+
+export type TeamRole = 'owner' | 'editor' | 'viewer'
+
+export interface TeamMember {
+  userId: string
+  name: string
+  role: TeamRole
+  joinedAt?: string
+}
+
+export interface Team {
+  id: string
+  name: string
+  description: string
+  ownerId: string
+  members: TeamMember[]
+  projectIds: string[]
+  memberCount: number
+  projectCount: number
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface TeamListResponse {
+  total: number
+  items: Team[]
+}
+
+export interface TeamProjectListResponse {
+  total: number
+  items: Project[]
+}
+
+export interface ApiKeyRecord {
+  id: string
+  name: string
+  keyPrefix: string
+  scopes: string[]
+  createdAt: string
+  lastUsedAt: string | null
+  callCount: number
+  revoked?: boolean
+}
+
+export interface ApiKeyListResponse {
+  total: number
+  items: ApiKeyRecord[]
+}
+
+export interface ApiKeyCreated extends ApiKeyRecord {
+  apiKey: string
+}
+
+export interface EnterpriseSsoConfig {
+  enabled: boolean
+  provider: string
+  entryPoint?: string
+  issuer?: string
+}
+
+export interface EnterpriseSecurityConfig {
+  enforceIpAllowlist: boolean
+  ipAllowlist: string[]
+  exportWatermark: boolean
+  watermarkText?: string
+  disablePublicSharing: boolean
+}
+
+export interface EnterpriseConfig {
+  sso: EnterpriseSsoConfig
+  passwordPolicy: {
+    minLength: number
+    requireMixedCase: boolean
+    requireNumber: boolean
+    requireSymbol: boolean
+    sessionTimeoutHours: number
+  }
+  security: EnterpriseSecurityConfig
+  dataResidency: { region: string; retentionDays: number }
+}
+
+export interface EnterpriseOverview {
+  teams: number
+  members: number
+  projects: number
+  auditEvents: number
+  auditStats: Record<string, number>
+  config: EnterpriseConfig
+}
+
+export interface AuditLogEntry {
+  id: string
+  actor: string
+  action: string
+  resourceType: string
+  resourceId?: string
+  details?: Record<string, unknown>
+  ip?: string
+  result: 'success' | 'failure' | string
+  timestamp: string
+}
+
+export interface AuditLogResponse {
+  total: number
+  items: AuditLogEntry[]
+}
+
+export interface EnterpriseDeployment {
+  edition: string
+  version: string
+  deployment: string
+  features: string[]
+  support: { sla: string; channel: string }
+}
+
+export interface GalleryItem {
+  id: string
+  name: string
+  description: string
+  coverUrl: string
+  previewUrl: string
+  authorId: string
+  category?: string
+  style?: string
+  likeCount: number
+  viewCount: number
+  publishedAt?: string
+  challengeId?: string | null
+  shotCount: number
+}
+
+export interface GalleryListResponse {
+  total: number
+  items: GalleryItem[]
+}
+
+export interface RemixResult {
+  success: boolean
+  remixId: string
+  sourceId: string
+  sourceName: string
+  copiedShots: number
+}
+
+export interface CreatorProfile {
+  userId: string
+  displayName: string
+  bio: string
+  avatarUrl?: string
+  isPublic: boolean
+  socialLinks?: Record<string, string>
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface CreatorWork {
+  id: string
+  name: string
+  coverUrl?: string
+  status: string
+  style?: string
+  updatedAt?: string
+  shotCount: number
+}
+
+export interface CreatorStats {
+  workCount: number
+  totalDuration: number
+  completedCount: number
+  favoriteCount?: number
+  likeCount: number
+}
+
+export interface CreatorPageData {
+  profile: CreatorProfile
+  works: CreatorWork[]
+  stats: CreatorStats
+  publicUrl: string | null
+}
+
+export interface PerformanceEndpointStat {
+  endpoint: string
+  count: number
+  avgTime: number
+  errors: number
+  errorRate?: number | string
+}
+
+export interface PerformanceReport {
+  system: {
+    cpu: { loadAvg1m: number; loadAvg5m: number; loadAvg15m: number; cores: number; usagePercent: number }
+    memory: { totalMB: number; usedMB: number; freeMB: number; usagePercent: number }
+    process: { pid: number; uptime: number; memoryUsage: { heapUsed: number; rss?: number } }
+    uptime: number
+  }
+  requests: {
+    total: number
+    errors: number
+    errorRate: number
+    avgResponseTime: number
+    avgResponseTimeSec: string
+    slowestEndpoints: PerformanceEndpointStat[]
+    busiestEndpoints: PerformanceEndpointStat[]
+  }
+  history?: {
+    requests: unknown[]
+    errors: unknown[]
+    responseTime: unknown[]
+  }
+  timestamp: string
+}
+
+export interface WebhookEndpoint {
+  id: string
+  url: string
+  events: string[]
+  userId: string
+  name: string
+  active: boolean
+  createdAt: string
+  updatedAt?: string
+  lastTriggeredAt: string | null
+  successCount: number
+  failureCount: number
+}
+
+export interface WebhookDelivery {
+  id: string
+  webhookId: string
+  event: string
+  url: string
+  statusCode: number
+  success: boolean
+  attempt: number
+  timestamp: string
+}

@@ -6,14 +6,14 @@ import { showToast } from '../../lib/toast'
 import type { Project, ProjectVersion, VersionCompare } from '../../domain/types'
 import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
-import { relativeTime } from '../../lib/format'
+import {relativeTime, pluralize } from '../../lib/format'
 
 type Props = {
   project: Project
 }
 
 export function VersionsStage({ project }: Props) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const queryClient = useQueryClient()
   const [saveOpen, setSaveOpen] = useState(false)
   const [label, setLabel] = useState('')
@@ -166,7 +166,7 @@ export function VersionsStage({ project }: Props) {
                 </div>
                 {version.description ? <p className="ed-version-desc">{version.description}</p> : null}
                 <div className="ed-version-meta">
-                  {relativeTime(version.createdAt)} · {version.shotCount ?? 0} {t('镜', 'shots')} ·{' '}
+                  {relativeTime(version.createdAt, lang)} · {version.shotCount ?? 0} {t('镜', pluralize(version.shotCount ?? 0, 'shot'))} ·{' '}
                   {version.completedShots ?? 0} {t('已完成', 'done')} · {version.characterCount ?? 0}{' '}
                   {t('角色', 'characters')}
                 </div>

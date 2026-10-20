@@ -8,6 +8,7 @@ import type { Shot, TitleSequenceResult, TitleSequenceTemplate } from '../domain
 import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import './TitleSequences.css'
+import { pluralize } from '../lib/format'
 
 function colorOf(value?: string) {
   return value?.replace(/^0x/, '#') ?? '#111111'
@@ -236,7 +237,7 @@ export function TitleSequencesPage() {
                     <option value="">{t('请选择项目', 'Select a project')}</option>
                     {projects.map((project) => (
                       <option key={project.id} value={project.id}>
-                        {project.name} · {project.shots?.length ?? 0} {t('镜', 'shots')}
+                        {project.name} · {project.shots?.length ?? 0} {t('镜', pluralize(project.shots?.length ?? 0, 'shot'))}
                       </option>
                     ))}
                   </select>

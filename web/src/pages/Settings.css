@@ -209,3 +209,265 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Runtime performance ---------- */
+
+.dr-perf-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dr-perf-card {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dr-perf-card > span {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.dr-perf-card strong {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.dr-perf-card strong.is-ok {
+  color: var(--success);
+}
+
+.dr-perf-card strong.is-warning {
+  color: var(--warn);
+}
+
+.dr-perf-card strong.is-danger {
+  color: var(--danger);
+}
+
+.dr-perf-card small {
+  color: var(--meta);
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+}
+
+.dr-perf-tables {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.dr-perf-subtitle {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.dr-perf-table-wrap {
+  overflow-x: auto;
+}
+
+.dr-perf-table {
+  min-width: 420px;
+}
+
+.dr-perf-table code {
+  font-size: 10.5px;
+}
+
+/* ---------- Webhooks ---------- */
+
+.dr-webhook-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dr-webhook-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+}
+
+.dr-webhook-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dr-webhook-head > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dr-webhook-head strong {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dr-webhook-state {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.dr-webhook-state.is-active {
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  color: var(--success);
+}
+
+.dr-webhook-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dr-webhook-actions .dr-btn {
+  height: 28px;
+  padding: 0 9px;
+  font-size: 11.5px;
+}
+
+.dr-webhook-url {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-2);
+  word-break: break-all;
+}
+
+.dr-webhook-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dr-webhook-events span {
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  color: var(--fg-2);
+  font-size: 10.5px;
+}
+
+.dr-webhook-stats {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  color: var(--meta);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.dr-webhook-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dr-webhook-event-field {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.dr-webhook-event-field legend {
+  margin-bottom: 7px;
+}
+
+.dr-webhook-event-field code {
+  color: var(--meta);
+  font-size: 10.5px;
+  min-width: 132px;
+}
+
+.dr-webhook-confirm {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--fg-2);
+}
+
+@media (max-width: 1023px) {
+  .dr-perf-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dr-perf-tables {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .dr-perf-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.dr-webhook-delivery-table {
+  min-width: 560px;
+}
+
+.dr-webhook-delivery-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.dr-webhook-delivery-status {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 3px;
+  font-size: 11px;
+  background: var(--bg-subtle);
+  color: var(--fg-2);
+}
+
+.dr-webhook-delivery-status.is-success {
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  color: var(--success);
+}
+
+.dr-webhook-delivery-status.is-failure {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
+}
+
+.dr-webhook-delivery-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 16px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
