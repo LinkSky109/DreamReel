@@ -88,14 +88,22 @@ app.get('/health/live', (_req, res) => {
   res.json({ status: 'ok' })
 })
 
-// 就绪探针：存储可用才接流量；数据库接入后在此追加 DB/Redis 检查
-app.get('/health/ready', (_req, res) => {
+// 就绪探针：存储可用；DB_DRIVER=postgres 时同时检查数据库连接
+app.get('/health/ready', async (_req, res) => {
   try {
     fs.accessSync(STORAGE_DIR, fs.constants.R_OK | fs.constants.W_OK)
-    res.json({ status: 'ready', storage: 'ok', db: config.db.driver })
   } catch (error) {
-    res.status(503).json({ status: 'not_ready', storage: 'error', message: error.message })
+    return res.status(503).json({ status: 'not_ready', storage: 'error', message: error.message })
   }
+  if (config.db.driver === 'postgres') {
+    try {
+      const { healthCheck } = await import('./db/client.js')
+      await healthCheck()
+    } catch (error) {
+      return res.status(503).json({ status: 'not_ready', storage: 'ok', db: 'error', message: error.message })
+    }
+  }
+  return res.json({ status: 'ready', storage: 'ok', db: config.db.driver })
 })
 
 // API 版本标记：/api 兼容期保留并提示弃用，/api/v1 为新客户端入口

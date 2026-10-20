@@ -26,7 +26,9 @@
     "prebuild": "node scripts/clean-web-build.js",
     "build:web:embed": "vite build --config web/vite.config.ts",
     "start:api": "node src/server.js",
-    "inventory": "node scripts/inventory.js"
+    "inventory": "node scripts/inventory.js",
+    "db:migrate": "node scripts/db-migrate.js",
+    "db:status": "node scripts/db-migrate.js --status"
   },
   "keywords": [
     "ai-video",
@@ -54,7 +56,9 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
+    "kysely": "^0.29.7",
     "lucide-react": "^1.59.0",
+    "pg": "^8.23.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.4",
