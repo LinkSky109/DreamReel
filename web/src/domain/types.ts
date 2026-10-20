@@ -577,6 +577,47 @@ export interface NovelExtractJob {
 
 export type NovelExtractJobs = Partial<Record<'characters' | 'world' | 'both', NovelExtractJob>>
 
+export interface NovelWorldEntity {
+  id: string
+  novelId: string
+  type: string
+  name: string
+  aliases: string[]
+  description?: string
+  attributes: Record<string, unknown>
+  relations: { target: string; kind?: string }[]
+  firstChapter?: number | null
+  mentions: number
+  provider: string
+  createdAt: string
+}
+
+export interface NovelWorldRelation {
+  from: string
+  fromName: string
+  to: string | null
+  toName: string
+  kind: string
+}
+
+export interface NovelWorldSet {
+  id: string
+  provider: string
+  createdAt: string
+  count: number
+  live: number
+  selected: boolean
+}
+
+export interface NovelWorldSummary {
+  total: number
+  byType: Record<string, number>
+  byTypeLabel: Record<string, number>
+  relations: number
+  missingCoreTypes: string[]
+  provider?: string | null
+}
+
 export interface NovelIngestResult {
   chapters?: number
   chunks?: number

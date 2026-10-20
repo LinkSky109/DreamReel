@@ -1,0 +1,53 @@
+.dr-extract-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+}
+
+.dr-extract-job {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dr-extract-job-label {
+  font-weight: 600;
+  color: var(--fg-2);
+}
+
+.dr-extract-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dr-extract-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.dr-extract-chip.is-done {
+  color: #16a34a;
+  border-color: #16a34a;
+}
+
+.dr-extract-chip.is-failed {
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+.dr-extract-chip.is-running {
+  color: #d97706;
+  border-color: #d97706;
+}

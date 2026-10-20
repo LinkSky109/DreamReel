@@ -21,6 +21,10 @@ import type {
   NovelDetail,
   NovelExtractJobs,
   NovelSchema,
+  NovelWorldEntity,
+  NovelWorldRelation,
+  NovelWorldSet,
+  NovelWorldSummary,
   NovelIngestResult,
   NovelProject,
   Project,
@@ -443,6 +447,19 @@ export const api = {
       method: 'POST',
       body: {},
     }),
+  getNovelWorld: (id: string) => requestData<NovelWorldSummary>(`/novels/${id}/world`),
+  listNovelWorldEntities: (id: string, type?: string) =>
+    requestData<NovelWorldEntity[]>(`/novels/${id}/world/entities${type ? `?type=${encodeURIComponent(type)}` : ''}`),
+  listNovelWorldRelations: (id: string) =>
+    requestData<NovelWorldRelation[]>(`/novels/${id}/world/relations`),
+  listNovelWorldSets: (id: string) => requestData<NovelWorldSet[]>(`/novels/${id}/world/sets`),
+  selectNovelWorldSet: (id: string, setId: string) =>
+    requestData<unknown>(`/novels/${id}/world/select`, { method: 'POST', body: { setId } }),
+  extractNovelWorld: (id: string, body: { provider: string }) =>
+    requestData<{ provider: string; degraded?: boolean; entities: number; summary: NovelWorldSummary }>(
+      `/novels/${id}/world/extract`,
+      { method: 'POST', body }
+    ),
   patchNovelCharacter: (
     id: string,
     cid: string,

@@ -8,6 +8,7 @@ import { NOVEL_STAGES, novelStageIndex, novelStageLabel } from '../lib/novel'
 import type { NovelDetail } from '../domain/types'
 import { Icon } from '../components/Icon'
 import { CharactersTab } from '../features/novel/CharactersTab'
+import { WorldTab } from '../features/novel/WorldTab'
 import { Modal } from '../components/Modal'
 import './NovelDetail.css'
 
@@ -17,7 +18,7 @@ const TABS: { key: TabKey; zh: string; en: string; migrated: boolean }[] = [
   { key: 'stage', zh: '阶段', en: 'Stage', migrated: true },
   { key: 'source', zh: '来源', en: 'Source', migrated: true },
   { key: 'characters', zh: '角色', en: 'Characters', migrated: true },
-  { key: 'world', zh: '世界观', en: 'World', migrated: false },
+  { key: 'world', zh: '世界观', en: 'World', migrated: true },
   { key: 'series', zh: '分季分集', en: 'Seasons', migrated: false },
   { key: 'episode', zh: '单集', en: 'Episodes', migrated: false },
   { key: 'art', zh: '设定图集', en: 'Art', migrated: false },
@@ -115,6 +116,7 @@ export function NovelDetailPage() {
       {tab === 'stage' ? <StageTab novel={novel} onAdvanced={invalidate} /> : null}
       {tab === 'source' ? <SourceTab novel={novel} onIngested={invalidate} /> : null}
       {tab === 'characters' ? <CharactersTab novel={novel} onChanged={invalidate} /> : null}
+      {tab === 'world' ? <WorldTab novel={novel} onChanged={invalidate} /> : null}
       {tabMeta && !tabMeta.migrated ? <LegacyTab novelId={id} tab={tab} label={lang === 'en' ? tabMeta.en : tabMeta.zh} /> : null}
     </div>
   )

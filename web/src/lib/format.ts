@@ -69,3 +69,16 @@ export function platformLabel(platform?: string): string {
 export function enabledShots(project: Project): number {
   return (project.shots ?? []).filter((shot) => shot.status !== 'completed' && !shot.locked).length
 }
+
+
+export function formatValue(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (Array.isArray(value)) return value.map(formatValue).filter(Boolean).join('、')
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, val]) => `${key} ${formatValue(val)}`)
+      .filter(Boolean)
+      .join('；')
+  }
+  return String(value)
+}
