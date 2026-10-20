@@ -1,4 +1,6 @@
 import type {
+  Challenge,
+  ChallengeDetail,
   AiMessage,
   AiQuickAction,
   AudioPreviewResult,
@@ -704,6 +706,14 @@ export const api = {
     request<{ preferences: NotificationPreferences }>('/notifications/preferences', {
       method: 'PATCH',
       body: updates,
+    }),
+  listChallenges: (status?: string) =>
+    request<{ total: number; items: Challenge[] }>(`/challenges${status && status !== 'all' ? `?status=${status}` : ''}`),
+  getChallengeDetail: (id: string) => request<ChallengeDetail>(`/challenges/${id}`),
+  joinChallenge: (id: string, body: { name?: string } = {}) =>
+    request<{ success: boolean; challenge: Challenge; project: Project }>(`/challenges/${id}/join`, {
+      method: 'POST',
+      body,
     }),
   getPlans: () => request<{ plans: SubscriptionPlan[] }>('/subscription/plans'),
   getCurrentSubscription: () => request<SubscriptionFeatures>('/subscription/current'),

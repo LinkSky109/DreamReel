@@ -594,6 +594,13 @@ function ProjectCard({
           </DropdownMenu.Root>
         </div>
 
+        {project.challengeId ? (
+          <div className="dr-project-source">
+            <Icon name="trophy" size={11} />
+            {t('挑战投稿', 'Challenge entry')}
+          </div>
+        ) : null}
+
         <div className="dr-project-meta">
           <span className={`dr-status ${statusTone(status)}`}>
             <span className="dr-dot" />

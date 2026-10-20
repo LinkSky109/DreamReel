@@ -4,8 +4,12 @@ import { challengeService } from '../services/challengeService.js'
 const router = Router()
 
 // 挑战列表
-router.get('/', (req, res) => {
-  res.json(challengeService.listChallenges({ status: req.query.status }))
+router.get('/', async (req, res) => {
+  try {
+    res.json(await challengeService.listChallengesWithCounts({ status: req.query.status }))
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
 })
 
 // 挑战详情（含作品排行）

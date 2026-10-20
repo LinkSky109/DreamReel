@@ -52,6 +52,17 @@ export class ChallengeService {
     return { total: list.length, items: list }
   }
 
+  async listChallengesWithCounts({ status = 'all' } = {}) {
+    const result = this.listChallenges({ status })
+    const items = await Promise.all(
+      result.items.map(async (challenge) => {
+        const gallery = await galleryService.listGallery({ challengeId: challenge.id })
+        return { ...challenge, entryCount: gallery.total }
+      })
+    )
+    return { ...result, items }
+  }
+
   getChallenge(challengeId) {
     const c = CHALLENGES.find((x) => x.id === challengeId)
     if (!c) throw new Error(`Challenge not found: ${challengeId}`)

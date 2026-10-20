@@ -95,6 +95,32 @@ export interface StatsDashboard {
   recentProjects: Project[]
 }
 
+
+export interface Challenge {
+  id: string
+  title: string
+  theme: string
+  description: string
+  rules: string[]
+  reward: string
+  startAt: string
+  endAt: string
+  status: 'active' | 'ended' | string
+  entryCount?: number
+}
+
+export interface ChallengeEntry {
+  id: string
+  name: string
+  likeCount?: number
+  coverUrl?: string
+}
+
+export interface ChallengeDetail extends Challenge {
+  entries: ChallengeEntry[]
+  entryCount: number
+}
+
 export interface RecycleBinItem extends Project {
   deletedAt?: string
   deletedBy?: string
@@ -109,6 +135,7 @@ export interface Project {
   targetDuration: number
   style: string
   platform: 'landscape' | 'portrait' | string
+  challengeId?: string | null
   shots: Shot[]
   script?: ProjectScript
   characters?: Character[]

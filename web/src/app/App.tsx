@@ -24,6 +24,9 @@ const DocsPage = lazy(() =>
 const ModerationPage = lazy(() =>
   import('../pages/Moderation').then((module) => ({ default: module.ModerationPage }))
 )
+const ChallengesPage = lazy(() =>
+  import('../pages/Challenges').then((module) => ({ default: module.ChallengesPage }))
+)
 const PricingPage = lazy(() =>
   import('../pages/Pricing').then((module) => ({ default: module.PricingPage }))
 )
@@ -133,7 +136,7 @@ export function App() {
           <Route path="/novel/:id/shots/:eid" element={<ShotsPage />} />
 
           {/* 其余页面：渐进迁移桥 */}
-          <Route path="/challenges" element={<LegacyView module="challenges" renderer="renderChallengesPage" title="创作挑战" />} />
+          <Route path="/challenges" element={<ChallengesPage />} />
           <Route path="/directors" element={<LegacyView module="directors" renderer="renderDirectorsPage" title="导演模式" />} />
           <Route path="/title-sequences" element={<LegacyView module="titleSequences" renderer="renderTitleSequencesPage" title="创意片头" />} />
           <Route path="/studios" element={<LegacyView module="studios" renderer="renderStudiosPage" title="剧场计划" />} />

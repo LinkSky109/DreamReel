@@ -738,6 +738,19 @@ p {
   white-space: nowrap;
 }
 
+.dr-project-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+}
+
 .dr-project-meta {
   display: flex;
   align-items: center;
