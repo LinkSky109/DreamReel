@@ -173,7 +173,7 @@ docker compose -f deploy/docker-compose.dev.yml up --build
 npm run inventory
 ```
 
-关键环境变量：`SERVE_STATIC`、`CORS_ORIGINS`、`DB_DRIVER`（`json|postgres|dual`）、`DATABASE_URL`、`REDIS_URL`、`AUTH_MODE`、`TENANCY_MODE`。决策记录见 `docs/adr/`。
+关键环境变量：`SERVE_STATIC`、`CORS_ORIGINS`、`TRUST_PROXY`、`DB_DRIVER`（`json|postgres|dual`）、`DATABASE_URL`、`REDIS_URL`、`AUTH_MODE`、`TENANCY_MODE`、`RATE_LIMIT_ENABLED`、`RATE_LIMIT_MAX`、`RATE_LIMIT_AUTH_MAX`、`IDEMPOTENCY_TTL_MS`。决策记录见 `docs/adr/`，API 契约见 `docs/api/v1.md`。
 
 ### 完整创作流程
 
@@ -514,7 +514,8 @@ DreamReel/
 │   │   ├── ffmpeg.js          # ffmpeg 封装
 │   │   ├── titleCard.js       # 片头标题卡渲染（调用 python Pillow）
 │   │   └── logger.js
-│   └── server.js              # Express 入口
+│   ├── app.js                 # Express 中间件与路由
+│   └── server.js              # 监听、优雅停机
 ├── tests/                     # 测试（*.test.js）
 ├── scripts/
 │   └── render_title_card.py   # Pillow 渲染片头标题卡 PNG（中文宋体/黑体）
@@ -527,8 +528,9 @@ DreamReel/
 │   ├── images|videos|audio/   # 媒体产物（按 novels/<id>/ 归类）
 │   ├── exports/               # 成片
 │   └── data/db.json           # 持久化索引
-├── Dockerfile
-├── docker-compose.yml
+├── Dockerfile.api             # API-only 镜像
+├── Dockerfile.web             # 前端静态镜像（Nginx）
+├── deploy/                    # nginx.conf 与 compose
 ├── package.json
 └── .env.example
 ```

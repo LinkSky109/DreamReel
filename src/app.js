@@ -7,48 +7,11 @@ import { fileURLToPath } from 'url'
 import config from './config/index.js'
 import logger from './utils/logger.js'
 
-import projectsRouter from './routes/projects.js'
-import scriptRouter from './routes/script.js'
-import videoRouter from './routes/video.js'
-import charactersRouter from './routes/characters.js'
-import dubbingRouter from './routes/dubbing.js'
-import exportRouter from './routes/export.js'
-import quotaRouter from './routes/quota.js'
-import templatesRouter from './routes/templates.js'
-import stylesRouter from './routes/styles.js'
-import analysisRouter from './routes/analysis.js'
-import collaborationRouter from './routes/collaboration.js'
-import authRouter from './routes/auth.js'
-import subscriptionRouter from './routes/subscription.js'
-import versionsRouter from './routes/versions.js'
-import statsRouter from './routes/stats.js'
-import moderationRouter from './routes/moderation.js'
-import notificationsRouter from './routes/notifications.js'
-import providersRouter from './routes/providers.js'
-import providerMetricsRouter from './routes/providerMetrics.js'
-import systemRouter from './routes/system.js'
-import webhooksRouter from './routes/webhooks.js'
-import aiAssistantRouter from './routes/aiAssistant.js'
-import audioRouter from './routes/audio.js'
-import scenesRouter from './routes/scenes.js'
-import marketingRouter from './routes/marketing.js'
-import creatorsRouter from './routes/creators.js'
-import galleryRouter from './routes/gallery.js'
-import challengesRouter from './routes/challenges.js'
-import teamsRouter from './routes/teams.js'
-import openApiRouter from './routes/openApi.js'
-import apiKeysRouter from './routes/apiKeys.js'
-import storeRouter from './routes/store.js'
-import enterpriseRouter from './routes/enterprise.js'
-import titleSequencesRouter from './routes/titleSequences.js'
-import directorsRouter from './routes/directors.js'
-import studiosRouter from './routes/studios.js'
-import imagesRouter from './routes/images.js'
-import editPlansRouter from './routes/editPlans.js'
-import communityRouter from './routes/community.js'
-import novelsRouter from './routes/novels.js'
-import cloudDriveRouter from './routes/cloudDrive.js'
-import { authOptional } from './middleware/auth.js'
+import { mountApi } from './routes/index.js'
+import metaV1Router from './routes/v1/meta.js'
+import { apiVersion } from './middleware/apiVersion.js'
+import { rateLimit } from './middleware/rateLimit.js'
+import { idempotency } from './middleware/idempotency.js'
 import { mediaAccess } from './middleware/mediaAccess.js'
 import { performanceMonitor } from './services/performanceMonitor.js'
 
@@ -59,6 +22,7 @@ const STORAGE_DIR = path.resolve(config.storage.path)
 
 const app = express()
 app.disable('x-powered-by')
+if (config.trustProxy) app.set('trust proxy', 1)
 
 // 请求 ID：优先沿用上游网关传入，便于链路追踪
 app.use((req, res, next) => {
@@ -134,48 +98,26 @@ app.get('/health/ready', (_req, res) => {
   }
 })
 
-// API routes
-app.use('/api/auth', authRouter)
-app.use('/api/subscription', subscriptionRouter)
-app.use('/api/projects', authOptional, projectsRouter)
-app.use('/api/projects', authOptional, versionsRouter)
-app.use('/api/stats', authOptional, statsRouter)
-app.use('/api/moderation', authOptional, moderationRouter)
-app.use('/api/notifications', authOptional, notificationsRouter)
-app.use('/api/script', authOptional, scriptRouter)
-app.use('/api/video', authOptional, videoRouter)
-app.use('/api/characters', authOptional, charactersRouter)
-app.use('/api/dubbing', authOptional, dubbingRouter)
-app.use('/api/export', authOptional, exportRouter)
-app.use('/api/quota', authOptional, quotaRouter)
-app.use('/api/templates', authOptional, templatesRouter)
-app.use('/api/styles', stylesRouter)
-app.use('/api/analysis', authOptional, analysisRouter)
-app.use('/api/collab', authOptional, collaborationRouter)
-app.use('/api/providers', providersRouter)
-app.use('/api/providers', providerMetricsRouter) // /metrics /compare /costs（Phase 0 指标）
-app.use('/api/system', systemRouter)
-app.use('/api/webhooks', webhooksRouter)
-app.use('/api/ai-assistant', aiAssistantRouter)
-app.use('/api/audio', authOptional, audioRouter)
-app.use('/api/scenes', authOptional, scenesRouter)
-app.use('/api/marketing', authOptional, marketingRouter)
-app.use('/api/creators', authOptional, creatorsRouter)
-app.use('/api/gallery', authOptional, galleryRouter)
-app.use('/api/challenges', authOptional, challengesRouter)
-app.use('/api/teams', authOptional, teamsRouter)
-app.use('/api/open/v1', openApiRouter)
-app.use('/api/api-keys', authOptional, apiKeysRouter)
-app.use('/api/store', authOptional, storeRouter)
-app.use('/api/enterprise', authOptional, enterpriseRouter)
-app.use('/api/title-sequences', titleSequencesRouter)
-app.use('/api/directors', directorsRouter)
-app.use('/api/studios', studiosRouter)
-app.use('/api/images', authOptional, imagesRouter)
-app.use('/api/edit-plans', authOptional, editPlansRouter)
-app.use('/api/community', authOptional, communityRouter)
-app.use('/api/novels', authOptional, novelsRouter)
-app.use('/api/cloud-drive', authOptional, cloudDriveRouter)
+// API 版本标记：/api 兼容期保留并提示弃用，/api/v1 为新客户端入口
+app.use('/api', apiVersion('legacy'))
+
+// 限流：默认生产开启，测试/本地通过 RATE_LIMIT_ENABLED=true 显式打开
+if (config.rateLimit.enabled) {
+  app.use(
+    '/api',
+    rateLimit({ windowMs: config.rateLimit.windowMs, max: config.rateLimit.max, bucket: 'api' })
+  )
+  app.use(
+    '/api/auth',
+    rateLimit({ windowMs: config.rateLimit.windowMs, max: config.rateLimit.authMax, bucket: 'auth' })
+  )
+}
+
+// v1：契约元信息 + 幂等 + 与 /api 相同的路由实现
+app.use('/api/v1', apiVersion('v1'), idempotency({ ttlMs: config.idempotency.ttlMs }))
+app.use('/api/v1/meta', metaV1Router)
+mountApi(app, '/api/v1')
+mountApi(app, '/api')
 
 // Static files: only expose media subdirectories, never storage/data (DB, hashes, keys)
 // R37：公开素材库保持直接访问

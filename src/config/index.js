@@ -35,6 +35,18 @@ const config = {
   authMode: process.env.AUTH_MODE || 'legacy',
   // single | organization
   tenancyMode: process.env.TENANCY_MODE || 'single',
+  // 反向代理层数；Nginx 后置为 1，直接暴露时为 false
+  trustProxy: process.env.TRUST_PROXY === '1' || process.env.TRUST_PROXY === 'true',
+  // 限流：默认仅生产开启，测试/本地通过 RATE_LIMIT_ENABLED=true 显式打开
+  rateLimit: {
+    enabled: process.env.RATE_LIMIT_ENABLED === 'true' || process.env.NODE_ENV === 'production',
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 60000,
+    max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 600,
+    authMax: parseInt(process.env.RATE_LIMIT_AUTH_MAX, 10) || 30,
+  },
+  idempotency: {
+    ttlMs: parseInt(process.env.IDEMPOTENCY_TTL_MS, 10) || 24 * 60 * 60 * 1000,
+  },
 
 
   video: {

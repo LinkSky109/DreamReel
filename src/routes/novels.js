@@ -52,6 +52,8 @@ import { getTTSProvider } from '../providers/ttsProviderFactory.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
 import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
 import { beginRun, cancelRun, isCancelled, finishRun, getRunStatus } from '../services/bulkControl.js'
+import { validateBody } from '../middleware/validate.js'
+import { bulkGenerateAssetsSchema } from '../contracts/assets.js'
 import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
 
 /**
@@ -1212,9 +1214,9 @@ router.get('/:id/assets/bulk-status', (req, res) => {
   }
 })
 
-router.post('/:id/assets/bulk-generate', async (req, res) => {
+router.post('/:id/assets/bulk-generate', validateBody(bulkGenerateAssetsSchema), async (req, res) => {
   try {
-    const body = req.body || {}
+    const body = req.validated?.body || req.body || {}
     const novelId = req.params.id
     // reset=true：开始新一轮；否则若已被取消，直接拒绝，让客户端循环立即停止
     if (body.reset) beginRun(novelId)
