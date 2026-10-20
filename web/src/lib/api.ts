@@ -16,7 +16,11 @@ import type {
   ModerationLog,
   NotificationItem,
   NotificationPreferences,
+  NovelCharacter,
+  NovelCharacterSet,
   NovelDetail,
+  NovelExtractJobs,
+  NovelSchema,
   NovelIngestResult,
   NovelProject,
   Project,
@@ -413,6 +417,41 @@ export const api = {
     id: string,
     body: { sourceType: 'qishuxia-txt' | 'text'; url?: string; text?: string }
   ) => requestData<NovelIngestResult>(`/novels/${id}/ingest`, { method: 'POST', body }),
+  getNovelSchema: (id: string) => requestData<NovelSchema>(`/novels/${id}/schema`),
+  listNovelCharacters: (id: string) => requestData<NovelCharacter[]>(`/novels/${id}/characters`),
+  listNovelCharacterSets: (id: string) =>
+    requestData<NovelCharacterSet[]>(`/novels/${id}/characters/sets`),
+  getNovelReviewStats: (id: string) =>
+    requestData<{ approved?: number; revisionRate?: number; characters?: number }>(
+      `/novels/${id}/review-stats`
+    ),
+  getNovelExtractStatus: (id: string) => requestData<NovelExtractJobs>(`/novels/${id}/extract/status`),
+  extractNovelCharacters: (id: string, body: { provider: string; minFreq?: number }) =>
+    requestData<{ provider: string; degraded?: boolean; characters: NovelCharacter[] }>(
+      `/novels/${id}/extract`,
+      { method: 'POST', body }
+    ),
+  extractNovelAll: (id: string, body: { provider: string }) =>
+    requestData<{ provider: string; degraded?: boolean; characters: NovelCharacter[] }>(
+      `/novels/${id}/extract-all`,
+      { method: 'POST', body }
+    ),
+  selectNovelCharacterSet: (id: string, setId: string) =>
+    requestData<unknown>(`/novels/${id}/characters/select`, { method: 'POST', body: { setId } }),
+  approveNovelCharacter: (id: string, cid: string) =>
+    requestData<NovelCharacter>(`/novels/${id}/characters/${cid}/approve`, {
+      method: 'POST',
+      body: {},
+    }),
+  patchNovelCharacter: (
+    id: string,
+    cid: string,
+    patch: { name?: string; card?: Record<string, string> }
+  ) =>
+    requestData<NovelCharacter>(`/novels/${id}/characters/${cid}`, {
+      method: 'PATCH',
+      body: patch,
+    }),
 
   // Settings & system
   getSystemInfo: () => request<SystemInfo>('/system/info'),

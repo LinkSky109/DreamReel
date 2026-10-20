@@ -521,6 +521,62 @@ export interface NovelDetail extends NovelProject {
   reviewStats?: NovelReviewStats
 }
 
+export interface NovelCardField {
+  key: string
+  label: string
+  group: string
+}
+
+export interface NovelSchema {
+  character: { fields: NovelCardField[]; groups: Record<string, string> }
+  world?: {
+    types: { key: string; label: string }[]
+    attributes: Record<string, { key: string; label: string }[]>
+  }
+}
+
+export interface NovelCharacter {
+  id: string
+  novelId: string
+  name: string
+  aliases: string[]
+  description?: string
+  kind: 'individual' | 'group'
+  card: Record<string, string>
+  provider: string
+  status: 'pending' | 'approved' | string
+  reviewEdits?: { field: string; from?: string; to?: string; at?: string }[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface NovelCharacterSet {
+  id: string
+  provider: string
+  createdAt: string
+  count: number
+  live: number
+  selected: boolean
+}
+
+export interface NovelExtractTask {
+  label: string
+  status: 'pending' | 'running' | 'done' | 'failed' | string
+  ms?: number
+  error?: string
+}
+
+export interface NovelExtractJob {
+  total: number
+  done: number
+  failed: number
+  running: number
+  finishedAt?: string | null
+  tasks?: NovelExtractTask[]
+}
+
+export type NovelExtractJobs = Partial<Record<'characters' | 'world' | 'both', NovelExtractJob>>
+
 export interface NovelIngestResult {
   chapters?: number
   chunks?: number

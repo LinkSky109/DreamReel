@@ -1,0 +1,254 @@
+.dr-characters-head {
+  padding: 16px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dr-characters-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dr-characters-title h2 {
+  margin: 0;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dr-characters-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dr-inline-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dr-inline-field .dr-input {
+  padding: 5px 7px;
+  font-size: 12px;
+}
+
+.dr-extract-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+}
+
+.dr-extract-job {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dr-extract-job-label {
+  font-weight: 600;
+  color: var(--fg-2);
+}
+
+.dr-extract-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dr-extract-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.dr-extract-chip.is-done {
+  color: #16a34a;
+  border-color: #16a34a;
+}
+
+.dr-extract-chip.is-failed {
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+.dr-extract-chip.is-running {
+  color: #d97706;
+  border-color: #d97706;
+}
+
+.dr-character-sets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dr-character-sets .dr-chip {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
+.dr-chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dr-characters-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dr-character-card {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dr-character-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dr-character-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.dr-character-name strong {
+  font-size: 15px;
+}
+
+.dr-character-name > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dr-character-provider {
+  font-family: var(--font-mono);
+  font-size: 10px !important;
+  color: var(--meta) !important;
+}
+
+.dr-character-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.dr-character-actions .dr-btn {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
+.dr-character-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.dr-character-card-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 18px;
+}
+
+.dr-character-group h4 {
+  margin: 0 0 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #7c3aed;
+}
+
+.dr-character-group dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dr-character-row {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.dr-character-row dt {
+  flex: 0 0 74px;
+  color: var(--muted);
+}
+
+.dr-character-row dd {
+  margin: 0;
+  color: var(--fg-2);
+  min-width: 0;
+  word-break: break-word;
+}
+
+.dr-characters-empty {
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 36px 20px;
+}
+
+.dr-characters-empty h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.dr-character-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 767px) {
+  .dr-characters-controls {
+    width: 100%;
+  }
+  .dr-characters-controls .dr-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  .dr-character-card-body {
+    grid-template-columns: 1fr;
+  }
+  .dr-character-actions {
+    width: 100%;
+  }
+  .dr-character-actions .dr-btn {
+    flex: 1;
+  }
+}
