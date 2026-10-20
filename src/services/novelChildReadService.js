@@ -4,8 +4,8 @@ import { storageService } from './storageService.js'
 import { createPostgresNovelChildRepository } from '../repositories/novelChildRepository.js'
 import { stableStringify } from '../utils/stableJson.js'
 import { listChunks } from './novelChunkService.js'
-import { listCharacters } from './characterExtractionService.js'
-import { listEntities } from './worldbuildingService.js'
+import { listCharacters, listCharacterSets } from './characterExtractionService.js'
+import { listEntities, listWorldSets } from './worldbuildingService.js'
 import { listSeasons, listEpisodes } from './seriesPlannerService.js'
 import { listAssets } from './novelAssetService.js'
 import { listStates } from './characterGrowthService.js'
@@ -20,6 +20,7 @@ export function createNovelChildReadService({
   mode = 'legacy',
   orgId = 'default',
   log = logger,
+  getProject = (id) => storageService.getNovelProject(id),
 } = {}) {
   function selectionIds(novelId) {
     const project = storageService.getNovelProject(novelId)
@@ -81,10 +82,7 @@ export function createNovelChildReadService({
     }
   }
 
-  return {
-    mode,
-
-    async list(kind, novelId, { requestId, seasonId, category, characterId } = {}) {
+  async function listRows(kind, novelId, { requestId, seasonId, category, characterId } = {}) {
       const legacyRows = legacy.list(kind, novelId, { seasonId, category, characterId })
       if (mode === 'legacy') return legacyRows
       let pgRows
@@ -101,13 +99,51 @@ export function createNovelChildReadService({
         return legacyRows
       }
       const normalizedPg = normalizePg(kind, novelId, pgRows, { seasonId, category, characterId })
+    if (mode === 'shadow') {
+      compare(kind, novelId, legacyRows, normalizedPg, requestId)
+      return legacyRows
+    }
+    return normalizedPg
+  }
+
+  async function listSets(kind, novelId, { requestId } = {}) {
+    const legacyRows = legacy.listSets(kind, novelId)
+    if (mode === 'legacy') return legacyRows
+    try {
+      const repo = await getRepo()
+      const sets = await repo.list(kind, novelId, { orgId })
+      const liveRows = await listRows(kind === 'characterSets' ? 'characters' : 'entities', novelId, { requestId })
+      const live = new Set(liveRows.map((row) => row.id))
+      const project = getProject(novelId)
+      const order = kind === 'characterSets' ? project?.characterSets || [] : project?.worldSets || []
+      const selected = kind === 'characterSets' ? project?.selectedCharacterSet : project?.selectedWorldSet
+      const byId = new Map(sets.map((set) => [set.id, set]))
+      const rows = order
+        .map((id) => byId.get(id))
+        .filter(Boolean)
+        .map((set) => {
+          const ids = set.characterIds || set.entityIds || []
+          return {
+            id: set.id,
+            provider: set.provider,
+            createdAt: set.createdAt,
+            count: ids.length,
+            live: ids.filter((id) => live.has(id)).length,
+            selected: set.id === selected,
+          }
+        })
       if (mode === 'shadow') {
-        compare(kind, novelId, legacyRows, normalizedPg, requestId)
+        compare(kind, novelId, legacyRows, rows, requestId)
         return legacyRows
       }
-      return normalizedPg
-    },
+      return rows
+    } catch (error) {
+      log.warn('[novel-set-read] postgres 读取失败，回退 legacy', { requestId, kind, novelId, message: error.message })
+      return legacyRows
+    }
   }
+
+  return { mode, list: listRows, listSets }
 }
 
 let repoPromise = null
@@ -130,6 +166,11 @@ export const novelChildReadService = createNovelChildReadService({
       if (kind === 'assets') return listAssets(novelId, { category: opts.category })
       if (kind === 'states') return listStates(novelId, opts.characterId)
       throw new Error(`未知子集合：${kind}`)
+    },
+    listSets: (kind, novelId) => {
+      if (kind === 'characterSets') return listCharacterSets(novelId)
+      if (kind === 'worldSets') return listWorldSets(novelId)
+      throw new Error(`未知集合：${kind}`)
     },
   },
   getRepo: getRepoLazy,

@@ -29,8 +29,34 @@ const docs = {
   ],
 }
 
+const setsData = {
+  characterSets: [
+    { id: 'cs1', provider: 'llm', createdAt: '2026-01-01T00:00:00.000Z', characterIds: ['c1', 'c2'] },
+    { id: 'cs2', provider: 'llm', createdAt: '2026-02-01T00:00:00.000Z', characterIds: ['c1'] },
+  ],
+  worldSets: [{ id: 'ws1', provider: 'llm', createdAt: '2026-01-01T00:00:00.000Z', entityIds: ['e1'] }],
+}
+
+const project = {
+  characterSets: ['cs2', 'cs1'],
+  selectedCharacterSet: 'cs1',
+  worldSets: ['ws1'],
+  selectedWorldSet: 'ws1',
+}
+
 function legacyImpl(data = docs) {
-  return { list: (kind) => (data[kind] || []).map((d) => ({ ...d })) }
+  return {
+    list: (kind) => (data[kind] || []).map((d) => ({ ...d })),
+    listSets: (kind) =>
+      (setsData[kind] || []).map((set) => ({
+        id: set.id,
+        provider: set.provider,
+        createdAt: set.createdAt,
+        count: (set.characterIds || set.entityIds || []).length,
+        live: 1,
+        selected: set.id === project.selectedCharacterSet || set.id === project.selectedWorldSet,
+      })),
+  }
 }
 
 function repoImpl(data = docs) {
@@ -155,5 +181,39 @@ describe('novelChildReadService · 形象状态', () => {
     })
     const rows = await service.list('states', 'n1', { characterId: 'c1' })
     assert.deepEqual(rows.map((r) => r.id), ['st1', 'st2'])
+  })
+})
+
+describe('novelChildReadService · 备选集合', () => {
+  it('postgres：按项目 ID 顺序，计算 count/live/selected', async () => {
+    const service = createNovelChildReadService({
+      legacy: legacyImpl(),
+      getRepo: () => repoImpl({ ...docs, ...setsData }),
+      mode: 'postgres',
+      getProject: () => project,
+    })
+    const chars = await service.listSets('characterSets', 'n1')
+    assert.deepEqual(chars.map((s) => s.id), ['cs2', 'cs1'])
+    assert.equal(chars[0].count, 1)
+    assert.equal(chars[0].live, 1)
+    assert.equal(chars[0].selected, false)
+    assert.equal(chars[1].count, 2)
+    assert.equal(chars[1].live, 1)
+    assert.equal(chars[1].selected, true)
+  })
+
+  it('shadow：不一致时告警并返回 legacy', async () => {
+    const log = loggerStub()
+    const drifted = { ...setsData, characterSets: [{ ...setsData.characterSets[0], provider: 'other' }] }
+    const service = createNovelChildReadService({
+      legacy: legacyImpl(),
+      getRepo: () => repoImpl({ ...docs, ...drifted }),
+      mode: 'shadow',
+      log,
+      getProject: () => project,
+    })
+    const rows = await service.listSets('characterSets', 'n1', { requestId: 'r5' })
+    assert.equal(rows[0].id, 'cs1')
+    assert.equal(log.warnings.length, 1)
   })
 })

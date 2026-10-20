@@ -64,7 +64,7 @@ NOVEL_WRITE_MODE=legacy
 
 ## 已知边界
 
-- `GET /:id/timeline` 与角色/世界观集合列表仍读 JSON。
+- `timeline` 与角色/世界观集合列表已切换（2026-10-20）：均与 legacy 一致，0 告警。
 - 写镜像是进程内写后队列，进程崩溃会丢最后一批；多实例需要 outbox。
 - 读延迟高于纯内存 JSON，连接池预热后应下降；若持续偏高，检查索引与聚合查询。
 - PostgreSQL 不可用时读会自动回退 legacy（会记录告警），写入镜像失败也会告警，但 JSON 写入不受影响。
@@ -72,7 +72,6 @@ NOVEL_WRITE_MODE=legacy
 ## 上线前还需要
 
 1. outbox/队列替代 fire-and-forget；
-2. timeline 与集合列表切换；
-3. 压测与慢查询检查；
-4. 备份/PITR 演练；
-5. 关闭 JSON 写入（写主库切换）。
+2. 压测与慢查询检查；
+3. 备份/PITR 演练；
+4. 关闭 JSON 写入（写主库切换）。

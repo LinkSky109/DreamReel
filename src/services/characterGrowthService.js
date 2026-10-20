@@ -321,10 +321,26 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
 
 /** 形象时间线（按角色分组），供 UI 展示 */
 export function buildTimeline(novelId) {
-  const chars = listCharacters(novelId).filter((c) => c.name && !isGenericName(c.name))
+  return buildTimelineFrom(listCharacters(novelId), listStates(novelId))
+}
+
+/**
+ * 用已加载的角色与状态构建时间线（供 PostgreSQL 只读路径复用）。
+ * 状态按 characterId 分组、按 episodeNo 升序；角色顺序保持不变。
+ */
+export function buildTimelineFrom(chars, allStates) {
+  const byCharacter = new Map()
+  for (const state of allStates) {
+    if (!state?.characterId) continue
+    if (!byCharacter.has(state.characterId)) byCharacter.set(state.characterId, [])
+    byCharacter.get(state.characterId).push(state)
+  }
   const out = []
   for (const c of chars) {
-    const states = listStates(novelId, c.id)
+    if (!c.name || isGenericName(c.name)) continue
+    const states = (byCharacter.get(c.id) || [])
+      .slice()
+      .sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
     if (!states.length) continue
     out.push({
       characterId: c.id,

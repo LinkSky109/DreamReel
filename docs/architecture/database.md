@@ -274,3 +274,12 @@ npm run db:verify:novel-children
 - 回滚只需改回 `legacy`，JSON 始终是最新事实源。
 
 详见 `docs/runbooks/novels-postgres-cutover.md`。
+
+## Phase 4 补全：timeline 与集合列表
+
+- `GET /:id/timeline` 改为一次读取角色 + 全部状态后聚合，避免按角色 N 次查询；
+- `buildTimelineFrom(chars, states)` 为纯函数，JSON 与 PG 共用；
+- `GET /:id/characters/sets`、`GET /:id/world/sets` 支持 `NOVEL_REPO_MODE`：
+  按项目中的集合 ID 顺序返回，并计算 `count/live/selected`。
+
+实测：timeline 58 组、两处集合列表与 legacy 完全一致；0 回退告警。

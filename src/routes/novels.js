@@ -10,7 +10,7 @@ import {
 } from '../services/novelProjectService.js'
 import { ingestNovel, listChunks } from '../services/novelChunkService.js'
 import { extractCharacters, listCharacters } from '../services/characterExtractionService.js'
-import { selectCharacterSet, listCharacterSets } from '../services/characterExtractionService.js'
+import { selectCharacterSet } from '../services/characterExtractionService.js'
 import { advanceStage } from '../services/novelProjectService.js'
 import { ensureCards, applyEdits, reviewStats } from '../services/characterCardService.js'
 import { generateStyle } from '../services/novelStyleService.js'
@@ -18,7 +18,7 @@ import {
   addState,
   listStates,
   upsertState,
-  buildTimeline,
+  buildTimelineFrom,
   generateEpisodeStates,
   getCharacterStateAt,
 } from '../services/characterGrowthService.js'
@@ -33,7 +33,7 @@ import { composeEpisode } from '../services/episodeComposeService.js'
 import { buildManifest, syncToQuark, syncToWebdav, syncNovel, getLedger, getSyncState, resolveScope, SYNC_SCOPES } from '../services/novelSyncService.js'
 import { exportHandoff, importHandoffResult, listHandoff } from '../services/episodeHandoffService.js'
 import { extractWorld, listEntities, listRelations, summarize } from '../services/worldbuildingService.js'
-import { selectWorldSet, listWorldSets } from '../services/worldbuildingService.js'
+import { selectWorldSet } from '../services/worldbuildingService.js'
 import { CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
 import { optionalClampInt } from '../utils/coerce.js'
@@ -560,10 +560,14 @@ router.post('/:id/characters/:cid/states', (req, res) => {
 })
 
 // 形象时间线（全书，按角色分组）
-router.get('/:id/timeline', (req, res) => {
+router.get('/:id/timeline', async (req, res) => {
   try {
     getNovelProject(req.params.id)
-    res.json({ success: true, data: { timeline: buildTimeline(req.params.id) } })
+    const [chars, states] = await Promise.all([
+      novelChildReadService.list('characters', req.params.id, { requestId: req.id }),
+      novelChildReadService.list('states', req.params.id, { requestId: req.id }),
+    ])
+    res.json({ success: true, data: { timeline: buildTimelineFrom(chars, states) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1336,10 +1340,11 @@ router.post('/:id/advance', (req, res) => {
 })
 
 // 角色备选集合
-router.get('/:id/characters/sets', (req, res) => {
+router.get('/:id/characters/sets', async (req, res) => {
   try {
     getNovelProject(req.params.id)
-    res.json({ success: true, data: listCharacterSets(req.params.id) })
+    const rows = await novelChildReadService.listSets('characterSets', req.params.id, { requestId: req.id })
+    res.json({ success: true, data: rows })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1373,10 +1378,11 @@ router.patch('/:id/world/entities/:eid/review', (req, res) => {
 })
 
 // 世界观备选集合
-router.get('/:id/world/sets', (req, res) => {
+router.get('/:id/world/sets', async (req, res) => {
   try {
     getNovelProject(req.params.id)
-    res.json({ success: true, data: listWorldSets(req.params.id) })
+    const rows = await novelChildReadService.listSets('worldSets', req.params.id, { requestId: req.id })
+    res.json({ success: true, data: rows })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
