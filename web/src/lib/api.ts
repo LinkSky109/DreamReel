@@ -15,13 +15,18 @@ import type {
   ImageProviderInfo,
   ModerationLog,
   NotificationItem,
+  NotificationPreferences,
   Project,
   ProjectListResponse,
   ProjectScript,
   ProjectVersion,
+  ProviderStatus,
   SceneItem,
   SfxItem,
   ShareSettings,
+  SubscriptionFeatures,
+  SubscriptionPlan,
+  SystemInfo,
   VersionCompare,
   Voice,
   QuotaOverview,
@@ -387,11 +392,19 @@ export const api = {
   clearAiConversation: (projectId: string) =>
     request<{ success: boolean }>(`/ai-assistant/conversation/${projectId}`, { method: 'DELETE' }),
 
-  // System
-  getSystemInfo: () =>
-    request<{ llm?: { provider?: string }; video?: { provider?: string }; tts?: { provider?: string } }>(
-      '/system/info'
-    ),
+  // Settings & system
+  getSystemInfo: () => request<SystemInfo>('/system/info'),
+  getProviderStatus: () => request<ProviderStatus>('/providers/status'),
+  getNotificationPreferences: () =>
+    request<{ preferences: NotificationPreferences }>('/notifications/preferences'),
+  updateNotificationPreferences: (updates: NotificationPreferences) =>
+    request<{ preferences: NotificationPreferences }>('/notifications/preferences', {
+      method: 'PATCH',
+      body: updates,
+    }),
+  getPlans: () => request<{ plans: SubscriptionPlan[] }>('/subscription/plans'),
+  getCurrentSubscription: () => request<SubscriptionFeatures>('/subscription/current'),
+  getPerformance: () => request<Record<string, unknown>>('/system/performance'),
 }
 
 export function hasToken(): boolean {

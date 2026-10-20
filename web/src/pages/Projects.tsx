@@ -18,6 +18,7 @@ import {
 import type { Project } from '../domain/types'
 import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
+import { readWorkspacePreferences } from '../lib/preferences'
 
 export function ProjectsPage() {
   const navigate = useNavigate()
@@ -48,6 +49,8 @@ export function ProjectsPage() {
         limit: 200,
       }),
   })
+
+  const workspacePrefs = readWorkspacePreferences()
 
   const templatesQuery = useQuery({
     queryKey: ['templates'],
@@ -377,7 +380,14 @@ export function ProjectsPage() {
         onClose={closeCreate}
         defaultName={template ? `${template.name} 项目` : ''}
         defaultDuration={template?.config?.targetDuration ?? 60}
-        defaultPlatform={template?.config?.platform ?? 'landscape'}
+        defaultPlatform={
+          template?.config?.platform ??
+          (workspacePrefs.defaultAspect === '9:16' ? 'portrait' : 'landscape')
+        }
+        defaultStyle={
+          template?.config?.style ??
+          (workspacePrefs.defaultStyle !== 'none' ? workspacePrefs.defaultStyle : undefined)
+        }
         templateId={template?.id}
         onCreated={(project) => {
           closeCreate()
@@ -572,6 +582,7 @@ type CreateProjectModalProps = {
   defaultName: string
   defaultDuration: number
   defaultPlatform: string
+  defaultStyle?: string
   templateId?: string
   onCreated: (project: Project) => void
 }
@@ -582,6 +593,7 @@ function CreateProjectModal({
   defaultName,
   defaultDuration,
   defaultPlatform,
+  defaultStyle,
   templateId,
   onCreated,
 }: CreateProjectModalProps) {
@@ -599,6 +611,7 @@ function CreateProjectModal({
         description: description.trim() || undefined,
         targetDuration: Number(duration),
         platform,
+        style: defaultStyle,
         templateId,
       }),
     onSuccess: (project) => {

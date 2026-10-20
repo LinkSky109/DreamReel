@@ -423,3 +423,59 @@ export interface SubtitleStyle {
   bilingual?: boolean
   secondaryLanguage?: string
 }
+
+export interface ProviderStageStatus {
+  current: string
+  available: string[]
+  configured: Record<string, boolean>
+  model?: string
+}
+
+export interface ProviderStatus {
+  video: ProviderStageStatus
+  llm: ProviderStageStatus
+  tts: ProviderStageStatus
+  image?: ProviderStageStatus
+}
+
+export interface SystemInfo {
+  app: { name: string; version: string; env: string; uptime: number; startTime?: string }
+  system: {
+    platform: string
+    arch: string
+    nodeVersion: string
+    cpuCount: number
+    totalMemory: number
+    freeMemory: number
+    hostname?: string
+    loadAvg?: number[]
+  }
+  process: { pid: number; memoryUsage: { heapUsed: number; rss?: number } }
+  storage: { usedMB: number; fileCount: number; path: string }
+  config: {
+    port: number
+    videoProvider?: string
+    llmProvider?: string
+    ttsProvider?: string
+    maxConcurrent?: number
+  }
+}
+
+export type NotificationPreferences = Record<string, boolean>
+
+export interface SubscriptionPlan {
+  id: string
+  name: string
+  price?: number
+  priceMonthly?: number
+  priceYearly?: number
+  features?: Record<string, unknown>
+}
+
+export interface SubscriptionFeatures {
+  planId?: string
+  plan?: SubscriptionPlan
+  status?: string
+  currentPeriodEnd?: string | null
+  cancelAtPeriodEnd?: boolean
+}

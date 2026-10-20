@@ -24,6 +24,9 @@ const DocsPage = lazy(() =>
 const ModerationPage = lazy(() =>
   import('../pages/Moderation').then((module) => ({ default: module.ModerationPage }))
 )
+const SettingsPage = lazy(() =>
+  import('../pages/Settings').then((module) => ({ default: module.SettingsPage }))
+)
 const SharedProjectPage = lazy(() =>
   import('../pages/SharedProject').then((module) => ({ default: module.SharedProjectPage }))
 )
@@ -135,7 +138,11 @@ export function App() {
           />
           <Route path="/stats" element={<LegacyView module="stats" renderer="renderStatsPage" title="创作数据" />} />
           <Route path="/pricing" element={<LegacyView module="pricing" renderer="renderPricingPage" title="套餐与定价" />} />
-          <Route path="/settings" element={<LegacyView module="settings" renderer="renderSettingsPage" title="设置" />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route
+            path="/system-settings"
+            element={<LegacyView module="settings" renderer="renderSettingsPage" title="系统监控" />}
+          />
           <Route path="/recycle-bin" element={<LegacyView module="recycleBin" renderer="renderRecycleBin" title="回收站" />} />
           <Route path="/login" element={<LegacyView module="auth" renderer="renderAuthPage" title="登录" />} />
 

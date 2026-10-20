@@ -9,6 +9,7 @@ import type { SaveState } from './EditorPage'
 import { downloadText } from './utils'
 import { splitTracks, trackBlockStyle } from './audio'
 import { AudioLibrary } from './AudioLibrary'
+import { readWorkspacePreferences } from '../../lib/preferences'
 import { SubtitleStyleCard } from './SubtitleStyleCard'
 
 type Props = {
@@ -33,10 +34,10 @@ export function DubbingStage({ project, onUpdated, onSaveState }: Props) {
 
   const voices = voicesQuery.data?.voices ?? []
   const [language, setLanguage] = useState('zh')
-  const [voiceId, setVoiceId] = useState('')
+  const [voiceId, setVoiceId] = useState(() => readWorkspacePreferences().defaultVoice || '')
   const [speed, setSpeed] = useState(1)
   const [pauseSeconds, setPauseSeconds] = useState(0.4)
-  const [burnSubtitles, setBurnSubtitles] = useState(true)
+  const [burnSubtitles, setBurnSubtitles] = useState(() => readWorkspacePreferences().subtitles)
   const [assignments, setAssignments] = useState<Record<string, string>>(
     project.dialogueAssignments ?? {}
   )

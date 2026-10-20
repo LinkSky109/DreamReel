@@ -57,6 +57,7 @@ export const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items)
 export const EXTRA_LABELS: Record<string, string> = {
   '/pricing': '套餐与定价',
   '/docs': 'API 文档',
+  '/system-settings': '系统监控',
   '/moderation': '内容审核',
   '/login': '登录',
   '/more': '全部功能',
