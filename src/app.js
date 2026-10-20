@@ -23,6 +23,8 @@ const STORAGE_DIR = path.resolve(config.storage.path)
 const app = express()
 app.disable('x-powered-by')
 if (config.trustProxy) app.set('trust proxy', 1)
+// Express 5 默认改为 simple 解析；显式保持 4.x 的 extended 行为，兼容嵌套查询参数
+app.set('query parser', 'extended')
 
 // 请求 ID：优先沿用上游网关传入，便于链路追踪
 app.use((req, res, next) => {

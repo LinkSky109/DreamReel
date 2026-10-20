@@ -1,6 +1,6 @@
 # ADR-0004: 后端 HTTP 框架保持 Express（升级到 5.x）
 
-- 状态：已接受（2026-10-20）
+- 状态：已接受并执行（2026-10-20）
 - 相关：ADR-0001（数据库）、ADR-0002（前后端分离）
 
 ## 背景
@@ -67,6 +67,14 @@ Express 5 的关键收益：**async handler 的 rejected promise 自动进入错
 5. 通过后更新依赖与文档；失败则回退到 4.21（package-lock 保留）。
 
 > 升级不改变现有路由与响应，属于框架维护，不并入业务迁移提交。
+
+## 执行结果（2026-10-20）
+
+- `express` 4.21.0 → **5.3.0**。
+- 全量测试 **765/765 通过**（含真实 PostgreSQL 契约）。
+- 运行时冒烟：`/health/ready`、`/api/v1/meta`、`/api/v1/novels`、小说详情/资产/时间线、`/docs`、legacy 资源均 200。
+- 参数校验仍返回 422；`x-powered-by` 保持关闭。
+- 显式设置 `query parser = extended`，保持 Express 4 的嵌套查询参数行为（`filter[status]=done`、`tags[]=a` 实测正确）。
 
 ## 重新评估的触发条件
 

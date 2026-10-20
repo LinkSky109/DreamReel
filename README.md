@@ -86,7 +86,7 @@ DreamReel 让每个人都能像做梦一样拍电影。覆盖剧本、分镜、�
 ## 技术栈
 
 - **运行时**: Node.js >= 20.19
-- **后端**: Express 4（JavaScript / ES Modules）
+- **后端**: Express 5（JavaScript / ES Modules）
 - **前端**: React 19 + TypeScript + Vite（源码在 `web/`，构建产物输出到 `public/`）
 - **UI 组件**: Radix UI 无头组件 + cmdk（命令面板）+ Sonner（Toast）+ Lucide（1.75px 线性图标）
 - **前端测试**: Vitest + Testing Library；类型检查 `tsc --noEmit`
