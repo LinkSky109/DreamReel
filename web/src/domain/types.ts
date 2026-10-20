@@ -506,6 +506,18 @@ export interface NovelReviewStats {
   revisionRate?: number
 }
 
+export interface NovelStoryboardShot {
+  id: string
+  chapter: number
+  para: number
+  chapterTitle?: string
+  text: string
+  duration: number
+  shotType: string
+  camera: string
+  createdAt?: string
+}
+
 export interface NovelMark {
   chapter: number
   para: number

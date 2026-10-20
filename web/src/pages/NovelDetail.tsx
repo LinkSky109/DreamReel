@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { useLang } from '../lib/i18n'
 import { showToast } from '../lib/toast'
 import { NOVEL_STAGES, novelStageIndex, novelStageLabel } from '../lib/novel'
-import type { NovelChunk, NovelDetail } from '../domain/types'
+import type { NovelChunk, NovelDetail, NovelStage } from '../domain/types'
 import { Icon } from '../components/Icon'
 import { CharactersTab } from '../features/novel/CharactersTab'
 import { WorldTab } from '../features/novel/WorldTab'
@@ -13,20 +13,22 @@ import { SeriesTab } from '../features/novel/SeriesTab'
 import { EpisodeTab } from '../features/novel/EpisodeTab'
 import { ArtTab } from '../features/novel/ArtTab'
 import { SyncTab } from '../features/novel/SyncTab'
+import { StoryboardTab } from '../features/novel/StoryboardTab'
 import { Modal } from '../components/Modal'
 import './NovelDetail.css'
 
-type TabKey = 'stage' | 'source' | 'characters' | 'world' | 'series' | 'episode' | 'art' | 'sync'
+type TabKey = 'stage' | 'source' | 'characters' | 'world' | 'series' | 'episode' | 'storyboard' | 'art' | 'sync'
 
-const TABS: { key: TabKey; zh: string; en: string }[] = [
+const TABS: { key: TabKey; zh: string; en: string; stage?: NovelStage }[] = [
   { key: 'stage', zh: '阶段', en: 'Stage' },
-  { key: 'source', zh: '来源', en: 'Source' },
-  { key: 'characters', zh: '角色', en: 'Characters' },
-  { key: 'world', zh: '世界观', en: 'World' },
-  { key: 'series', zh: '分季分集', en: 'Seasons' },
-  { key: 'episode', zh: '单集', en: 'Episodes' },
-  { key: 'art', zh: '设定图集', en: 'Art' },
-  { key: 'sync', zh: '风格/同步', en: 'Style / Sync' },
+  { key: 'source', zh: '来源', en: 'Source', stage: 'source' },
+  { key: 'characters', zh: '角色', en: 'Characters', stage: 'characters' },
+  { key: 'world', zh: '世界观', en: 'World', stage: 'world' },
+  { key: 'series', zh: '分季分集', en: 'Seasons', stage: 'series' },
+  { key: 'episode', zh: '单集', en: 'Episodes', stage: 'episodes' },
+  { key: 'storyboard', zh: '分镜板', en: 'Storyboard' },
+  { key: 'art', zh: '设定图集', en: 'Art', stage: 'assets' },
+  { key: 'sync', zh: '风格/同步', en: 'Style / Sync', stage: 'compose' },
 ]
 
 export function NovelDetailPage() {
@@ -86,6 +88,22 @@ export function NovelDetailPage() {
   const markMutation = useMutation({
     mutationFn: ({ chapter, para }: { chapter: number; para: number }) => api.toggleNovelMark(id, chapter, para),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['novel', id] }),
+    onError: (error: Error) => showToast(error.message, 'error'),
+  })
+
+  const toStoryboard = useMutation({
+    mutationFn: () => api.createNovelStoryboardFromMarks(id),
+    onSuccess: (result) => {
+      showToast(
+        result.created
+          ? t(`已生成 ${result.created} 个分镜草稿`, `Created ${result.created} storyboard drafts`)
+          : t('标记对应的分镜已存在', 'Drafts already exist for these marks'),
+        result.created ? 'success' : 'info'
+      )
+      queryClient.invalidateQueries({ queryKey: ['novel-storyboard', id] })
+      queryClient.invalidateQueries({ queryKey: ['novel', id] })
+      setTab('storyboard')
+    },
     onError: (error: Error) => showToast(error.message, 'error'),
   })
 
@@ -165,10 +183,12 @@ export function NovelDetailPage() {
           : tab === 'series'
             ? 'episode'
             : tab === 'episode'
-              ? 'art'
-              : tab === 'art'
-                ? 'sync'
-                : 'stage'
+              ? 'storyboard'
+              : tab === 'storyboard'
+                ? 'art'
+                : tab === 'art'
+                  ? 'sync'
+                  : 'stage'
   const descriptions: Record<TabKey, { zh: string; en: string }> = {
     stage: { zh: '推进阶段并锁定已完成部分。', en: 'Advance stages and lock completed work.' },
     source: { zh: '导入链接或正文，清洗分章。', en: 'Import a URL or text and split chapters.' },
@@ -176,6 +196,7 @@ export function NovelDetailPage() {
     world: { zh: '整理世界规则、势力、事件与关系。', en: 'Organize rules, factions, events and relations.' },
     series: { zh: '把章节规划成季与集。', en: 'Plan chapters into seasons and episodes.' },
     episode: { zh: '生成剧本、资产与成片。', en: 'Generate scripts, assets and final cuts.' },
+    storyboard: { zh: '把标记段落整理成可编辑分镜草稿。', en: 'Turn marked paragraphs into editable storyboard drafts.' },
     art: { zh: '为图生视频准备成套设定图。', en: 'Prepare reference art for image-to-video.' },
     sync: { zh: '统一风格，打包并同步产物。', en: 'Set style, package and sync deliverables.' },
   }
@@ -214,8 +235,12 @@ export function NovelDetailPage() {
             <Icon name="refresh" size={14} />
             {t('重新抽取', 'Re-extract')}
           </button>
-          <button className="dr-btn dr-btn-primary" type="button" onClick={() => setTab('episode')}>
+          <button className="dr-btn" type="button" disabled={!marks.length || toStoryboard.isPending} onClick={() => toStoryboard.mutate()}>
             <Icon name="film" size={14} />
+            {toStoryboard.isPending ? t('生成中…', 'Generating…') : t('转为分镜', 'To storyboard')}
+          </button>
+          <button className="dr-btn dr-btn-primary" type="button" onClick={() => setTab('episode')}>
+            <Icon name="play" size={14} />
             {t('进入制作', 'Produce')}
           </button>
         </div>
@@ -250,7 +275,7 @@ export function NovelDetailPage() {
               <span>{TABS.length}</span>
             </div>
             {TABS.map((item, index) => {
-              const stageForTab = index < NOVEL_STAGES.length ? NOVEL_STAGES[index] : null
+              const stageForTab = item.stage ?? null
               const state = stageForTab
                 ? novelStageIndex(novel.stage) > novelStageIndex(stageForTab)
                   ? 'done'
@@ -391,6 +416,7 @@ export function NovelDetailPage() {
           {tab === 'world' ? <WorldTab novel={novel} onChanged={invalidate} /> : null}
           {tab === 'series' ? <SeriesTab novel={novel} onChanged={invalidate} /> : null}
           {tab === 'episode' ? <EpisodeTab novel={novel} onChanged={invalidate} /> : null}
+          {tab === 'storyboard' ? <StoryboardTab novel={novel} onChanged={invalidate} /> : null}
           {tab === 'art' ? <ArtTab novel={novel} onChanged={invalidate} /> : null}
           {tab === 'sync' ? <SyncTab novel={novel} onChanged={invalidate} /> : null}
         </section>

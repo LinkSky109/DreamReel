@@ -277,6 +277,8 @@
   align-items: center;
   gap: 8px;
   flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .nv-inspector-toggle {
@@ -658,7 +660,7 @@
     width: 100%;
   }
   .nv-top-actions .dr-btn {
-    flex: 1;
+    flex: 1 1 calc(50% - 4px);
     justify-content: center;
   }
   .nv-top-actions .nv-inspector-toggle {

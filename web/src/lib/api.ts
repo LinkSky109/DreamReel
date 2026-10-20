@@ -37,6 +37,7 @@ import type {
   NovelSeriesPlanResult,
   NovelManifest,
   NovelMark,
+  NovelStoryboardShot,
   NovelSeasonAssetSubset,
   NovelSyncLedger,
   NovelSyncResult,
@@ -444,6 +445,19 @@ export const api = {
     requestData<NovelChunk[]>(`/novels/${id}/chunks${meta ? '?meta=1' : ''}`),
   getNovelChunk: (id: string, chunkId: string) =>
     requestData<NovelChunk>(`/novels/${id}/chunks/${chunkId}`),
+  getNovelStoryboard: (id: string) => requestData<NovelStoryboardShot[]>(`/novels/${id}/storyboard`),
+  createNovelStoryboardFromMarks: (id: string) =>
+    requestData<{ shots: NovelStoryboardShot[]; created: number }>(
+      `/novels/${id}/storyboard/from-marks`,
+      { method: 'POST', body: {} }
+    ),
+  updateNovelStoryboardShot: (
+    id: string,
+    sid: string,
+    body: { text?: string; duration?: number; shotType?: string; camera?: string }
+  ) => requestData<NovelStoryboardShot>(`/novels/${id}/storyboard/${sid}`, { method: 'PATCH', body }),
+  deleteNovelStoryboardShot: (id: string, sid: string) =>
+    requestData<unknown>(`/novels/${id}/storyboard/${sid}`, { method: 'DELETE' }),
   toggleNovelMark: (id: string, chapter: number, para: number) =>
     requestData<{ marks: NovelMark[]; marked: boolean }>(`/novels/${id}/marks/toggle`, {
       method: 'POST',

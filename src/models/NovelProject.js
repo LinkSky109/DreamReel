@@ -30,6 +30,8 @@ export class NovelProject {
     this.providerPreferences = data.providerPreferences || { llm: null, updatedAt: null }
     // 章节段落标记：{ chapter: 章节序号, para: 段落下标, at }
     this.marks = Array.isArray(data.marks) ? data.marks : []
+    // 改编分镜草稿：由段落标记生成，后续可导出/送入制作
+    this.storyboard = Array.isArray(data.storyboard) ? data.storyboard : []
     this.createdAt = data.createdAt || new Date().toISOString()
     this.updatedAt = data.updatedAt || this.createdAt
   }

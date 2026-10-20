@@ -38,6 +38,7 @@ import { selectWorldSet, listWorldSets } from '../services/worldbuildingService.
 import { CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
 import { optionalClampInt } from '../utils/coerce.js'
+import { generateId } from '../utils/idGenerator.js'
 import { tryAcquire, release } from '../utils/asyncLock.js'
 import { getJobs } from '../services/extractionStatus.js'
 import { extractAll } from '../services/combinedExtractionService.js'
@@ -150,6 +151,82 @@ router.post('/:id/marks/toggle', (req, res) => {
       : [...marks, { chapter, para, at: new Date().toISOString() }]
     const updated = updateNovelProject(req.params.id, { marks: next })
     res.json({ success: true, data: { marks: updated.marks, marked: index < 0 } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 改编分镜板：由标记段落生成草稿
+router.get('/:id/storyboard', (req, res) => {
+  try {
+    const project = getNovelProject(req.params.id)
+    res.json({ success: true, data: project.storyboard || [] })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+router.post('/:id/storyboard/from-marks', (req, res) => {
+  try {
+    const project = getNovelProject(req.params.id)
+    const marks = Array.isArray(project.marks) ? project.marks : []
+    if (!marks.length) return res.status(400).json({ success: false, error: '还没有段落标记，请先在章节里标记分镜素材' })
+    const chunks = new Map(listChunks(req.params.id).map((chunk) => [chunk.index, chunk]))
+    const existing = new Set((project.storyboard || []).map((shot) => `${shot.chapter}:${shot.para}`))
+    const drafts = [...(project.storyboard || [])]
+    let created = 0
+    for (const mark of marks) {
+      const key = `${mark.chapter}:${mark.para}`
+      if (existing.has(key)) continue
+      const chunk = chunks.get(mark.chapter)
+      if (!chunk) continue
+      const paragraphs = String(chunk.text || '').split(/\n+/).filter(Boolean)
+      const text = paragraphs[mark.para] || ''
+      if (!text) continue
+      drafts.push({
+        id: generateId(),
+        chapter: mark.chapter,
+        para: mark.para,
+        chapterTitle: chunk.chapterTitle || '',
+        text,
+        duration: 5,
+        shotType: '中景',
+        camera: '固定',
+        createdAt: new Date().toISOString(),
+      })
+      created++
+    }
+    const updated = updateNovelProject(req.params.id, { storyboard: drafts })
+    res.json({ success: true, data: { shots: updated.storyboard, created } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+router.patch('/:id/storyboard/:sid', (req, res) => {
+  try {
+    const project = getNovelProject(req.params.id)
+    const shot = (project.storyboard || []).find((item) => item.id === req.params.sid)
+    if (!shot) throw new Error('storyboard shot not found')
+    const { text, duration, shotType, camera } = req.body || {}
+    if (text !== undefined) shot.text = String(text).slice(0, 4000)
+    if (duration !== undefined) shot.duration = Math.max(1, Math.min(60, Number(duration) || 5))
+    if (shotType !== undefined) shot.shotType = String(shotType).slice(0, 40)
+    if (camera !== undefined) shot.camera = String(camera).slice(0, 40)
+    updateNovelProject(req.params.id, { storyboard: project.storyboard })
+    res.json({ success: true, data: shot })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+router.delete('/:id/storyboard/:sid', (req, res) => {
+  try {
+    const project = getNovelProject(req.params.id)
+    const next = (project.storyboard || []).filter((item) => item.id !== req.params.sid)
+    if (next.length === project.storyboard.length) throw new Error('storyboard shot not found')
+    updateNovelProject(req.params.id, { storyboard: next })
+    res.json({ success: true, data: { removed: 1 } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
