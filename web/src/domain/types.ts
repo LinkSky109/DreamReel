@@ -618,6 +618,37 @@ export interface NovelWorldSummary {
   provider?: string | null
 }
 
+export interface NovelSeason {
+  id: string
+  novelId: string
+  seasonNo: number
+  title: string
+  synopsis?: string
+  episodeCount: number
+  chapterStart: number
+  chapterEnd: number
+  createdAt?: string
+}
+
+export interface NovelSeriesEstimate {
+  chapters: number
+  totalChars: number
+  seasons: number
+  episodes: number
+  episodeSeconds: number
+  charsPerSecond: number
+  plannedSeconds: number
+  supportSeconds: Record<string, number>
+  supportEpisodes: number
+}
+
+export interface NovelSeriesPlanResult {
+  seasons: number
+  episodes: number
+  episodesPerSeason: number
+  episodeSeconds: number
+}
+
 export interface NovelIngestResult {
   chapters?: number
   chunks?: number

@@ -21,6 +21,9 @@ import type {
   NovelDetail,
   NovelExtractJobs,
   NovelSchema,
+  NovelSeason,
+  NovelSeriesEstimate,
+  NovelSeriesPlanResult,
   NovelWorldEntity,
   NovelWorldRelation,
   NovelWorldSet,
@@ -447,6 +450,11 @@ export const api = {
       method: 'POST',
       body: {},
     }),
+  listNovelSeasons: (id: string) => requestData<NovelSeason[]>(`/novels/${id}/seasons`),
+  getNovelSeriesEstimate: (id: string) =>
+    requestData<NovelSeriesEstimate>(`/novels/${id}/series/estimate`),
+  planNovelSeries: (id: string, body: Record<string, unknown> = {}) =>
+    requestData<NovelSeriesPlanResult>(`/novels/${id}/series/plan`, { method: 'POST', body }),
   getNovelWorld: (id: string) => requestData<NovelWorldSummary>(`/novels/${id}/world`),
   listNovelWorldEntities: (id: string, type?: string) =>
     requestData<NovelWorldEntity[]>(`/novels/${id}/world/entities${type ? `?type=${encodeURIComponent(type)}` : ''}`),
