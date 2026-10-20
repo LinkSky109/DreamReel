@@ -18,6 +18,10 @@ import type {
   NotificationPreferences,
   NovelCharacter,
   NovelCharacterSet,
+  NovelAsset,
+  NovelAssetBulkResult,
+  NovelAssetCategory,
+  NovelAssetStats,
   NovelBulkResult,
   NovelDetail,
   NovelEpisode,
@@ -459,6 +463,26 @@ export const api = {
     requestData<NovelSeriesEstimate>(`/novels/${id}/series/estimate`),
   planNovelSeries: (id: string, body: Record<string, unknown> = {}) =>
     requestData<NovelSeriesPlanResult>(`/novels/${id}/series/plan`, { method: 'POST', body }),
+  listNovelAssets: (id: string) =>
+    requestData<{ assets: NovelAsset[]; stats: NovelAssetStats }>(`/novels/${id}/assets`),
+  createNovelAsset: (
+    id: string,
+    body: { category: NovelAssetCategory; name: string; prompt?: string }
+  ) => requestData<NovelAsset>(`/novels/${id}/assets`, { method: 'POST', body }),
+  updateNovelAsset: (id: string, aid: string, body: { name?: string; prompt?: string }) =>
+    requestData<NovelAsset>(`/novels/${id}/assets/${aid}`, { method: 'PATCH', body }),
+  deleteNovelAsset: (id: string, aid: string) =>
+    requestData<unknown>(`/novels/${id}/assets/${aid}`, { method: 'DELETE' }),
+  generateNovelAsset: (id: string, aid: string) =>
+    requestData<NovelAsset>(`/novels/${id}/assets/${aid}/generate`, { method: 'POST', body: {} }),
+  bulkGenerateNovelAssets: (
+    id: string,
+    body: { categories?: string[]; onlyMissing?: boolean; limit?: number; concurrency?: number; reset?: boolean }
+  ) => requestData<NovelAssetBulkResult>(`/novels/${id}/assets/bulk-generate`, { method: 'POST', body }),
+  cancelNovelAssetBulk: (id: string) =>
+    requestData<{ cancelled: boolean }>(`/novels/${id}/assets/bulk-cancel`, { method: 'POST', body: {} }),
+  suggestNovelAssets: (id: string) =>
+    requestData<{ created: number }>(`/novels/${id}/assets/suggest`, { method: 'POST', body: {} }),
   listNovelEpisodes: (id: string, seasonId?: string) =>
     requestData<NovelEpisode[]>(
       `/novels/${id}/episodes${seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''}`

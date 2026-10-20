@@ -656,6 +656,52 @@ export interface NovelEpisode {
   createdAt?: string
 }
 
+export type NovelAssetCategory =
+  | 'character'
+  | 'clothing'
+  | 'equipment'
+  | 'architecture'
+  | 'scene'
+  | 'prop'
+  | 'other'
+
+export interface NovelAsset {
+  id: string
+  novelId: string
+  category: NovelAssetCategory
+  name: string
+  prompt?: string
+  source?: string
+  sourceId?: string | null
+  characterId?: string | null
+  episodeNo?: number | null
+  stageLabel?: string
+  status: 'draft' | 'generated' | 'failed' | string
+  imageUrl?: string | null
+  error?: string | null
+  provider?: string | null
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface NovelAssetStats {
+  total: number
+  generated: number
+  failed: number
+  byCategory: Record<string, number>
+}
+
+export interface NovelAssetBulkResult {
+  processed: number
+  ok: number
+  failed: number
+  stopped?: boolean
+  cancelled?: boolean
+  total: number
+  withImages: number
+  remaining: number
+}
+
 export interface NovelSeasonAssetSubset {
   seasonId: string
   seasonTitle: string

@@ -1,0 +1,194 @@
+.dr-art-head {
+  padding: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.dr-art-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dr-art-title h2 {
+  margin: 0;
+  font-size: 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dr-art-title h2 span {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.dr-art-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dr-art-bulk-info {
+  font-size: 12px;
+  color: #7c3aed;
+}
+
+.dr-art-stats {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dr-art-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dr-art-filters .dr-chip {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.dr-art-filters .dr-chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dr-art-add {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.dr-art-add select {
+  max-width: 120px;
+}
+
+.dr-art-add input {
+  flex: 1;
+  min-width: 160px;
+}
+
+.dr-art-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.dr-art-card {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dr-art-thumb {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--meta);
+  font-size: 12px;
+}
+
+.dr-art-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dr-art-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.dr-art-name strong {
+  font-size: 13px;
+}
+
+.dr-art-name > span {
+  font-size: 11px;
+  color: #7c3aed;
+}
+
+.dr-art-name .dr-art-stage {
+  color: #16a34a;
+}
+
+.dr-art-prompt,
+.dr-art-error {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  max-height: 34px;
+  overflow: hidden;
+}
+
+.dr-art-error {
+  color: #dc2626;
+}
+
+.dr-art-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.dr-art-card-actions .dr-btn {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.dr-art-empty {
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 36px 20px;
+}
+
+.dr-art-empty h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.dr-art-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 767px) {
+  .dr-art-actions .dr-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  .dr-art-add .dr-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .dr-art-add select {
+    max-width: none;
+    width: 100%;
+  }
+}
