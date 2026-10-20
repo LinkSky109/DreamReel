@@ -13,6 +13,9 @@ const ingestNovel = vi.fn()
 vi.mock('../lib/api', () => ({
   api: {
     getNovel: (id: string) => getNovel(id),
+    listNovelCharacters: async () => [],
+    listNovelWorldEntities: async () => [],
+    getNovelChunks: async () => [],
     advanceNovel: (id: string) => advanceNovel(id),
     ingestNovel: (id: string, body: unknown) => ingestNovel(id, body),
   },
@@ -55,7 +58,7 @@ describe('NovelDetailPage', () => {
   it('渲染头部与阶段进度', async () => {
     renderPage()
     expect(await screen.findByRole('heading', { name: '长夜将明' })).toBeInTheDocument()
-    expect(screen.getByText(/章 12/)).toBeInTheDocument()
+    expect(screen.getAllByText(/12 章/).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /推进到下一阶段（角色）/ })).toBeInTheDocument()
   })
 
@@ -71,9 +74,9 @@ describe('NovelDetailPage', () => {
   it('来源页可粘贴文本摄取', async () => {
     const user = userEvent.setup()
     renderPage('/novel/n1?tab=source')
-    await screen.findByRole('heading', { name: '来源' })
-    await user.type(screen.getByPlaceholderText(/粘贴正文/), '第一章 起风')
-    await user.click(screen.getByRole('button', { name: /摄取/ }))
+    expect((await screen.findAllByRole('heading', { name: '来源' })).length).toBeGreaterThan(0)
+    await user.type(screen.getAllByPlaceholderText(/粘贴正文/)[0], '第一章 起风')
+    await user.click(screen.getAllByRole('button', { name: /摄取/ })[0])
     await waitFor(() =>
       expect(ingestNovel).toHaveBeenCalledWith('n1', { sourceType: 'text', text: '第一章 起风' })
     )

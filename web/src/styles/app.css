@@ -298,12 +298,12 @@ p {
 
 .dr-main {
   margin-left: 240px;
-  padding: 84px 28px 56px;
+  padding: 98px 40px 72px;
   min-height: 100vh;
 }
 
 .dr-page {
-  max-width: 1280px;
+  max-width: 1360px;
   margin: 0 auto;
 }
 

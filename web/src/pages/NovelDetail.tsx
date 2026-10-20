@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { useLang } from '../lib/i18n'
 import { showToast } from '../lib/toast'
 import { NOVEL_STAGES, novelStageIndex, novelStageLabel } from '../lib/novel'
-import type { NovelDetail } from '../domain/types'
+import type { NovelChunk, NovelDetail } from '../domain/types'
 import { Icon } from '../components/Icon'
 import { CharactersTab } from '../features/novel/CharactersTab'
 import { WorldTab } from '../features/novel/WorldTab'
@@ -34,6 +34,8 @@ export function NovelDetailPage() {
   const [params, setParams] = useSearchParams()
   const { t, lang } = useLang()
   const queryClient = useQueryClient()
+  const [chapterOpen, setChapterOpen] = useState<NovelChunk | null>(null)
+  const [inspectorOpen, setInspectorOpen] = useState(false)
 
   const tabParam = params.get('tab') as TabKey | null
   const tab: TabKey = TABS.some((item) => item.key === tabParam) ? (tabParam as TabKey) : 'stage'
@@ -41,6 +43,21 @@ export function NovelDetailPage() {
   const novelQuery = useQuery({
     queryKey: ['novel', id],
     queryFn: () => api.getNovel(id),
+    enabled: Boolean(id),
+  })
+  const charactersQuery = useQuery({
+    queryKey: ['novel-characters', id],
+    queryFn: () => api.listNovelCharacters(id),
+    enabled: Boolean(id),
+  })
+  const entitiesQuery = useQuery({
+    queryKey: ['novel-world-entities', id],
+    queryFn: () => api.listNovelWorldEntities(id),
+    enabled: Boolean(id),
+  })
+  const chunksQuery = useQuery({
+    queryKey: ['novel-chunks', id],
+    queryFn: () => api.getNovelChunks(id),
     enabled: Boolean(id),
   })
 
@@ -54,6 +71,7 @@ export function NovelDetailPage() {
     if (key === 'stage') next.delete('tab')
     else next.set('tab', key)
     setParams(next, { replace: true })
+    setInspectorOpen(false)
   }
 
   if (novelQuery.isLoading) {
@@ -80,49 +98,295 @@ export function NovelDetailPage() {
   }
 
   const novel = novelQuery.data
+  const characters = charactersQuery.data ?? []
+  const entities = entitiesQuery.data ?? []
+  const chunks = chunksQuery.data ?? []
+  const currentIndex = novelStageIndex(novel.stage)
+  const progress = Math.round(((currentIndex + 1) / NOVEL_STAGES.length) * 100)
+  const approved = novel.reviewStats?.approved ?? characters.filter((item) => item.status === 'approved').length
+  const tabMeta = TABS.find((item) => item.key === tab) ?? TABS[0]
+  const nextTab: TabKey =
+    tab === 'stage' || tab === 'source'
+      ? 'characters'
+      : tab === 'characters'
+        ? 'world'
+        : tab === 'world'
+          ? 'series'
+          : tab === 'series'
+            ? 'episode'
+            : tab === 'episode'
+              ? 'art'
+              : tab === 'art'
+                ? 'sync'
+                : 'stage'
+  const descriptions: Record<TabKey, { zh: string; en: string }> = {
+    stage: { zh: '推进阶段并锁定已完成部分。', en: 'Advance stages and lock completed work.' },
+    source: { zh: '导入链接或正文，清洗分章。', en: 'Import a URL or text and split chapters.' },
+    characters: { zh: '从全书抽取角色卡，审校并选定备选。', en: 'Extract, review and select character cards.' },
+    world: { zh: '整理世界规则、势力、事件与关系。', en: 'Organize rules, factions, events and relations.' },
+    series: { zh: '把章节规划成季与集。', en: 'Plan chapters into seasons and episodes.' },
+    episode: { zh: '生成剧本、资产与成片。', en: 'Generate scripts, assets and final cuts.' },
+    art: { zh: '为图生视频准备成套设定图。', en: 'Prepare reference art for image-to-video.' },
+    sync: { zh: '统一风格，打包并同步产物。', en: 'Set style, package and sync deliverables.' },
+  }
 
   return (
-    <div className="dr-page dr-novel-detail">
-      <Link className="dr-novel-back" to="/novels">
-        <Icon name="arrow-left" size={14} />
-        {t('返回列表', 'Back to list')}
-      </Link>
-
-      <div className="dr-novel-head">
-        <div>
-          <h1 className="dr-page-title">{novel.title}</h1>
-          <p className="dr-page-sub">
-            {novel.author || '-'} · {novel.category || '-'} ·{' '}
-            {t('阶段', 'Stage')} <strong>{novelStageLabel(novel.stage, lang)}</strong> ·{' '}
-            {t('章', 'Ch')} {novel.counts?.chapters ?? 0} · {t('角色', 'Char')}{' '}
-            {novel.counts?.characters ?? 0} · {t('集', 'Ep')} {novel.counts?.episodes ?? 0}
-          </p>
+    <div className="dr-page novel-workbench">
+      <div className="nv-top">
+        <div className="nv-top-main">
+          <Link className="nv-back" to="/novels" aria-label={t('返回小说剧场', 'Back to novels')}>
+            <Icon name="arrow-left" size={15} />
+          </Link>
+          <div>
+            <h1>{novel.title}</h1>
+            <div className="nv-top-meta">
+              <span>{novel.author || t('佚名', 'Unknown')}</span>
+              <span className="sep">·</span>
+              <span>{novel.category || t('小说改编', 'Novel adaptation')}</span>
+              <span className="sep">·</span>
+              <span>{novel.counts?.chapters ?? chunks.length} {t('章', 'ch')}</span>
+              <span className="sep">·</span>
+              <span>{characters.length} {t('角色', 'chars')}</span>
+              <span className="sep">·</span>
+              <span>{novel.counts?.episodes ?? 0} {t('集', 'eps')}</span>
+              <span className={`nv-status-pill is-${novel.stage === 'compose' ? 'completed' : 'progress'}`}>
+                {novelStageLabel(novel.stage, lang)}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="nv-top-actions">
+          <button className="dr-btn nv-inspector-toggle" type="button" onClick={() => setInspectorOpen(true)}>
+            <Icon name="sliders" size={14} />
+            {t('概览', 'Overview')}
+          </button>
+          <button className="dr-btn" type="button" onClick={() => setTab('characters')}>
+            <Icon name="refresh" size={14} />
+            {t('重新抽取', 'Re-extract')}
+          </button>
+          <button className="dr-btn dr-btn-primary" type="button" onClick={() => setTab('episode')}>
+            <Icon name="film" size={14} />
+            {t('进入制作', 'Produce')}
+          </button>
         </div>
       </div>
 
-      <div className="dr-novel-tabs" role="tablist" aria-label={t('小说制作阶段', 'Novel workspace tabs')}>
-        {TABS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            role="tab"
-            aria-selected={tab === item.key}
-            className={`dr-novel-tab ${tab === item.key ? 'is-active' : ''}`}
-            onClick={() => setTab(item.key)}
-          >
-            {lang === 'en' ? item.en : item.zh}
-          </button>
-        ))}
+      <div className="nv-summary">
+        <div className="nv-summary-cell">
+          <div className="nv-summary-value">{novel.counts?.chapters ?? chunks.length}</div>
+          <div className="nv-summary-label">{t('章节', 'Chapters')}</div>
+        </div>
+        <div className="nv-summary-cell">
+          <div className="nv-summary-value">{characters.length}</div>
+          <div className="nv-summary-label">{t('角色卡', 'Characters')}</div>
+        </div>
+        <div className="nv-summary-cell">
+          <div className="nv-summary-value">{entities.length}</div>
+          <div className="nv-summary-label">{t('世界观实体', 'World entities')}</div>
+        </div>
+        <div className="nv-summary-cell">
+          <div className="nv-summary-value">{progress}%</div>
+          <div className="nv-summary-label">
+            {t('已确认', 'Approved')} {approved}/{characters.length}
+          </div>
+        </div>
       </div>
 
-      {tab === 'stage' ? <StageTab novel={novel} onAdvanced={invalidate} /> : null}
-      {tab === 'source' ? <SourceTab novel={novel} onIngested={invalidate} /> : null}
-      {tab === 'characters' ? <CharactersTab novel={novel} onChanged={invalidate} /> : null}
-      {tab === 'world' ? <WorldTab novel={novel} onChanged={invalidate} /> : null}
-      {tab === 'series' ? <SeriesTab novel={novel} onChanged={invalidate} /> : null}
-      {tab === 'episode' ? <EpisodeTab novel={novel} onChanged={invalidate} /> : null}
-      {tab === 'art' ? <ArtTab novel={novel} onChanged={invalidate} /> : null}
-      {tab === 'sync' ? <SyncTab novel={novel} onChanged={invalidate} /> : null}
+      <div className="nv-layout">
+        <aside className="nv-rail" aria-label={t('小说目录', 'Novel navigation')}>
+          <div className="nv-rail-group">
+            <div className="nv-rail-title">
+              <span>{t('制作流程', 'Production')}</span>
+              <span>{TABS.length}</span>
+            </div>
+            {TABS.map((item, index) => {
+              const stageForTab = index < NOVEL_STAGES.length ? NOVEL_STAGES[index] : null
+              const state = stageForTab
+                ? novelStageIndex(novel.stage) > novelStageIndex(stageForTab)
+                  ? 'done'
+                  : novelStageIndex(novel.stage) === novelStageIndex(stageForTab)
+                    ? 'current'
+                    : 'todo'
+                : 'todo'
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`nv-rail-item ${tab === item.key ? 'is-active' : ''}`}
+                  aria-current={tab === item.key}
+                  onClick={() => setTab(item.key)}
+                >
+                  <span className="nv-rail-no">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="nv-rail-name">{lang === 'en' ? item.en : item.zh}</span>
+                  <span className={`nv-rail-state is-${state}`} />
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="nv-rail-group">
+            <div className="nv-rail-title">
+              <span>{t('章节', 'Chapters')}</span>
+              <span>{chunks.length}</span>
+            </div>
+            {chunks.slice(0, 8).map((chunk) => (
+              <button key={chunk.id} type="button" className="nv-rail-item" onClick={() => setChapterOpen(chunk)}>
+                <span className="nv-rail-no">{String(chunk.index + 1).padStart(2, '0')}</span>
+                <span className="nv-rail-name">{chunk.chapterTitle || t('未命名章节', 'Untitled')}</span>
+              </button>
+            ))}
+            {chunks.length === 0 ? (
+              <button type="button" className="nv-rail-item" onClick={() => setTab('source')}>
+                <span className="nv-rail-no">＋</span>
+                <span className="nv-rail-name">{t('导入正文', 'Import text')}</span>
+              </button>
+            ) : null}
+            {chunks.length > 8 ? (
+              <button type="button" className="nv-rail-item" onClick={() => setTab('source')}>
+                <span className="nv-rail-no">…</span>
+                <span className="nv-rail-name">{t(`其余 ${chunks.length - 8} 章`, `${chunks.length - 8} more`)}</span>
+              </button>
+            ) : null}
+          </div>
+
+          <div className="nv-rail-group">
+            <div className="nv-rail-title">
+              <span>{t('角色卡', 'Characters')}</span>
+              <span>{characters.length}</span>
+            </div>
+            {characters.slice(0, 6).map((character) => (
+              <button
+                key={character.id}
+                type="button"
+                className={`nv-rail-item ${tab === 'characters' ? 'is-active' : ''}`}
+                onClick={() => setTab('characters')}
+              >
+                <span className="nv-rail-avatar">{character.name.slice(0, 1)}</span>
+                <span className="nv-rail-name">{character.name}</span>
+                <span className={`nv-rail-state is-${character.status === 'approved' ? 'done' : 'todo'}`} />
+              </button>
+            ))}
+            {characters.length === 0 ? (
+              <button type="button" className="nv-rail-item" onClick={() => setTab('characters')}>
+                <span className="nv-rail-no">＋</span>
+                <span className="nv-rail-name">{t('生成角色', 'Extract characters')}</span>
+              </button>
+            ) : null}
+          </div>
+
+          <div className="nv-rail-group">
+            <div className="nv-rail-title">
+              <span>{t('世界观', 'World')}</span>
+              <span>{entities.length}</span>
+            </div>
+            {entities.slice(0, 6).map((entity) => (
+              <button
+                key={entity.id}
+                type="button"
+                className={`nv-rail-item ${tab === 'world' ? 'is-active' : ''}`}
+                onClick={() => setTab('world')}
+              >
+                <span className="nv-rail-no">◇</span>
+                <span className="nv-rail-name">{entity.name}</span>
+              </button>
+            ))}
+            {entities.length === 0 ? (
+              <button type="button" className="nv-rail-item" onClick={() => setTab('world')}>
+                <span className="nv-rail-no">＋</span>
+                <span className="nv-rail-name">{t('抽取世界观', 'Extract world')}</span>
+              </button>
+            ) : null}
+          </div>
+        </aside>
+
+        <section className="nv-main" aria-live="polite">
+          <div className="nv-main-head">
+            <div>
+              <p className="nv-eyebrow">{novelStageLabel(novel.stage, lang)}</p>
+              <h2>{lang === 'en' ? tabMeta.en : tabMeta.zh}</h2>
+              <p>{t(descriptions[tab].zh, descriptions[tab].en)}</p>
+            </div>
+            <button className="dr-btn" type="button" onClick={() => setTab(nextTab)}>
+              {t('下一步', 'Next')}
+              <Icon name="arrow-right" size={14} />
+            </button>
+          </div>
+
+          {tab === 'stage' ? <StageTab novel={novel} onAdvanced={invalidate} /> : null}
+          {tab === 'source' ? <SourceTab novel={novel} onIngested={invalidate} /> : null}
+          {tab === 'characters' ? <CharactersTab novel={novel} onChanged={invalidate} /> : null}
+          {tab === 'world' ? <WorldTab novel={novel} onChanged={invalidate} /> : null}
+          {tab === 'series' ? <SeriesTab novel={novel} onChanged={invalidate} /> : null}
+          {tab === 'episode' ? <EpisodeTab novel={novel} onChanged={invalidate} /> : null}
+          {tab === 'art' ? <ArtTab novel={novel} onChanged={invalidate} /> : null}
+          {tab === 'sync' ? <SyncTab novel={novel} onChanged={invalidate} /> : null}
+        </section>
+
+        <aside className={`nv-inspector ${inspectorOpen ? 'is-open' : ''}`} aria-label={t('制作概览', 'Production overview')}>
+          <div className="nv-inspector-head">
+            <div>
+              <p className="nv-eyebrow">{t('制作概览', 'Overview')}</p>
+              <h2>{novelStageLabel(novel.stage, lang)}</h2>
+            </div>
+            <button className="dr-icon-btn nv-inspector-close" type="button" aria-label={t('关闭概览', 'Close overview')} onClick={() => setInspectorOpen(false)}>
+              <Icon name="close" size={15} />
+            </button>
+          </div>
+          <div className="nv-inspector-body">
+            <div className="nv-progress-block">
+              <div className="nv-progress-row">
+                <span>{t('总进度', 'Overall progress')}</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="nv-progress-track">
+                <span style={{ width: `${progress}%` }} />
+              </div>
+            </div>
+            <dl className="nv-inspector-list">
+              <div><dt>{t('章节', 'Chapters')}</dt><dd>{novel.counts?.chapters ?? chunks.length}</dd></div>
+              <div><dt>{t('角色卡', 'Characters')}</dt><dd>{characters.length}</dd></div>
+              <div><dt>{t('已确认', 'Approved')}</dt><dd>{approved}</dd></div>
+              <div><dt>{t('世界观', 'World')}</dt><dd>{entities.length}</dd></div>
+              <div><dt>{t('季 / 集', 'Seasons / eps')}</dt><dd>{novel.counts?.seasons ?? 0} / {novel.counts?.episodes ?? 0}</dd></div>
+            </dl>
+            <div className="nv-inspector-next">
+              <span>{t('下一步', 'Next step')}</span>
+              <strong>{lang === 'en' ? TABS.find((item) => item.key === nextTab)?.en : TABS.find((item) => item.key === nextTab)?.zh}</strong>
+              <button className="dr-btn dr-btn-primary" type="button" onClick={() => setTab(nextTab)}>
+                {t('继续', 'Continue')}
+              </button>
+            </div>
+            <div className="nv-inspector-links">
+              <button type="button" onClick={() => setTab('characters')}>{t('审校角色', 'Review characters')}</button>
+              <button type="button" onClick={() => setTab('series')}>{t('分季分集', 'Seasons')}</button>
+              <button type="button" onClick={() => setTab('episode')}>{t('单集制作', 'Episodes')}</button>
+              <button type="button" onClick={() => setTab('sync')}>{t('风格与同步', 'Style & sync')}</button>
+            </div>
+          </div>
+        </aside>
+        <button className={`nv-inspector-scrim ${inspectorOpen ? 'is-open' : ''}`} type="button" aria-label={t('关闭概览', 'Close overview')} onClick={() => setInspectorOpen(false)} />
+      </div>
+
+      <Modal
+        open={Boolean(chapterOpen)}
+        title={chapterOpen?.chapterTitle || t('章节', 'Chapter')}
+        onClose={() => setChapterOpen(null)}
+        width={720}
+        footer={
+          <button className="dr-btn" type="button" onClick={() => setChapterOpen(null)}>
+            {t('关闭', 'Close')}
+          </button>
+        }
+      >
+        <div className="nv-reader">
+          <p className="nv-reader-meta">
+            CHAPTER {String((chapterOpen?.index ?? 0) + 1).padStart(2, '0')} · {novel.title}
+          </p>
+          {(chapterOpen?.text ?? '').split(/\n+/).filter(Boolean).map((paragraph, index) => (
+            <p key={index}>{paragraph}</p>
+          ))}
+        </div>
+      </Modal>
     </div>
   )
 }

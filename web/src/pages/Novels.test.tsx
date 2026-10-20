@@ -9,12 +9,14 @@ import { LangProvider } from '../lib/i18n'
 const listNovels = vi.fn()
 const createNovel = vi.fn()
 const deleteNovel = vi.fn()
+const ingestNovel = vi.fn()
 
 vi.mock('../lib/api', () => ({
   api: {
     listNovels: () => listNovels(),
     createNovel: (body: unknown) => createNovel(body),
     deleteNovel: (id: string) => deleteNovel(id),
+    ingestNovel: (id: string, body: unknown) => ingestNovel(id, body),
   },
 }))
 
@@ -52,26 +54,26 @@ describe('NovelsPage', () => {
   it('渲染小说列表与阶段/计数', async () => {
     listNovels.mockResolvedValue([novel])
     renderPage()
-    expect(await screen.findByText('长夜将明')).toBeInTheDocument()
-    expect(screen.getByText('林川')).toBeInTheDocument()
-    expect(screen.getByText('来源')).toBeInTheDocument()
-    expect(screen.getByText(/章 12/)).toBeInTheDocument()
+    expect((await screen.findAllByText('长夜将明')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/林川/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/12 章/)).toBeInTheDocument()
   })
 
-  it('空列表展示创建入口', async () => {
+  it('空列表展示导入入口', async () => {
     listNovels.mockResolvedValue([])
     renderPage()
     expect(await screen.findByText('还没有小说项目')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '新建第一部小说' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '导入第一部小说' })).toBeInTheDocument()
   })
 
-  it('创建后跳转详情', async () => {
+  it('导入后跳转详情', async () => {
     listNovels.mockResolvedValue([])
     createNovel.mockResolvedValue({ ...novel, id: 'n2' })
     const user = userEvent.setup()
     renderPage()
-    await user.type(await screen.findByLabelText(/书名/), '新书')
-    await user.click(screen.getByRole('button', { name: /创建/ }))
+    await user.click(await screen.findByRole('button', { name: /导入小说/ }))
+    await user.type(await screen.findByPlaceholderText(/例：长夜将明/), '新书')
+    await user.click(screen.getByRole('button', { name: '导入并切章' }))
     await waitFor(() => expect(createNovel).toHaveBeenCalledWith(expect.objectContaining({ title: '新书' })))
     expect(await screen.findByText('detail page')).toBeInTheDocument()
   })

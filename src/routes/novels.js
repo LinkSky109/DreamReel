@@ -77,10 +77,39 @@ router.post('/', (req, res) => {
   }
 })
 
-// 项目列表
+// 项目列表（附带列表页需要的字数/审校/进度统计）
+const LIST_STAGES = ['source', 'characters', 'world', 'series', 'episodes', 'assets', 'compose']
+function withListStats(project) {
+  const chunks = listChunks(project.id)
+  const characters = listCharacters(project.id)
+  const entities = listEntities(project.id)
+  const review = reviewStats(project.id)
+  const stageIndex = Math.max(0, LIST_STAGES.indexOf(project.stage))
+  const progress = Math.round(((stageIndex + 1) / LIST_STAGES.length) * 100)
+  const status =
+    project.stage === 'compose'
+      ? 'completed'
+      : project.stage === 'source' && chunks.length === 0
+        ? 'draft'
+        : 'in-progress'
+  return {
+    ...project,
+    stats: {
+      words: chunks.reduce((sum, chunk) => sum + (chunk.text?.length || 0), 0),
+      chapters: chunks.length,
+      characters: characters.length,
+      worldEntities: entities.length,
+      approved: review.approved || 0,
+      revisionRate: review.revisionRate || 0,
+      progress,
+      status,
+    },
+  }
+}
+
 router.get('/', (_req, res) => {
   try {
-    res.json({ success: true, data: listNovelProjects() })
+    res.json({ success: true, data: listNovelProjects().map(withListStats) })
   } catch (error) {
     res.status(400).json({ success: false, error: error.message })
   }

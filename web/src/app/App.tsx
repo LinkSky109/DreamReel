@@ -119,10 +119,6 @@ export function App() {
           />
           <Route path="/novel/:id" element={<NovelDetailPage />} />
           <Route path="/novel/:id/shots/:eid" element={<ShotsPage />} />
-          <Route
-            path="/novel-legacy/:id"
-            element={<LegacyParamRoute module="novels" renderer="renderNovelsPage" title="小说工作台（旧版）" />}
-          />
 
           {/* 其余页面：渐进迁移桥 */}
           <Route path="/challenges" element={<LegacyView module="challenges" renderer="renderChallengesPage" title="创作挑战" />} />

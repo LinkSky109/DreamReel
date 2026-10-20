@@ -24,7 +24,9 @@ import {
   Moon,
   Plus,
   Plug,
+  RefreshCw,
   Search,
+  SlidersHorizontal,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -33,6 +35,7 @@ import {
   Trash2,
   TriangleAlert,
   Trophy,
+  Upload,
   User,
   Users,
   X,
@@ -78,6 +81,9 @@ const ICONS: Record<string, LucideIcon> = {
   'file-text': FileText,
   sparkles: Sparkles,
   download: Download,
+  upload: Upload,
+  refresh: RefreshCw,
+  sliders: SlidersHorizontal,
 }
 
 type IconProps = {
