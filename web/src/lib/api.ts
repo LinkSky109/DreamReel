@@ -4,6 +4,8 @@ import type {
   DirectorProfile,
   CommunityLeaderboardItem,
   Studio,
+  StorePack,
+  StoreAsset,
   StudioShow,
   CommunityReview,
   CommunityReviewInput,
@@ -716,6 +718,19 @@ export const api = {
     request<{ preferences: NotificationPreferences }>('/notifications/preferences', {
       method: 'PATCH',
       body: updates,
+    }),
+  listStorePacks: (type?: string, sort?: string) => {
+    const search = new URLSearchParams()
+    if (type && type !== 'all') search.set('type', type)
+    if (sort) search.set('sort', sort)
+    return request<{ total: number; items: StorePack[] }>(`/store/packs${search.toString() ? `?${search}` : ''}`)
+  },
+  myStoreAssets: (userId: string) =>
+    request<{ total: number; totalValue: number; items: StoreAsset[] }>(`/store/my-assets?userId=${encodeURIComponent(userId)}`),
+  purchaseStorePack: (packId: string, userId: string) =>
+    request<{ success: boolean; orderId: string; price: number; pack: StorePack }>(`/store/packs/${packId}/purchase`, {
+      method: 'POST',
+      body: { userId },
     }),
   listStudios: () => request<{ total: number; items: Studio[] }>('/studios'),
   getStudio: (id: string) => request<Studio>(`/studios/${id}`),

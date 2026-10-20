@@ -24,6 +24,9 @@ const DocsPage = lazy(() =>
 const ModerationPage = lazy(() =>
   import('../pages/Moderation').then((module) => ({ default: module.ModerationPage }))
 )
+const StorePage = lazy(() =>
+  import('../pages/Store').then((module) => ({ default: module.StorePage }))
+)
 const StudiosPage = lazy(() =>
   import('../pages/Studios').then((module) => ({ default: module.StudiosPage }))
 )
@@ -154,7 +157,7 @@ export function App() {
           <Route path="/studios" element={<StudiosPage />} />
           <Route path="/studio/:id" element={<StudiosPage />} />
           <Route path="/community" element={<CommunityPage />} />
-          <Route path="/store" element={<LegacyView module="store" renderer="renderStorePage" title="素材商城" />} />
+          <Route path="/store" element={<StorePage />} />
           <Route path="/teams" element={<LegacyView module="teams" renderer="renderTeamsPage" title="团队协作" />} />
           <Route
             path="/team/:id"

@@ -100,6 +100,26 @@ export interface StatsDashboard {
 
 
 
+
+export interface StorePack {
+  id: string
+  name: string
+  type: 'style_pack' | 'template_pack' | 'audio_pack' | string
+  icon?: string
+  price: number
+  author: string
+  description: string
+  items: number
+}
+
+export interface StoreAsset {
+  packId: string
+  price: number
+  purchasedAt: string
+  orderId: string
+  pack: StorePack
+}
+
 export interface StudioMember {
   userId: string
   name: string
