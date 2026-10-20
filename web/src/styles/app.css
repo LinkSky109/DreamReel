@@ -2440,3 +2440,47 @@ p {
 .dr-template-tile.is-cover .dr-template-tile-name {
   font-size: 14px;
 }
+
+/* 项目卡：收藏与批量选择 */
+.dr-project-fav {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  background: rgba(8, 8, 8, 0.36);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.dr-project-card:hover .dr-project-fav,
+.dr-project-fav:focus-visible,
+.dr-project-fav.is-on {
+  opacity: 1;
+}
+
+.dr-project-fav.is-on {
+  background: rgba(255, 255, 255, 0.94);
+  color: #cf8a00;
+  border-color: rgba(255, 255, 255, 0.94);
+}
+
+.dr-project-fav.is-on svg {
+  fill: currentColor;
+}
+
+.dr-project-select {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+
+.dr-project-card.is-batch .dr-project-status {
+  left: 40px;
+}

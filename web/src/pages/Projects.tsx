@@ -33,6 +33,7 @@ export function ProjectsPage() {
   const archived = params.get('archived') ?? 'active'
 
   const [selected, setSelected] = useState<string[]>([])
+  const [batchMode, setBatchMode] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null)
   const [batchConfirm, setBatchConfirm] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -232,13 +233,17 @@ export function ProjectsPage() {
         </span>
         <button
           type="button"
-          className="dr-btn"
-          onClick={() => setSelected(selected.length === projects.length ? [] : projects.map((p) => p.id))}
+          className={`dr-btn ${batchMode ? 'dr-btn-primary' : ''}`}
+          aria-pressed={batchMode}
+          onClick={() => {
+            setBatchMode((current) => {
+              if (current) setSelected([])
+              return !current
+            })
+          }}
         >
           <Icon name="check" size={15} />
-          {selected.length === projects.length && projects.length > 0
-            ? t('取消全选', 'Clear selection')
-            : t('多选', 'Select')}
+          {batchMode ? t('退出多选', 'Exit selection') : t('多选', 'Select')}
         </button>
       </div>
 
@@ -379,6 +384,7 @@ export function ProjectsPage() {
               <ProjectCard
                 key={project.id}
                 project={project}
+                batchMode={batchMode}
                 selected={selected.includes(project.id)}
                 onSelect={(checked) =>
                   setSelected((current) =>
@@ -476,6 +482,7 @@ export function ProjectsPage() {
 
 type ProjectCardProps = {
   project: Project
+  batchMode: boolean
   selected: boolean
   onSelect: (checked: boolean) => void
   onOpen: () => void
@@ -488,6 +495,7 @@ type ProjectCardProps = {
 
 function ProjectCard({
   project,
+  batchMode,
   selected,
   onSelect,
   onOpen,
@@ -501,24 +509,42 @@ function ProjectCard({
   const status = projectStatus(project)
 
   return (
-    <article className="dr-card dr-card-hover dr-project-card">
-      <div className="dr-project-cover" onClick={onOpen} role="presentation">
+    <article className={`dr-card dr-card-hover dr-project-card ${batchMode ? 'is-batch' : ''}`}>
+      <div
+        className="dr-project-cover"
+        onClick={() => (batchMode ? onSelect(!selected) : onOpen())}
+        role="presentation"
+      >
         <img src={projectCover(project)} alt="" loading="lazy" />
         <span className={`dr-project-status ${statusTone(status)}`}>{statusLabel(status)}</span>
         <span className="dr-project-duration">{totalDuration(project)}s</span>
-        <div style={{ position: 'absolute', top: 8, left: 8 }}>
-          <Checkbox.Root
-            className="dr-checkbox"
-            checked={selected}
-            onCheckedChange={(checked) => onSelect(checked === true)}
-            aria-label={t(`选择 ${project.name}`, `Select ${project.name}`)}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <Checkbox.Indicator>
-              <Icon name="check" size={12} />
-            </Checkbox.Indicator>
-          </Checkbox.Root>
-        </div>
+        <button
+          type="button"
+          className={`dr-project-fav ${project.isFavorite ? 'is-on' : ''}`}
+          aria-label={project.isFavorite ? t('取消收藏', 'Unfavorite') : t('收藏', 'Favorite')}
+          aria-pressed={project.isFavorite}
+          onClick={(event) => {
+            event.stopPropagation()
+            onFavorite()
+          }}
+        >
+          <Icon name="star" size={14} />
+        </button>
+        {batchMode ? (
+          <div className="dr-project-select">
+            <Checkbox.Root
+              className="dr-checkbox"
+              checked={selected}
+              onCheckedChange={(checked) => onSelect(checked === true)}
+              aria-label={t(`选择 ${project.name}`, `Select ${project.name}`)}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Checkbox.Indicator>
+                <Icon name="check" size={12} />
+              </Checkbox.Indicator>
+            </Checkbox.Root>
+          </div>
+        ) : null}
       </div>
       <div className="dr-project-body">
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
