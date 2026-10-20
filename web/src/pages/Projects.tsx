@@ -209,17 +209,40 @@ export function ProjectsPage() {
             aria-label={t('搜索项目', 'Search projects')}
           />
         </div>
-        <select
-          className="dr-select"
-          value={status}
-          onChange={(event) => updateParam('status', event.target.value)}
-          aria-label={t('按状态筛选', 'Filter by status')}
+        <div className="project-status-chips" role="group" aria-label={t('按状态筛选', 'Filter by status')}>
+          {[
+            ['all', t('全部', 'All')],
+            ['in-progress', t('制作中', 'In progress')],
+            ['completed', t('已完成', 'Completed')],
+            ['empty', t('未开始', 'Not started')],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={`project-status-chip ${status === value ? 'is-active' : ''}`}
+              aria-pressed={status === value}
+              onClick={() => updateParam('status', value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="project-filter-count">
+          {t('共', 'Total')} <strong>{projects.length}</strong> {t('个项目', 'projects')}
+        </span>
+        <button
+          type="button"
+          className="dr-btn"
+          onClick={() => setSelected(selected.length === projects.length ? [] : projects.map((p) => p.id))}
         >
-          <option value="all">{t('全部状态', 'All status')}</option>
-          <option value="in-progress">{t('制作中', 'In progress')}</option>
-          <option value="completed">{t('已完成', 'Completed')}</option>
-          <option value="empty">{t('未开始', 'Not started')}</option>
-        </select>
+          <Icon name="check" size={15} />
+          {selected.length === projects.length && projects.length > 0
+            ? t('取消全选', 'Clear selection')
+            : t('多选', 'Select')}
+        </button>
+      </div>
+
+      <div className="project-filter-secondary">
         <select
           className="dr-select"
           value={favorite}
@@ -249,16 +272,11 @@ export function ProjectsPage() {
           <option value="createdAt">{t('最近创建', 'Recently created')}</option>
           <option value="name">{t('名称排序', 'Name')}</option>
         </select>
-        <button
-          type="button"
-          className="dr-btn"
-          onClick={() => setSelected(selected.length === projects.length ? [] : projects.map((p) => p.id))}
-        >
-          <Icon name="check" size={15} />
-          {selected.length === projects.length && projects.length > 0
-            ? t('取消全选', 'Clear selection')
-            : t('多选', 'Select')}
-        </button>
+        {hasFilters ? (
+          <button type="button" className="project-clear-filters" onClick={() => setParams(new URLSearchParams(), { replace: true })}>
+            {t('清除筛选', 'Clear filters')}
+          </button>
+        ) : null}
       </div>
 
       {selected.length > 0 ? (
