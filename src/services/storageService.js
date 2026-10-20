@@ -450,6 +450,7 @@ class StorageService {
     if (!this.data.novelCharacterStates) this.data.novelCharacterStates = {}
     this.data.novelCharacterStates[state.id] = state
     this.save()
+    novelChildMirror.scheduleUpsert('states', state)
     return state
   }
 
@@ -469,6 +470,7 @@ class StorageService {
     if (!this.data.novelCharacterStates) this.data.novelCharacterStates = {}
     this.data.novelCharacterStates[state.id] = state
     this.save()
+    novelChildMirror.scheduleUpsert('states', state)
     return state
   }
 
@@ -483,7 +485,10 @@ class StorageService {
       delete this.data.novelCharacterStates[id]
       n += 1
     }
-    if (n) this.save()
+    if (n) {
+      this.save()
+      novelChildMirror.scheduleDeleteStates(novelId, characterId, episodeNo)
+    }
     return n
   }
 
@@ -633,6 +638,7 @@ class StorageService {
     if (!this.data.characterSets) this.data.characterSets = {}
     this.data.characterSets[set.id] = set
     this.save()
+    novelChildMirror.scheduleUpsert('characterSets', set)
     return set
   }
 
@@ -645,6 +651,7 @@ class StorageService {
     if (!this.data.worldSets) this.data.worldSets = {}
     this.data.worldSets[set.id] = set
     this.save()
+    novelChildMirror.scheduleUpsert('worldSets', set)
     return set
   }
 

@@ -82,6 +82,37 @@ const SPECS = {
       title: doc.title || '',
     }),
   },
+  states: {
+    table: 'novel_character_states',
+    order: ['sort_order', 'asc'],
+    toDoc: (row) => ({
+      ...(row.payload || {}),
+      id: row.id,
+      novelId: row.novel_id,
+      characterId: row.character_id,
+      episodeNo: row.episode_no,
+      appearance: row.appearance,
+      equipment: row.equipment,
+    }),
+    fromDoc: (doc) => ({
+      id: doc.id,
+      novelId: doc.novelId,
+      characterId: doc.characterId,
+      episodeNo: doc.episodeNo,
+    }),
+  },
+  characterSets: {
+    table: 'character_sets',
+    order: ['sort_order', 'asc'],
+    toDoc: (row) => ({ ...(row.payload || {}), id: row.id, novelId: row.novel_id, provider: row.provider }),
+    fromDoc: (doc) => ({ id: doc.id, novelId: doc.novelId, provider: doc.provider || '' }),
+  },
+  worldSets: {
+    table: 'world_sets',
+    order: ['sort_order', 'asc'],
+    toDoc: (row) => ({ ...(row.payload || {}), id: row.id, novelId: row.novel_id, provider: row.provider }),
+    fromDoc: (doc) => ({ id: doc.id, novelId: doc.novelId, provider: doc.provider || '' }),
+  },
   assets: {
     table: 'novel_asset_images',
     order: ['sort_order', 'asc'],
@@ -112,6 +143,9 @@ const COLUMN_FIELDS = {
   seasons: ['id', 'novelId', 'seasonNo', 'title'],
   episodes: ['id', 'novelId', 'seasonId', 'episodeNo', 'title'],
   assets: ['id', 'novelId', 'category', 'name', 'status'],
+  states: ['id', 'novelId', 'characterId', 'episodeNo', 'appearance', 'equipment'],
+  characterSets: ['id', 'novelId', 'provider'],
+  worldSets: ['id', 'novelId', 'provider'],
 }
 
 export function toChildPayload(kind, doc) {

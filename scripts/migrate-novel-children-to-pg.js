@@ -33,6 +33,9 @@ const SOURCE_COLLECTIONS = {
   seasons: 'seriesSeasons',
   episodes: 'seriesEpisodes',
   assets: 'novelAssetImages',
+  states: 'novelCharacterStates',
+  characterSets: 'characterSets',
+  worldSets: 'worldSets',
 }
 
 const TABLES = {
@@ -42,6 +45,9 @@ const TABLES = {
   seasons: 'seasons',
   episodes: 'episodes',
   assets: 'novel_asset_images',
+  states: 'novel_character_states',
+  characterSets: 'character_sets',
+  worldSets: 'world_sets',
 }
 
 function loadData() {
@@ -56,6 +62,8 @@ function valuesFor(kind, doc, position, now) {
   if (kind === 'seasons') return [doc.id, orgId, doc.novelId, doc.seasonNo ?? 1, doc.title || '', JSON.stringify(toChildPayload(kind, doc)), position, doc.createdAt ? new Date(doc.createdAt) : now, doc.createdAt ? new Date(doc.createdAt) : now]
   if (kind === 'episodes') return [doc.id, orgId, doc.novelId, doc.seasonId || null, doc.episodeNo ?? 1, doc.title || '', JSON.stringify(toChildPayload(kind, doc)), position, doc.createdAt ? new Date(doc.createdAt) : now, doc.createdAt ? new Date(doc.createdAt) : now]
   if (kind === 'assets') return [doc.id, orgId, doc.novelId, doc.category || '', doc.name || '', doc.status || 'draft', JSON.stringify(toChildPayload(kind, doc)), position, doc.createdAt ? new Date(doc.createdAt) : now, doc.updatedAt ? new Date(doc.updatedAt) : now]
+  if (kind === 'states') return [doc.id, orgId, doc.novelId, doc.characterId, doc.episodeNo ?? 0, doc.appearance || '', doc.equipment || '', JSON.stringify(toChildPayload(kind, doc)), position, doc.createdAt ? new Date(doc.createdAt) : now, doc.updatedAt ? new Date(doc.updatedAt) : now]
+  if (kind === 'characterSets' || kind === 'worldSets') return [doc.id, orgId, doc.novelId, doc.provider || '', JSON.stringify(toChildPayload(kind, doc)), position, doc.createdAt ? new Date(doc.createdAt) : now, doc.updatedAt ? new Date(doc.updatedAt) : now]
   throw new Error(kind)
 }
 
@@ -92,6 +100,23 @@ const UPSERT_SQL = {
              category = EXCLUDED.category, name = EXCLUDED.name, status = EXCLUDED.status,
              payload = EXCLUDED.payload, sort_order = EXCLUDED.sort_order,
              updated_at = EXCLUDED.updated_at, version = novel_asset_images.version + 1`,
+  states: `INSERT INTO novel_character_states (id, org_id, novel_id, character_id, episode_no, appearance, equipment, payload, sort_order, created_at, updated_at, version)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,1)
+           ON CONFLICT (id) DO UPDATE SET
+             character_id = EXCLUDED.character_id, episode_no = EXCLUDED.episode_no,
+             appearance = EXCLUDED.appearance, equipment = EXCLUDED.equipment,
+             payload = EXCLUDED.payload, sort_order = EXCLUDED.sort_order,
+             updated_at = EXCLUDED.updated_at, version = novel_character_states.version + 1`,
+  characterSets: `INSERT INTO character_sets (id, org_id, novel_id, provider, payload, sort_order, created_at, updated_at, version)
+           VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,1)
+           ON CONFLICT (id) DO UPDATE SET
+             provider = EXCLUDED.provider, payload = EXCLUDED.payload, sort_order = EXCLUDED.sort_order,
+             updated_at = EXCLUDED.updated_at, version = character_sets.version + 1`,
+  worldSets: `INSERT INTO world_sets (id, org_id, novel_id, provider, payload, sort_order, created_at, updated_at, version)
+           VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,1)
+           ON CONFLICT (id) DO UPDATE SET
+             provider = EXCLUDED.provider, payload = EXCLUDED.payload, sort_order = EXCLUDED.sort_order,
+             updated_at = EXCLUDED.updated_at, version = world_sets.version + 1`,
 }
 
 async function main() {
@@ -142,6 +167,8 @@ async function main() {
         if (kind === 'seasons') Object.assign(rebuilt, { seasonNo: row.season_no, title: row.title })
         if (kind === 'episodes') Object.assign(rebuilt, { seasonId: row.season_id, episodeNo: row.episode_no, title: row.title })
         if (kind === 'assets') Object.assign(rebuilt, { category: row.category, name: row.name, status: row.status })
+        if (kind === 'states') Object.assign(rebuilt, { characterId: row.character_id, episodeNo: row.episode_no, appearance: row.appearance, equipment: row.equipment })
+        if (kind === 'characterSets' || kind === 'worldSets') rebuilt.provider = row.provider
         if (stableStringify(rebuilt) !== stableStringify(doc)) mismatches.push(`${doc.id}: payload mismatch`)
       }
       console.log(`  verify: pg=${rows.length} source=${docs.length} mismatches=${mismatches.length}`)

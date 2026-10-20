@@ -56,6 +56,24 @@ describe('NovelChildRepository · PostgreSQL', { skip: !DATABASE_URL && '未配�
        ON CONFLICT (id) DO NOTHING`,
       [`${novelId}-a1`, orgId, novelId]
     )
+    await getPool().query(
+      `INSERT INTO novel_character_states (id, org_id, novel_id, character_id, episode_no, appearance, equipment, payload, sort_order)
+       VALUES ($1,$2,$3,$4,1,'少年','铁片','{"source":"llm"}'::jsonb,0)
+       ON CONFLICT (id) DO NOTHING`,
+      [`${novelId}-st1`, orgId, novelId, `${novelId}-c1`]
+    )
+    await getPool().query(
+      `INSERT INTO character_sets (id, org_id, novel_id, provider, payload, sort_order)
+       VALUES ($1,$2,$3,'llm','{"characterIds":["c1"]}'::jsonb,0)
+       ON CONFLICT (id) DO NOTHING`,
+      [`${novelId}-cs`, orgId, novelId]
+    )
+    await getPool().query(
+      `INSERT INTO world_sets (id, org_id, novel_id, provider, payload, sort_order)
+       VALUES ($1,$2,$3,'llm','{"entityIds":["e1"]}'::jsonb,0)
+       ON CONFLICT (id) DO NOTHING`,
+      [`${novelId}-ws`, orgId, novelId]
+    )
     repo = createPostgresNovelChildRepository(getDb())
   })
 
@@ -109,6 +127,26 @@ describe('NovelChildRepository · PostgreSQL', { skip: !DATABASE_URL && '未配�
     assert.equal(rows[0].name, '甲')
     assert.equal(rows[0].status, 'draft')
     assert.equal(rows[0].prompt, 'x')
+  })
+
+  it('states 映射 characterId/episodeNo/appearance/equipment', async () => {
+    const rows = await repo.list('states', novelId, { orgId })
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].characterId, `${novelId}-c1`)
+    assert.equal(rows[0].episodeNo, 1)
+    assert.equal(rows[0].appearance, '少年')
+    assert.equal(rows[0].equipment, '铁片')
+    assert.equal(rows[0].source, 'llm')
+  })
+
+  it('characterSets / worldSets 映射 provider 与 payload', async () => {
+    const cs = await repo.list('characterSets', novelId, { orgId })
+    assert.equal(cs.length, 1)
+    assert.equal(cs[0].provider, 'llm')
+    assert.deepEqual(cs[0].characterIds, ['c1'])
+    const ws = await repo.list('worldSets', novelId, { orgId })
+    assert.equal(ws.length, 1)
+    assert.deepEqual(ws[0].entityIds, ['e1'])
   })
 
   it('按 org 隔离', async () => {

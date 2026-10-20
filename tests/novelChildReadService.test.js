@@ -22,6 +22,11 @@ const docs = {
     { id: 'a1', novelId: 'n1', category: 'character', name: '甲', status: 'draft', createdAt: '2026-01-01T00:00:00.000Z' },
     { id: 'a2', novelId: 'n1', category: 'scene', name: '废墟', status: 'draft', createdAt: '2026-02-01T00:00:00.000Z' },
   ],
+  states: [
+    { id: 'st2', novelId: 'n1', characterId: 'c1', episodeNo: 5, appearance: '青年' },
+    { id: 'st1', novelId: 'n1', characterId: 'c1', episodeNo: 1, appearance: '少年' },
+    { id: 'st3', novelId: 'n1', characterId: 'c2', episodeNo: 2, appearance: '旁人' },
+  ],
 }
 
 function legacyImpl(data = docs) {
@@ -138,5 +143,17 @@ describe('novelChildReadService · 季/集/设定图', () => {
     assert.deepEqual(all.map((r) => r.id), ['a2', 'a1'])
     const chars = await service.list('assets', 'n1', { category: 'character' })
     assert.deepEqual(chars.map((r) => r.id), ['a1'])
+  })
+})
+
+describe('novelChildReadService · 形象状态', () => {
+  it('postgres：按角色过滤并按 episodeNo 升序', async () => {
+    const service = createNovelChildReadService({
+      legacy: legacyImpl(),
+      getRepo: () => repoImpl(),
+      mode: 'postgres',
+    })
+    const rows = await service.list('states', 'n1', { characterId: 'c1' })
+    assert.deepEqual(rows.map((r) => r.id), ['st1', 'st2'])
   })
 })

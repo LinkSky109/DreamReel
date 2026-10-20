@@ -54,6 +54,32 @@ const SPECS = {
     map: (doc) => [doc.id, doc.novelId, doc.seasonId || null, doc.episodeNo ?? 1, doc.title || ''],
     payload: (doc) => toChildPayload('episodes', doc),
   },
+  states: {
+    table: 'novel_character_states',
+    columns:
+      'id, org_id, novel_id, character_id, episode_no, appearance, equipment, payload, sort_order, created_at, updated_at, version',
+    values: '$1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,1',
+    update:
+      'character_id = EXCLUDED.character_id, episode_no = EXCLUDED.episode_no, appearance = EXCLUDED.appearance, equipment = EXCLUDED.equipment, payload = EXCLUDED.payload',
+    map: (doc) => [doc.id, doc.novelId, doc.characterId, doc.episodeNo ?? 0, doc.appearance || '', doc.equipment || ''],
+    payload: (doc) => toChildPayload('states', doc),
+  },
+  characterSets: {
+    table: 'character_sets',
+    columns: 'id, org_id, novel_id, provider, payload, sort_order, created_at, updated_at, version',
+    values: '$1,$2,$3,$4,$5::jsonb,$6,$7,$8,1',
+    update: 'provider = EXCLUDED.provider, payload = EXCLUDED.payload',
+    map: (doc) => [doc.id, doc.novelId, doc.provider || ''],
+    payload: (doc) => toChildPayload('characterSets', doc),
+  },
+  worldSets: {
+    table: 'world_sets',
+    columns: 'id, org_id, novel_id, provider, payload, sort_order, created_at, updated_at, version',
+    values: '$1,$2,$3,$4,$5::jsonb,$6,$7,$8,1',
+    update: 'provider = EXCLUDED.provider, payload = EXCLUDED.payload',
+    map: (doc) => [doc.id, doc.novelId, doc.provider || ''],
+    payload: (doc) => toChildPayload('worldSets', doc),
+  },
   assets: {
     table: 'novel_asset_images',
     columns: 'id, org_id, novel_id, category, name, status, payload, sort_order, created_at, updated_at, version',
@@ -143,6 +169,7 @@ export function createNovelChildWriteSync({
       for (const item of batch) {
         if (item.op === 'upsert') await upsertOne(pool, item.kind, item.doc)
         else if (item.op === 'deleteNovel') await deleteByNovel(pool, item.kind, item.novelId)
+        else if (item.op === 'deleteStates') await deleteStates(pool, item.novelId, item.characterId, item.episodeNo)
         else await deleteOne(pool, item.kind, item.id)
       }
     } catch (error) {
@@ -162,6 +189,26 @@ export function createNovelChildWriteSync({
   function scheduleDelete(kind, id) {
     if (!enabled || !id) return
     queue.set(`${kind}:${id}`, { op: 'delete', kind, id })
+    scheduleFlush()
+  }
+
+  async function deleteStates(pool, novelId, characterId, episodeNo) {
+    const now = new Date()
+    await pool.query(
+      `UPDATE novel_character_states
+         SET deleted_at = $5, updated_at = $5, version = version + 1
+       WHERE novel_id = $1 AND org_id = $2
+         AND ($3::text IS NULL OR character_id = $3::text)
+         AND ($4::int IS NULL OR episode_no = $4::int)
+         AND deleted_at IS NULL`,
+      [novelId, orgId, characterId || null, episodeNo ?? null, now]
+    )
+  }
+
+  function scheduleDeleteStates(novelId, characterId = null, episodeNo = null) {
+    if (!enabled || !novelId) return
+    const key = `states:delete:${novelId}:${characterId || '*'}:${episodeNo ?? '*'}`
+    queue.set(key, { op: 'deleteStates', novelId, characterId, episodeNo })
     scheduleFlush()
   }
 
@@ -189,7 +236,15 @@ export function createNovelChildWriteSync({
     }
   }
 
-  return { enabled, scheduleUpsert, scheduleDelete, scheduleDeleteByNovel, flush: flushNow, pending: () => queue.size }
+  return {
+    enabled,
+    scheduleUpsert,
+    scheduleDelete,
+    scheduleDeleteStates,
+    scheduleDeleteByNovel,
+    flush: flushNow,
+    pending: () => queue.size,
+  }
 }
 
 async function defaultGetPool() {

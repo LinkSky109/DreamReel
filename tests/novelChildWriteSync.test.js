@@ -59,7 +59,7 @@ describe('novelChildWriteSync', () => {
     sync.scheduleDelete('assets', 'a1')
     sync.scheduleDeleteByNovel('n1')
     await sync.flush()
-    assert.equal(pool.calls.length, 7) // 1 单条 + 6 类
+    assert.equal(pool.calls.length, 10) // 1 单条 + 9 类
     assert.match(pool.calls[0].sql, /WHERE id = \$1/)
     assert.match(pool.calls[1].sql, /WHERE novel_id = \$1/)
   })
@@ -111,6 +111,9 @@ describe('novelChildWriteSync · 真实 PostgreSQL', { skip: !DATABASE_URL && '�
     sync.scheduleUpsert('seasons', { id: `${novelId}-s`, novelId, seasonNo: 1, title: '第一季' })
     sync.scheduleUpsert('episodes', { id: `${novelId}-ep`, novelId, seasonId: `${novelId}-s`, episodeNo: 1, title: '第一集' })
     sync.scheduleUpsert('assets', { id: `${novelId}-a`, novelId, category: 'character', name: '甲', status: 'draft' })
+    sync.scheduleUpsert('states', { id: `${novelId}-st`, novelId, characterId: `${novelId}-c`, episodeNo: 1, appearance: '少年' })
+    sync.scheduleUpsert('characterSets', { id: `${novelId}-cs`, novelId, provider: 'llm', characterIds: ['c'] })
+    sync.scheduleUpsert('worldSets', { id: `${novelId}-ws`, novelId, provider: 'llm', entityIds: ['e'] })
     await sync.flush()
 
     const counts = await getPool().query(
@@ -120,11 +123,17 @@ describe('novelChildWriteSync · 真实 PostgreSQL', { skip: !DATABASE_URL && '�
         (SELECT count(*) FROM novel_world_entities WHERE novel_id=$1) AS entities,
         (SELECT count(*) FROM seasons WHERE novel_id=$1) AS seasons,
         (SELECT count(*) FROM episodes WHERE novel_id=$1) AS episodes,
-        (SELECT count(*) FROM novel_asset_images WHERE novel_id=$1) AS assets`,
+        (SELECT count(*) FROM novel_asset_images WHERE novel_id=$1) AS assets,
+        (SELECT count(*) FROM novel_character_states WHERE novel_id=$1) AS states,
+        (SELECT count(*) FROM character_sets WHERE novel_id=$1) AS character_sets,
+        (SELECT count(*) FROM world_sets WHERE novel_id=$1) AS world_sets`,
       [novelId]
     )
     assert.deepEqual(counts.rows[0].chunks, '1')
     assert.deepEqual(counts.rows[0].episodes, '1')
+    assert.deepEqual(counts.rows[0].states, '1')
+    assert.deepEqual(counts.rows[0].character_sets, '1')
+    assert.deepEqual(counts.rows[0].world_sets, '1')
 
     sync.scheduleDelete('characters', `${novelId}-c`)
     await sync.flush()
@@ -136,5 +145,10 @@ describe('novelChildWriteSync · 真实 PostgreSQL', { skip: !DATABASE_URL && '�
     const revived = await getPool().query('SELECT name, deleted_at FROM novel_characters WHERE id=$1', [`${novelId}-c`])
     assert.equal(revived.rows[0].name, '甲-复活')
     assert.equal(revived.rows[0].deleted_at, null)
+
+    sync.scheduleDeleteStates(novelId, `${novelId}-c`)
+    await sync.flush()
+    const stateDeleted = await getPool().query('SELECT deleted_at FROM novel_character_states WHERE id=$1', [`${novelId}-st`])
+    assert.ok(stateDeleted.rows[0].deleted_at)
   })
 })

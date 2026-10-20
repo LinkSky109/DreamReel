@@ -536,10 +536,14 @@ router.post('/:id/style/generate', async (req, res) => {
 })
 
 // 角色成长状态：列表
-router.get('/:id/characters/:cid/states', (req, res) => {
+router.get('/:id/characters/:cid/states', async (req, res) => {
   try {
     getNovelProject(req.params.id)
-    res.json({ success: true, data: listStates(req.params.id, req.params.cid) })
+    const rows = await novelChildReadService.list('states', req.params.id, {
+      requestId: req.id,
+      characterId: req.params.cid,
+    })
+    res.json({ success: true, data: rows })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

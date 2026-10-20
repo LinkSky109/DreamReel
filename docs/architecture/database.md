@@ -240,3 +240,26 @@ npm run db:verify:novel-children
 - 队列为进程内、fire-and-forget；进程崩溃会丢最后一批写；
 - 多实例部署时各自写库，需要后续换 outbox/队列；
 - `novel_character_states`、角色集/世界观集尚未迁移。
+
+## Phase 4 扩面：形象状态与备选集合
+
+迁移新增：
+
+| 集合 | 行数 | 迁移差异 |
+|---|---:|---:|
+| novelCharacterStates | 724 | 0 |
+| characterSets | 1 | 0 |
+| worldSets | 1 | 0 |
+
+- `GET /api/novels/:id/characters/:cid/states` 已接入 `NOVEL_REPO_MODE`；
+- 实测 186 条「血瞳」状态，shadow 0 告警，PG 与 JSON 内容/顺序完全一致；
+- `GET /:id/timeline` 仍走 JSON（内部聚合较重，留到下一步）；
+- 角色/世界观集合的**列表读取仍走 JSON**（顺序由 `project.characterSets/worldSets` 决定），但文档已迁移并支持写镜像。
+
+写镜像扩展到 9 类：新增 `states`、`characterSets`、`worldSets`。
+
+- `create/updateNovelCharacterState` → upsert；
+- `deleteNovelCharacterStates(novelId, characterId?, episodeNo?)` → 按条件软删除；
+- `createCharacterSet` / `createWorldSet` → upsert。
+
+联调实测：状态写入后 PG 为「青年」，集合各 1 行，按角色删除后 `deleted_at` 置位。
