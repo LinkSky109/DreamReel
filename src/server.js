@@ -21,12 +21,29 @@ if (isMainModule) {
   server.requestTimeout = 0
   server.headersTimeout = 10 * 60 * 1000
 
+  let outboxWorker = null
+  if (config.outbox.enabled) {
+    import('./workers/outboxWorker.js')
+      .then(({ startOutboxWorker }) => {
+        outboxWorker = startOutboxWorker()
+        logger.info('[outbox] worker started')
+      })
+      .catch((error) => logger.warn('[outbox] worker 启动失败', { message: error.message }))
+  }
+
   const shutdown = (signal) => {
     logger.info(`${signal} received, shutting down gracefully`)
-    server.close((error) => {
+    outboxWorker?.stop()
+    server.close(async (error) => {
       if (error) {
         logger.error('Graceful shutdown failed:', error.message)
         process.exit(1)
+      }
+      try {
+        const { closeDb } = await import('./db/client.js')
+        await closeDb()
+      } catch {
+        // 未启用数据库时忽略
       }
       logger.info('Server closed')
       process.exit(0)

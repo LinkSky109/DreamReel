@@ -1,7 +1,7 @@
 # 路由清单（自动生成）
 
-生成时间：2026-10-20T12:31:55.062Z
-挂载文件：`src/app.js`
+生成时间：2026-10-20T13:01:06.856Z
+挂载文件：`src/routes/index.js`
 
 > 由 `node scripts/inventory.js` 生成，请勿手工编辑。
 
@@ -52,6 +52,8 @@
 | `/api/cloud-drive` | `src/routes/cloudDrive.js` | `authOptional` | 4 |
 
 合计：**41 个挂载前缀，337 个端点**。
+
+> `/api/v1` 使用同一挂载表（另有 /api/v1/meta），共 337 个端点；`/api` 保持兼容并返回 Deprecation 头。
 
 ## 鉴权分布
 

@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
+import { novelChildMirror } from './novelChildWriteSync.js'
 
 const DATA_DIR = path.resolve(config.storage.path, 'data')
 const DATA_FILE = path.join(DATA_DIR, 'db.json')
@@ -396,6 +397,7 @@ class StorageService {
 
     delete this.data.novelProjects[id]
     removed.novelProjects = 1
+    novelChildMirror.scheduleDeleteByNovel(id)
     this.save()
     return { deleted: true, removed }
   }
@@ -404,6 +406,7 @@ class StorageService {
     if (!this.data.novelChunks) this.data.novelChunks = {}
     this.data.novelChunks[chunk.id] = chunk
     this.save()
+    novelChildMirror.scheduleUpsert('chunks', chunk)
     return chunk
   }
 
@@ -421,6 +424,7 @@ class StorageService {
     if (!this.data.novelCharacters) this.data.novelCharacters = {}
     this.data.novelCharacters[character.id] = character
     this.save()
+    novelChildMirror.scheduleUpsert('characters', character)
     return character
   }
 
@@ -438,6 +442,7 @@ class StorageService {
     if (!this.data.novelCharacters) this.data.novelCharacters = {}
     this.data.novelCharacters[character.id] = character
     this.save()
+    novelChildMirror.scheduleUpsert('characters', character)
     return character
   }
 
@@ -445,6 +450,7 @@ class StorageService {
     if (!this.data.novelCharacterStates) this.data.novelCharacterStates = {}
     this.data.novelCharacterStates[state.id] = state
     this.save()
+    novelChildMirror.scheduleUpsert('states', state)
     return state
   }
 
@@ -464,6 +470,7 @@ class StorageService {
     if (!this.data.novelCharacterStates) this.data.novelCharacterStates = {}
     this.data.novelCharacterStates[state.id] = state
     this.save()
+    novelChildMirror.scheduleUpsert('states', state)
     return state
   }
 
@@ -478,7 +485,10 @@ class StorageService {
       delete this.data.novelCharacterStates[id]
       n += 1
     }
-    if (n) this.save()
+    if (n) {
+      this.save()
+      novelChildMirror.scheduleDeleteStates(novelId, characterId, episodeNo)
+    }
     return n
   }
 
@@ -488,6 +498,7 @@ class StorageService {
     if (!this.data.seriesSeasons) this.data.seriesSeasons = {}
     this.data.seriesSeasons[season.id] = season
     this.save()
+    novelChildMirror.scheduleUpsert('seasons', season)
     return season
   }
 
@@ -505,6 +516,7 @@ class StorageService {
     if (!this.data.seriesEpisodes) this.data.seriesEpisodes = {}
     this.data.seriesEpisodes[episode.id] = episode
     this.save()
+    novelChildMirror.scheduleUpsert('episodes', episode)
     return episode
   }
 
@@ -524,6 +536,7 @@ class StorageService {
     if (!this.data.seriesEpisodes) this.data.seriesEpisodes = {}
     this.data.seriesEpisodes[episode.id] = episode
     this.save()
+    novelChildMirror.scheduleUpsert('episodes', episode)
     return episode
   }
 
@@ -533,6 +546,7 @@ class StorageService {
     if (!this.data.novelWorldEntities) this.data.novelWorldEntities = {}
     this.data.novelWorldEntities[entity.id] = entity
     this.save()
+    novelChildMirror.scheduleUpsert('entities', entity)
     return entity
   }
 
@@ -550,6 +564,7 @@ class StorageService {
     if (!this.data.novelWorldEntities) this.data.novelWorldEntities = {}
     this.data.novelWorldEntities[entity.id] = entity
     this.save()
+    novelChildMirror.scheduleUpsert('entities', entity)
     return entity
   }
 
@@ -559,6 +574,7 @@ class StorageService {
     if (!this.data.novelAssetImages) this.data.novelAssetImages = {}
     this.data.novelAssetImages[asset.id] = asset
     this.save()
+    novelChildMirror.scheduleUpsert('assets', asset)
     return asset
   }
 
@@ -576,6 +592,7 @@ class StorageService {
     if (!this.data.novelAssetImages) this.data.novelAssetImages = {}
     this.data.novelAssetImages[asset.id] = asset
     this.save()
+    novelChildMirror.scheduleUpsert('assets', asset)
     return asset
   }
 
@@ -583,6 +600,7 @@ class StorageService {
     if (!this.data.novelAssetImages || !this.data.novelAssetImages[id]) return false
     delete this.data.novelAssetImages[id]
     this.save()
+    novelChildMirror.scheduleDelete('assets', id)
     return true
   }
 
@@ -620,6 +638,7 @@ class StorageService {
     if (!this.data.characterSets) this.data.characterSets = {}
     this.data.characterSets[set.id] = set
     this.save()
+    novelChildMirror.scheduleUpsert('characterSets', set)
     return set
   }
 
@@ -632,6 +651,7 @@ class StorageService {
     if (!this.data.worldSets) this.data.worldSets = {}
     this.data.worldSets[set.id] = set
     this.save()
+    novelChildMirror.scheduleUpsert('worldSets', set)
     return set
   }
 

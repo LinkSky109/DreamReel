@@ -10,6 +10,7 @@ import {
   missingStatesForEpisode,
   buildTimeline,
   deriveCharacterStages,
+  buildTimelineFrom,
 } from '../src/services/characterGrowthService.js'
 
 let novelId
@@ -95,5 +96,25 @@ describe('角色形象时间线 characterGrowthService', () => {
       hero.states.map((s) => s.episodeNo),
       [1, 5]
     )
+  })
+})
+
+describe('buildTimelineFrom', () => {
+  it('按角色分组、按集数升序、过滤泛名与无状态角色', () => {
+    const chars = [
+      { id: 'c1', name: '血瞳' },
+      { id: 'c2', name: '人类' },
+      { id: 'c3', name: '无状态' },
+    ]
+    const states = [
+      { characterId: 'c1', episodeNo: 5, appearance: '青年', equipment: '光刃', source: 'llm' },
+      { characterId: 'c1', episodeNo: 1, appearance: '少年', equipment: '铁片', source: 'llm' },
+      { characterId: 'c2', episodeNo: 1, appearance: '人群', source: 'llm' },
+    ]
+    const timeline = buildTimelineFrom(chars, states)
+    assert.equal(timeline.length, 1)
+    assert.equal(timeline[0].characterId, 'c1')
+    assert.deepEqual(timeline[0].states.map((s) => s.episodeNo), [1, 5])
+    assert.equal(timeline[0].states[0].appearance, '少年')
   })
 })

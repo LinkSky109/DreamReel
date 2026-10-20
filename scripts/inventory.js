@@ -29,6 +29,30 @@ function findAppFile() {
 }
 
 function routeMounts() {
+  const indexFile = path.join(ROOT, 'src', 'routes', 'index.js')
+  if (fs.existsSync(indexFile)) {
+    const src = fs.readFileSync(indexFile, 'utf8')
+    const imports = new Map()
+    for (const m of src.matchAll(/import\s+(\w+)\s+from\s+'\.\/([\w.-]+\.js)'/g)) {
+      imports.set(m[1], m[2])
+    }
+    const mounts = []
+    const re = /\{\s*path:\s*'([^']+)'\s*(?:,\s*middleware:\s*\[([^\]]*)\])?\s*,\s*router:\s*(\w+)\s*\}/g
+    for (const m of src.matchAll(re)) {
+      const routerVar = m[3]
+      if (!imports.has(routerVar)) continue
+      mounts.push({
+        prefix: `/api${m[1]}`,
+        file: imports.get(routerVar),
+        middleware: (m[2] || '')
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean),
+        alias: '/api/v1',
+      })
+    }
+    return { appFile: 'src/routes/index.js', mounts }
+  }
   const appFile = findAppFile()
   if (!appFile) return { appFile: null, mounts: [] }
   const src = readIfExists(appFile)
@@ -86,6 +110,8 @@ function buildRouteDoc() {
   }
   lines.push('')
   lines.push(`合计：**${mounts.length} 个挂载前缀，${total} 个端点**。`)
+  lines.push('')
+  lines.push(`> \`/api/v1\` 使用同一挂载表（另有 /api/v1/meta），共 ${total} 个端点；\`/api\` 保持兼容并返回 Deprecation 头。`)
   lines.push('')
   lines.push('## 鉴权分布')
   lines.push('')

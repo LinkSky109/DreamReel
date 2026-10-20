@@ -38,26 +38,50 @@ function normalize(endpoint) {
   return `${method} ${p}`
 }
 
-function backendRoutes() {
-  const appFile = findAppFile()
-  if (!appFile) throw new Error('未找到 src/app.js 或 src/server.js')
-  const src = read(appFile)
+function mountsFromApp(src) {
   const imports = new Map()
   for (const m of src.matchAll(/import\s+(\w+)\s+from\s+'\.\/routes\/([\w.-]+\.js)'/g)) {
     imports.set(m[1], m[2])
   }
-  const routes = new Map()
+  const mounts = []
   for (const m of src.matchAll(/app\.use\(\s*'([^']+)'\s*,\s*([^)]*)\)/g)) {
     const prefix = m[1]
     if (!prefix.startsWith('/api')) continue
     const args = m[2].split(',').map((s) => s.trim()).filter(Boolean)
     const routerVar = args[args.length - 1]
     if (!imports.has(routerVar)) continue
-    const routeFile = path.join(ROUTES_DIR, imports.get(routerVar))
-    const routeSrc = read(routeFile)
+    mounts.push({ prefix, file: imports.get(routerVar) })
+  }
+  return mounts
+}
+
+function mountsFromIndex() {
+  const src = read(path.join(ROUTES_DIR, 'index.js'))
+  if (!src) return []
+  const imports = new Map()
+  for (const m of src.matchAll(/import\s+(\w+)\s+from\s+'\.\/([\w.-]+\.js)'/g)) {
+    imports.set(m[1], m[2])
+  }
+  const mounts = []
+  for (const m of src.matchAll(/\{\s*path:\s*'([^']+)'[^}]*router:\s*(\w+)/g)) {
+    if (!imports.has(m[2])) continue
+    mounts.push({ prefix: `/api${m[1]}`, file: imports.get(m[2]) })
+  }
+  return mounts
+}
+
+function backendRoutes() {
+  const appFile = findAppFile()
+  if (!appFile) throw new Error('未找到 src/app.js 或 src/server.js')
+  const src = read(appFile)
+  const mounts = src.includes('mountApi') ? mountsFromIndex() : mountsFromApp(src)
+  if (!mounts.length) throw new Error('未解析到 API 挂载表')
+  const routes = new Map()
+  for (const mount of mounts) {
+    const routeSrc = read(path.join(ROUTES_DIR, mount.file))
     for (const r of routeSrc.matchAll(/router\.(get|post|put|patch|delete)\(\s*'([^']*)'/g)) {
-      const full = normalize(`${r[1].toUpperCase()} ${prefix}${r[2]}`)
-      routes.set(full, `src/routes/${imports.get(routerVar)}`)
+      const full = normalize(`${r[1].toUpperCase()} ${mount.prefix}${r[2]}`)
+      routes.set(full, `src/routes/${mount.file}`)
     }
   }
   return routes

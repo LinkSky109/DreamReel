@@ -35,6 +35,32 @@ const config = {
   authMode: process.env.AUTH_MODE || 'legacy',
   // single | organization
   tenancyMode: process.env.TENANCY_MODE || 'single',
+  // 反向代理层数；Nginx 后置为 1，直接暴露时为 false
+  trustProxy: process.env.TRUST_PROXY === '1' || process.env.TRUST_PROXY === 'true',
+  // 限流：默认仅生产开启，测试/本地通过 RATE_LIMIT_ENABLED=true 显式打开
+  rateLimit: {
+    enabled: process.env.RATE_LIMIT_ENABLED === 'true' || process.env.NODE_ENV === 'production',
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 60000,
+    max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 600,
+    authMax: parseInt(process.env.RATE_LIMIT_AUTH_MAX, 10) || 30,
+  },
+  idempotency: {
+    ttlMs: parseInt(process.env.IDEMPOTENCY_TTL_MS, 10) || 24 * 60 * 60 * 1000,
+  },
+  outbox: {
+    enabled: process.env.OUTBOX_ENABLED === 'true',
+    intervalMs: parseInt(process.env.OUTBOX_INTERVAL_MS, 10) || 2000,
+    batchSize: parseInt(process.env.OUTBOX_BATCH_SIZE, 10) || 20,
+    maxAttempts: parseInt(process.env.OUTBOX_MAX_ATTEMPTS, 10) || 8,
+    lockTimeoutSeconds: parseInt(process.env.OUTBOX_LOCK_TIMEOUT_SECONDS, 10) || 120,
+  },
+  // novels 读写切换：legacy(默认) | shadow(影子读) | postgres
+  novels: {
+    repoMode: process.env.NOVEL_REPO_MODE || 'legacy',
+    // legacy | dual（JSON 为准，写后镜像 PG）；postgres 写模式尚未开放
+    writeMode: process.env.NOVEL_WRITE_MODE || 'legacy',
+    orgId: process.env.DEFAULT_ORG_ID || 'default',
+  },
 
 
   video: {

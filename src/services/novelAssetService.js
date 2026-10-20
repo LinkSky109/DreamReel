@@ -62,8 +62,7 @@ export function listAssets(novelId, { category } = {}) {
   return filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
 }
 
-export function assetStats(novelId) {
-  const list = storageService.listNovelAssetImages(novelId)
+export function assetStatsFromRows(list) {
   const byCategory = {}
   for (const c of ASSET_CATEGORIES) byCategory[c] = 0
   for (const a of list) byCategory[a.category] = (byCategory[a.category] || 0) + 1
@@ -74,6 +73,10 @@ export function assetStats(novelId) {
     byCategory,
     byCategoryLabel: Object.fromEntries(Object.entries(byCategory).map(([k, v]) => [ASSET_CATEGORY_LABELS[k] || k, v])),
   }
+}
+
+export function assetStats(novelId) {
+  return assetStatsFromRows(storageService.listNovelAssetImages(novelId))
 }
 
 function persistIndex(novelId) {

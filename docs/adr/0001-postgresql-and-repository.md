@@ -20,7 +20,7 @@
 ## 决策
 
 1. 主库使用 **PostgreSQL 16**。
-2. 数据访问使用 **`pg` + Kysely + `node-pg-migrate`**，不引入重量级 ORM。
+2. 数据访问使用 **`pg` + Kysely**，迁移使用按编号的 SQL 文件 + 自带 runner（advisory lock、校验和），不引入重量级 ORM。
 3. 保留现有字符串业务主键 `id`，避免 API 破坏性变更；新表可用 UUIDv7。
 4. 引入 Repository 层：`src/repositories/*` 定义接口，先提供 `json` 适配器（委托现有 storageService），再提供 `postgres` 适配器，用同一套契约测试验证行为一致。
 5. 启动时校验 schema 版本，生产迁移由独立 Job 执行并加 advisory lock。
