@@ -707,6 +707,10 @@ export const api = {
     }),
   getPlans: () => request<{ plans: SubscriptionPlan[] }>('/subscription/plans'),
   getCurrentSubscription: () => request<SubscriptionFeatures>('/subscription/current'),
+  subscribe: (body: { planId: string; billingCycle: 'monthly' | 'yearly'; paymentInfo?: Record<string, string> }) =>
+    request<{ success?: boolean }>('/subscription/subscribe', { method: 'POST', body }),
+  cancelSubscription: () =>
+    request<{ success?: boolean }>('/subscription/cancel', { method: 'POST', body: {} }),
   getPerformance: () => request<Record<string, unknown>>('/system/performance'),
 }
 

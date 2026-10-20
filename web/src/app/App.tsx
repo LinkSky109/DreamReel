@@ -24,6 +24,9 @@ const DocsPage = lazy(() =>
 const ModerationPage = lazy(() =>
   import('../pages/Moderation').then((module) => ({ default: module.ModerationPage }))
 )
+const PricingPage = lazy(() =>
+  import('../pages/Pricing').then((module) => ({ default: module.PricingPage }))
+)
 const StatsPage = lazy(() =>
   import('../pages/Stats').then((module) => ({ default: module.StatsPage }))
 )
@@ -153,7 +156,7 @@ export function App() {
             element={<LegacyParamRoute module="creator" renderer="renderCreatorPage" title="创作者主页" />}
           />
           <Route path="/stats" element={<StatsPage />} />
-          <Route path="/pricing" element={<LegacyView module="pricing" renderer="renderPricingPage" title="套餐与定价" />} />
+          <Route path="/pricing" element={<PricingPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route
             path="/system-settings"
