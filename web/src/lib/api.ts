@@ -3,6 +3,8 @@ import type {
   ChallengeDetail,
   DirectorProfile,
   CommunityLeaderboardItem,
+  Studio,
+  StudioShow,
   CommunityReview,
   CommunityReviewInput,
   CommunityReport,
@@ -715,6 +717,20 @@ export const api = {
       method: 'PATCH',
       body: updates,
     }),
+  listStudios: () => request<{ total: number; items: Studio[] }>('/studios'),
+  getStudio: (id: string) => request<Studio>(`/studios/${id}`),
+  createStudio: (body: { name: string; description?: string; stylePositioning?: string; curatorName?: string; ownerId?: string }) =>
+    request<Studio>('/studios', { method: 'POST', body }),
+  signStudioMember: (id: string, body: { userId: string; name?: string; role?: string }) =>
+    request<Studio>(`/studios/${id}/members`, { method: 'POST', body }),
+  removeStudioMember: (id: string, userId: string) =>
+    request<Studio>(`/studios/${id}/members/${encodeURIComponent(userId)}`, { method: 'DELETE', body: {} }),
+  createStudioShow: (id: string, body: { title: string; synopsis?: string }) =>
+    request<StudioShow>(`/studios/${id}/shows`, { method: 'POST', body }),
+  addProjectToStudio: (id: string, projectId: string) =>
+    request<Studio>(`/studios/${id}/projects/${projectId}`, { method: 'POST', body: {} }),
+  addProjectToStudioShow: (id: string, showId: string, projectId: string) =>
+    request<StudioShow>(`/studios/${id}/shows/${showId}/projects/${projectId}`, { method: 'POST', body: {} }),
   getCommunityLeaderboard: async (period = 'weekly', limit = 20) => {
     const response = await request<{ success: boolean; data: { period: string; leaderboard: CommunityLeaderboardItem[] } }>(
       `/community/leaderboard?period=${period}&limit=${limit}`

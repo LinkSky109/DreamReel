@@ -24,6 +24,9 @@ const DocsPage = lazy(() =>
 const ModerationPage = lazy(() =>
   import('../pages/Moderation').then((module) => ({ default: module.ModerationPage }))
 )
+const StudiosPage = lazy(() =>
+  import('../pages/Studios').then((module) => ({ default: module.StudiosPage }))
+)
 const CommunityPage = lazy(() =>
   import('../pages/Community').then((module) => ({ default: module.CommunityPage }))
 )
@@ -148,11 +151,8 @@ export function App() {
           <Route path="/challenges" element={<ChallengesPage />} />
           <Route path="/directors" element={<DirectorsPage />} />
           <Route path="/title-sequences" element={<TitleSequencesPage />} />
-          <Route path="/studios" element={<LegacyView module="studios" renderer="renderStudiosPage" title="剧场计划" />} />
-          <Route
-            path="/studio/:id"
-            element={<LegacyParamRoute module="studios" renderer="renderStudiosPage" title="剧场计划" />}
-          />
+          <Route path="/studios" element={<StudiosPage />} />
+          <Route path="/studio/:id" element={<StudiosPage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/store" element={<LegacyView module="store" renderer="renderStorePage" title="素材商城" />} />
           <Route path="/teams" element={<LegacyView module="teams" renderer="renderTeamsPage" title="团队协作" />} />

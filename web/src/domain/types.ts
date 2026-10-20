@@ -99,6 +99,51 @@ export interface StatsDashboard {
 
 
 
+
+export interface StudioMember {
+  userId: string
+  name: string
+  role: string
+  joinedAt?: string
+}
+
+export interface StudioWork {
+  id: string
+  name: string
+  coverUrl?: string
+  status?: string
+  shotCount?: number
+}
+
+export interface StudioShow {
+  id: string
+  title: string
+  synopsis?: string
+  projectIds: string[]
+  createdAt?: string
+  works?: StudioWork[]
+}
+
+export interface Studio {
+  id: string
+  name: string
+  description: string
+  logo?: string
+  logoUrl?: string
+  stylePositioning: string
+  curatorId?: string | null
+  curatorName: string
+  members: StudioMember[]
+  shows: StudioShow[]
+  projectIds: string[]
+  memberCount: number
+  showCount: number
+  projectCount: number
+  works?: StudioWork[]
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface CommunityReview {
   id: string
   userId: string

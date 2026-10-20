@@ -24,7 +24,8 @@ router.post('/', async (req, res) => {
       logo: req.body.logo,
       stylePositioning: req.body.stylePositioning,
       curatorName: req.body.curatorName,
-      ownerId: req.body.ownerId || req.user?.id || 'default',
+      // 已登录用户优先，避免 body 伪造厂牌所有权；匿名沿用显式 ownerId
+      ownerId: req.user?.id || req.body.ownerId || 'default',
     })
     res.status(201).json(studio.toJSON())
   } catch (error) {
