@@ -25,3 +25,9 @@ export function projectCover(project: { id: string; coverUrl?: string | null }) 
 export function fallbackImage(index = 0) {
   return FALLBACK_IMAGES[Math.abs(index) % FALLBACK_IMAGES.length]
 }
+
+
+/** 模板封面：原型剧照按模板 ID 稳定分配。 */
+export function templateCover(id: string) {
+  return FALLBACK_IMAGES[hash(`template:${id}`) % FALLBACK_IMAGES.length]
+}

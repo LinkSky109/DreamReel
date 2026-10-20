@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useLang } from '../lib/i18n'
 import { Icon } from '../components/Icon'
+import { templateCover } from '../lib/media'
 
 export function TemplatesPage() {
   const navigate = useNavigate()
@@ -34,20 +35,23 @@ export function TemplatesPage() {
 
   return (
     <div className="dr-page">
-      <div className="dr-page-head">
+      <div className="projects-head templates-head">
         <div>
-          <h1 className="dr-page-title">{t('模板库', 'Templates')}</h1>
-          <p className="dr-page-sub">
-            {t('用结构启动项目，而不是套版。模板只预填创意、时长与画幅。', 'Start with structure, not a fixed look.')}
+          <p className="dash-eyebrow">Templates</p>
+          <h1>{t('模板库', 'Templates')}</h1>
+          <p className="projects-lead">
+            {t(
+              '用结构启动项目，而不是套版。模板只预填创意、时长与画幅。',
+              'Start with structure, not a fixed look. Templates only prefill the idea, duration and aspect.'
+            )}
           </p>
         </div>
-        <div style={{ position: 'relative', minWidth: 220 }}>
-          <span style={{ position: 'absolute', left: 9, top: 9, color: 'var(--meta)' }}>
+        <div className="template-search">
+          <span>
             <Icon name="search" size={15} />
           </span>
           <input
             className="dr-input"
-            style={{ width: '100%', paddingLeft: 30 }}
             placeholder={t('搜索模板…', 'Search templates…')}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -96,35 +100,31 @@ export function TemplatesPage() {
           <div>{t('换一个分类或关键词。', 'Try another category or keyword.')}</div>
         </div>
       ) : (
-        <div className="dr-grid dr-grid-3">
+        <div className="template-library-grid">
           {filtered.map((template) => (
-            <article className="dr-card dr-card-hover dr-template-card" key={template.id}>
-              <div className="dr-template-icon">
-                <Icon name="template" size={17} />
-              </div>
-              <div className="dr-template-name">{template.name}</div>
-              <div className="dr-template-desc">{template.description}</div>
-              <div className="dr-tag-row">
-                <span className="dr-tag">{template.category}</span>
-                {template.config?.targetDuration ? (
-                  <span className="dr-tag">{template.config.targetDuration}s</span>
-                ) : null}
-                {template.config?.platform ? (
-                  <span className="dr-tag">
-                    {template.config.platform === 'portrait' ? '9:16' : '16:9'}
-                  </span>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                className="dr-btn dr-btn-primary"
-                style={{ alignSelf: 'flex-start', marginTop: 4 }}
-                onClick={() => navigate(`/projects?template=${encodeURIComponent(template.id)}&create=1`)}
-              >
-                {t('使用模板', 'Use template')}
-                <Icon name="arrow-right" size={14} />
-              </button>
-            </article>
+            <button
+              type="button"
+              className="template-library-card"
+              key={template.id}
+              onClick={() => navigate(`/projects?template=${encodeURIComponent(template.id)}&create=1`)}
+            >
+              <span className="template-library-cover">
+                <img src={templateCover(template.id)} alt="" loading="lazy" />
+                <span className="template-library-cat">{template.category}</span>
+                <span className="template-library-use">
+                  {t('使用模板', 'Use template')}
+                  <Icon name="arrow-right" size={13} />
+                </span>
+              </span>
+              <span className="template-library-body">
+                <span className="template-library-name">{template.icon} {template.name}</span>
+                <span className="template-library-desc">{template.description}</span>
+                <span className="template-library-meta">
+                  {template.config?.targetDuration ? `${template.config.targetDuration}s` : '—'}
+                  {template.config?.platform ? ` · ${template.config.platform === 'portrait' ? '9:16' : '16:9'}` : ''}
+                </span>
+              </span>
+            </button>
           ))}
         </div>
       )}

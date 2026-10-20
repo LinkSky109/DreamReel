@@ -13,7 +13,7 @@ import {
 } from '../lib/format'
 import type { Project } from '../domain/types'
 import { Icon } from '../components/Icon'
-import { projectCover } from '../lib/media'
+import { projectCover, templateCover } from '../lib/media'
 import { readWorkspacePreferences } from '../lib/preferences'
 
 function greeting(hour: number, lang: string): string {
@@ -280,18 +280,22 @@ export function DashboardPage() {
               </Link>
             </div>
             <div className="dr-template-grid">
-              {templates.map((template, index) => (
+              {templates.map((template) => (
                 <Link
-                  className="dr-template-tile"
+                  className="dr-template-tile is-cover"
                   key={template.id}
                   to={`/templates?template=${encodeURIComponent(template.id)}`}
-                  style={{ ['--tile-hue' as string]: `${(index * 47 + 205) % 360}` }}
                 >
-                  <span className="dr-template-tile-icon">{template.icon ?? '◈'}</span>
-                  <span className="dr-template-tile-name">{template.name}</span>
-                  <span className="dr-template-tile-meta">
-                    {template.category}
-                    {template.config?.targetDuration ? ` · ${template.config.targetDuration}s` : ''}
+                  <span className="dr-template-cover">
+                    <img src={templateCover(template.id)} alt="" loading="lazy" />
+                    <span className="dr-template-cat">{template.category}</span>
+                  </span>
+                  <span className="dr-template-tile-body">
+                    <span className="dr-template-tile-name">{template.icon} {template.name}</span>
+                    <span className="dr-template-tile-meta">
+                      {template.config?.targetDuration ? `${template.config.targetDuration}s` : '—'}
+                      {template.config?.platform ? ` · ${template.config.platform === 'portrait' ? '9:16' : '16:9'}` : ''}
+                    </span>
                   </span>
                 </Link>
               ))}
