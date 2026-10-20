@@ -4,6 +4,7 @@ import type {
   NotificationItem,
   Project,
   ProjectListResponse,
+  ProjectScript,
   QuotaOverview,
   TemplateListResponse,
 } from '../domain/types'
@@ -133,6 +134,53 @@ export const api = {
   exportProject: (id: string) => {
     window.open(`${apiBase()}/projects/${id}/export`, '_blank', 'noopener')
   },
+
+  // Script & shots
+  generateScript: (body: {
+    idea: string
+    targetDuration?: number
+    platform?: string
+    style?: string
+    projectId?: string
+  }) => request<ProjectScript>('/script/generate', { method: 'POST', body }),
+  updateShot: (
+    projectId: string,
+    shotId: string,
+    data: { description?: string; duration?: number; dialogue?: string; narration?: string }
+  ) =>
+    request<{ success: boolean }>(`/video/shots/${shotId}`, {
+      method: 'PUT',
+      body: { projectId, ...data },
+    }),
+  lockShot: (projectId: string, shotId: string, locked: boolean) =>
+    request<{ success: boolean }>(`/video/shots/${shotId}/lock`, {
+      method: 'PUT',
+      body: { projectId, locked },
+    }),
+  switchShotVersion: (projectId: string, shotId: string, versionIndex: number) =>
+    request<{ success: boolean }>(`/video/shots/${shotId}/version/${versionIndex}`, {
+      method: 'POST',
+      body: { projectId },
+    }),
+  generateVideo: (body: {
+    projectId: string
+    shotId: string
+    prompt: string
+    duration: number
+    aspectRatio: string
+    styleId?: string
+  }) => request<{ success?: boolean }>('/video/generate', { method: 'POST', body }),
+  regenerateVideo: (body: { projectId: string; shotId: string; styleId?: string }) =>
+    request<{ success?: boolean }>('/video/regenerate', { method: 'POST', body }),
+  generateAllVideos: (projectId: string, options: { styleId?: string } = {}) =>
+    request<{ success?: boolean }>(`/video/generate-all/${projectId}`, { method: 'POST', body: options }),
+  listStyles: () =>
+    request<{ items: { id: string; name: string; icon?: string }[] }>('/styles'),
+  exportProjectVideo: (projectId: string) =>
+    request<{ status: string; message: string }>(`/export/project/${projectId}`, {
+      method: 'POST',
+      body: {},
+    }),
 
   // Templates
   listTemplates: (params: { category?: string; search?: string; type?: string } = {}) =>

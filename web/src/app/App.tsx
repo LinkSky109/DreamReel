@@ -11,6 +11,7 @@ import { ModerationPage } from '../pages/Moderation'
 import { NotFoundPage } from '../pages/NotFound'
 import { LogoutPage } from '../pages/Logout'
 import { LegacyView } from '../features/legacy/LegacyView'
+import { EditorPage } from '../features/editor/EditorPage'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -66,11 +67,8 @@ export function App() {
           <Route path="/developer" element={<Navigate to="/api-console" replace />} />
           <Route path="/marketplace" element={<Navigate to="/store" replace />} />
 
-          {/* 编辑器：legacy 桥接（Phase 2 起逐阶段迁移） */}
-          <Route
-            path="/project/:id"
-            element={<LegacyParamRoute module="editor" renderer="renderEditor" title="项目编辑器" />}
-          />
+          {/* 编辑器：React Shell + 剧本 / 分镜 / 生成；其余阶段 legacy 桥接 */}
+          <Route path="/project/:id" element={<EditorPage />} />
 
           {/* 小说剧场 */}
           <Route

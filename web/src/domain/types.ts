@@ -1,7 +1,16 @@
 export type ProjectStatus = 'draft' | 'in-progress' | 'completed' | 'empty'
 
+export interface ShotVersion {
+  videoUrl: string
+  prompt?: string
+  model?: string
+  createdAt?: string
+  consistencyScore?: number | null
+}
+
 export interface Shot {
   id: string
+  projectId?: string
   index: number
   description: string
   duration: number
@@ -10,7 +19,44 @@ export interface Shot {
   videoUrl?: string | null
   imageUrl?: string | null
   locked?: boolean
-  versions?: unknown[]
+  versions?: ShotVersion[]
+  shotType?: string
+  cameraMovement?: string
+  dialogue?: string
+  narration?: string
+  characterIds?: string[]
+  consistencyScore?: number | null
+  errorMessage?: string
+  updatedAt?: string
+  createdAt?: string
+}
+
+export interface ScriptCharacter {
+  name: string
+  description?: string
+  personality?: string
+}
+
+export interface ScriptScene {
+  description: string
+  dialogue?: string
+  narration?: string
+  duration?: number
+  shotType?: string
+  cameraMovement?: string
+}
+
+export interface ProjectScript {
+  synopsis?: string
+  characters?: ScriptCharacter[]
+  shots?: ScriptScene[]
+}
+
+export interface Character {
+  id: string
+  name: string
+  description?: string
+  personality?: string
 }
 
 export interface Project {
@@ -23,6 +69,8 @@ export interface Project {
   style: string
   platform: 'landscape' | 'portrait' | string
   shots: Shot[]
+  script?: ProjectScript
+  characters?: Character[]
   tags: string[]
   isFavorite: boolean
   isArchived: boolean
