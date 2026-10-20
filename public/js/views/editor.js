@@ -28,6 +28,7 @@ function debounce(fn, delay = 300) {
 }
 
 let currentTab = 'script'
+let generatePollTimer = null
 
 export async function renderEditor(container, projectId) {
   container.innerHTML = `
@@ -75,6 +76,7 @@ export async function renderEditor(container, projectId) {
 
 function renderEditorLayout(container, project) {
   currentTab = normalizeTab(resolveInitialTab())
+  container.style.setProperty('--shot-aspect', aspectRatioCss(project))
 
   container.innerHTML = `
     <div class="page-header editor-page-header">
@@ -111,6 +113,7 @@ function renderEditorLayout(container, project) {
         <div class="tab-panel" id="tab-script"></div>
         <div class="tab-panel" id="tab-images"></div>
         <div class="tab-panel" id="tab-shots"></div>
+        <div class="tab-panel" id="tab-generate"></div>
         <div class="tab-panel" id="tab-dubbing"></div>
         <div class="tab-panel" id="tab-edit"></div>
         <div class="tab-panel" id="tab-characters"></div>
@@ -311,6 +314,7 @@ function bindKeyboardShortcuts(_project) {
     'editor-tab-characters': 'characters',
     'editor-tab-shots': 'shots',
     'editor-tab-video': 'shots',
+    'editor-tab-generate': 'generate',
     'editor-tab-dubbing': 'dubbing',
     'editor-tab-audio': 'dubbing',
     'editor-tab-edit': 'edit',
@@ -528,6 +532,9 @@ function renderActiveTab(project) {
       break
     case 'shots':
       renderShotsTab(project)
+      break
+    case 'generate':
+      renderGenerateTab(project)
       break
     case 'dubbing':
       renderDubbingTab(project)
@@ -1320,7 +1327,7 @@ function renderShotsTab(project) {
             shotId: shot.id,
             prompt: shot.description,
             duration: shot.duration,
-            aspectRatio: project.platform === 'portrait' ? '9:16' : '16:9',
+            aspectRatio: aspectRatioOf(project),
             styleId: project.style || 'none',
           })
           showToast(`镜头 ${shot.index + 1} 生成已启动`)
@@ -2267,6 +2274,147 @@ function renderVersionItem(version, isLatest) {
       </div>
     </div>
   `
+}
+
+/**
+ * E-03 生成：队列视图（与分镜共享同一状态源）
+ */
+function renderGenerateTab(project) {
+  const panel = document.getElementById('tab-generate')
+  if (!panel) return
+  if (generatePollTimer) {
+    clearTimeout(generatePollTimer)
+    generatePollTimer = null
+  }
+  const shots = project.shots || []
+  const completed = shots.filter((s) => s.status === 'completed').length
+  const generating = shots.filter((s) => s.status === 'generating').length
+  const pending = shots.length - completed - generating
+  const generatable = shots.filter((s) => !s.locked && s.status !== 'completed' && s.status !== 'generating')
+
+  panel.innerHTML = `
+    <div class="section-header">
+      <h2 class="section-title">生成</h2>
+      ${
+        generatable.length > 0
+          ? `<button class="btn btn-primary btn-sm" id="genQueueAllBtn">生成 ${generatable.length} 个未锁定镜头</button>`
+          : ''
+      }
+    </div>
+    <div class="dr-grid dr-grid-3" style="margin-bottom:16px;">
+      <div class="dr-card dr-stat"><span class="dr-stat-value">${pending}</span><span class="dr-stat-label">待生成</span></div>
+      <div class="dr-card dr-stat"><span class="dr-stat-value">${generating}</span><span class="dr-stat-label">生成中</span></div>
+      <div class="dr-card dr-stat"><span class="dr-stat-value">${completed}</span><span class="dr-stat-label">已完成</span></div>
+    </div>
+    ${
+      shots.length === 0
+        ? `<div class="empty-state"><div class="empty-state-text">还没有镜头，请先在「剧本」生成分镜</div></div>`
+        : `<div class="dr-card" style="overflow:auto;">
+            <table class="dr-table">
+              <thead><tr><th>#</th><th>镜头</th><th>状态</th><th>时长</th><th>进度</th><th>操作</th></tr></thead>
+              <tbody>
+                ${shots
+                  .map(
+                    (shot) => `
+                  <tr>
+                    <td>${shot.index + 1}</td>
+                    <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(shot.description || '未命名镜头')}${shot.locked ? ' · 已锁定' : ''}</td>
+                    <td><span class="badge badge-${shot.status}">${{ pending: '待生成', generating: '生成中', completed: '已完成', failed: '需重试' }[shot.status] || shot.status}</span></td>
+                    <td>${shot.duration || 0}s</td>
+                    <td>${shot.status === 'generating' ? `${Math.round((shot.progress || 0) * (shot.progress <= 1 ? 100 : 1))}%` : '—'}</td>
+                    <td>
+                      <button class="btn btn-sm gen-queue-shot-btn" data-shot-id="${shot.id}" ${shot.locked ? 'disabled' : ''}>
+                        ${shot.status === 'completed' ? '重新生成' : '生成'}
+                      </button>
+                    </td>
+                  </tr>`
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </div>`
+    }
+  `
+
+  const refresh = async () => {
+    const updated = await api.getProject(project.id)
+    Object.assign(state.currentProject, updated)
+    renderGenerateTab(state.currentProject)
+  }
+
+  const generateAllBtn = document.getElementById('genQueueAllBtn')
+  if (generateAllBtn) {
+    generateAllBtn.addEventListener('click', async () => {
+      generateAllBtn.disabled = true
+      generateAllBtn.innerHTML = '<span class="loading"></span> 生成中...'
+      try {
+        await api.generateAllVideos(project.id, { styleId: project.style || 'none' })
+        showToast('批量生成已启动')
+        refreshQuota()
+        setTimeout(refresh, 2500)
+      } catch (err) {
+        showToast(err.message, 'error')
+        generateAllBtn.disabled = false
+        generateAllBtn.textContent = '生成未锁定镜头'
+      }
+    })
+  }
+
+  // 生成中持续轮询，直到进入终态（规范 E-03：完成后状态同步）
+  if (shots.some((shot) => shot.status === 'generating')) {
+    generatePollTimer = setTimeout(async () => {
+      if (currentTab !== 'generate' || !state.currentProject) return
+      try {
+        const updated = await api.getProject(state.currentProject.id)
+        Object.assign(state.currentProject, updated)
+        renderGenerateTab(state.currentProject)
+      } catch {
+        // 下一轮继续尝试；页面离开时停止
+      }
+    }, 2000)
+  }
+
+  panel.querySelectorAll('.gen-queue-shot-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const shot = shots.find((s) => s.id === btn.dataset.shotId)
+      if (!shot || shot.locked) return
+      btn.disabled = true
+      btn.innerHTML = '<span class="loading"></span>'
+      try {
+        if (shot.status === 'completed') {
+          await api.regenerateVideo({ projectId: project.id, shotId: shot.id, styleId: project.style || 'none' })
+        } else {
+          await api.generateVideo({
+            projectId: project.id,
+            shotId: shot.id,
+            prompt: shot.description,
+            duration: shot.duration,
+            aspectRatio: aspectRatioOf(project),
+            styleId: project.style || 'none',
+          })
+        }
+        showToast(`镜头 ${shot.index + 1} 生成已启动`)
+        refreshQuota()
+        setTimeout(refresh, 2500)
+      } catch (err) {
+        showToast(err.message, 'error')
+        btn.disabled = false
+        btn.textContent = '生成'
+      }
+    })
+  })
+}
+
+function aspectRatioCss(project) {
+  if (project.platform === 'portrait') return '9 / 16'
+  if (project.platform === 'square') return '1 / 1'
+  return '16 / 9'
+}
+
+function aspectRatioOf(project) {
+  if (project.platform === 'portrait') return '9:16'
+  if (project.platform === 'square') return '1:1'
+  return '16:9'
 }
 
 function renderVideoShotItem(shot) {

@@ -4,20 +4,21 @@
  */
 
 export const PRIMARY_TABS = [
-  { id: 'script', labelKey: 'script', icon: '📝' },
-  { id: 'images', labelKey: 'images', icon: '🖼️' },
-  { id: 'shots', labelKey: 'video', icon: '🎬' },
-  { id: 'dubbing', labelKey: 'audio', icon: '🎙️' },
-  { id: 'edit', labelKey: 'edit', icon: '✂️' },
+  { id: 'script', label: '剧本', icon: '<svg width="16" height="16" aria-hidden="true"><use href="/icons/sprite.svg#i-file-text"></use></svg>' },
+  { id: 'shots', label: '分镜', icon: '<svg width="16" height="16" aria-hidden="true"><use href="/icons/sprite.svg#i-film"></use></svg>' },
+  { id: 'generate', label: '生成', icon: '<svg width="16" height="16" aria-hidden="true"><use href="/icons/sprite.svg#i-sparkles"></use></svg>' },
+  { id: 'dubbing', label: '配音', icon: '<svg width="16" height="16" aria-hidden="true"><use href="/icons/sprite.svg#i-message"></use></svg>' },
+  { id: 'edit', label: '剪辑', icon: '<svg width="16" height="16" aria-hidden="true"><use href="/icons/sprite.svg#i-clapper"></use></svg>' },
 ]
 
 export const MORE_TOOLS = [
-  { id: 'characters', labelKey: 'characters', icon: '👤' },
-  { id: 'scenes', label: '场景库', icon: '🌍' },
-  { id: 'analysis', labelKey: 'analysis', icon: '🔍' },
-  { id: 'collab', labelKey: 'collaboration', icon: '👥' },
-  { id: 'versions', labelKey: 'versions', icon: '📜' },
-  { id: 'settings', label: '项目设置', icon: '⚙️' },
+  { id: 'images', label: '图片', icon: '<svg width="16" height="16" aria-hidden="true"><use href="/icons/sprite.svg#i-template"></use></svg>' },
+  { id: 'characters', label: '角色', icon: '<svg width="16" height="16" aria-hidden="true"><use href="/icons/sprite.svg#i-user"></use></svg>' },
+  { id: 'scenes', label: '场景库', icon: '<svg width="16" height="16" aria-hidden="true"><use href="/icons/sprite.svg#i-compass"></use></svg>' },
+  { id: 'analysis', label: 'AI 影评', icon: '<svg width="16" height="16" aria-hidden="true"><use href="/icons/sprite.svg#i-chart"></use></svg>' },
+  { id: 'collab', label: '协作', icon: '<svg width="16" height="16" aria-hidden="true"><use href="/icons/sprite.svg#i-users"></use></svg>' },
+  { id: 'versions', label: '版本', icon: '<svg width="16" height="16" aria-hidden="true"><use href="/icons/sprite.svg#i-file-text"></use></svg>' },
+  { id: 'settings', label: '项目设置', icon: '<svg width="16" height="16" aria-hidden="true"><use href="/icons/sprite.svg#i-settings"></use></svg>' },
 ]
 
 const ALIASES = {
@@ -26,6 +27,8 @@ const ALIASES = {
   editing: 'edit',
   'smart-edit': 'edit',
   smartEdit: 'edit',
+  generation: 'generate',
+  render: 'generate',
 }
 
 const VALID_TABS = new Set([...PRIMARY_TABS, ...MORE_TOOLS].map((tab) => tab.id))

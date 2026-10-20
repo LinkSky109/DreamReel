@@ -5,3 +5,6 @@ storage/
 .DS_Store
 coverage/
 *.zip
+
+# Vite/Vitest cache inside web/
+web/node_modules/

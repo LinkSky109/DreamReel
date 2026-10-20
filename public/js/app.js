@@ -178,7 +178,6 @@ function toggleSidebar() {
   overlay.classList.toggle('open')
 }
 
-window.addEventListener('hashchange', router)
 
 // ========== 通知管理 ==========
 let notificationPollTimer = null
@@ -312,7 +311,22 @@ function startNotificationPolling() {
   notificationPollTimer = setInterval(refreshNotifications, 30000)
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+/**
+ * 旧版前端启动器。
+ * React 外壳不会调用它；桥接页面只复用本模块的导出（showToast/state 等）。
+ * 保留此函数以便回滚到 legacy index。
+ */
+export function bootLegacy() {
+  window.addEventListener('hashchange', router)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initLegacyDom)
+  } else {
+    initLegacyDom()
+  }
+  refreshQuota()
+}
+
+function initLegacyDom() {
   // 先初始化主题，避免闪烁
   initTheme()
   updateThemeButton()
@@ -424,7 +438,7 @@ window.addEventListener('DOMContentLoaded', () => {
       router()
     })
   }
-})
+}
 
 function updateLangButton() {
   const btn = document.getElementById('langToggleBtn')
@@ -444,8 +458,3 @@ function updateThemeButton() {
   }
 }
 
-// 如果没有 hash，触发默认路由
-if (!location.hash) {
-  router()
-}
-refreshQuota()

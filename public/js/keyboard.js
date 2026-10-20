@@ -242,12 +242,14 @@ function registerDefaultShortcuts() {
   // 数字键切换标签页
   const tabs = [
     { key: '1', name: '剧本', event: 'editor-tab-script' },
-    { key: '2', name: '角色', event: 'editor-tab-characters' },
-    { key: '3', name: '镜头', event: 'editor-tab-shots' },
+    { key: '2', name: '分镜', event: 'editor-tab-shots' },
+    { key: '3', name: '生成', event: 'editor-tab-generate' },
     { key: '4', name: '配音', event: 'editor-tab-dubbing' },
-    { key: '5', name: '影评', event: 'editor-tab-analysis' },
-    { key: '6', name: '协作', event: 'editor-tab-collab' },
-    { key: '7', name: '版本', event: 'editor-tab-versions' },
+    { key: '5', name: '剪辑', event: 'editor-tab-edit' },
+    { key: '6', name: '角色', event: 'editor-tab-characters' },
+    { key: '7', name: '影评', event: 'editor-tab-analysis' },
+    { key: '8', name: '协作', event: 'editor-tab-collab' },
+    { key: '9', name: '版本', event: 'editor-tab-versions' },
   ]
 
   tabs.forEach((tab) => {

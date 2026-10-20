@@ -4,7 +4,8 @@
  */
 
 const THEME_KEY = 'dreamreel-theme'
-const DEFAULT_THEME = 'dark'
+// 规范 §2：浅色为默认主题，深色为主题级令牌覆盖
+const DEFAULT_THEME = 'light'
 
 /**
  * 获取当前主题
@@ -42,18 +43,8 @@ export function toggleTheme() {
  * 初始化主题（页面加载时调用）
  */
 export function initTheme() {
-  const savedTheme = getCurrentTheme()
-
-  // 如果没有保存的主题，检查系统偏好
-  if (!localStorage.getItem(THEME_KEY)) {
-    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
-    if (prefersLight) {
-      setTheme('light')
-      return
-    }
-  }
-
-  setTheme(savedTheme)
+  const savedTheme = localStorage.getItem(THEME_KEY)
+  setTheme(savedTheme === 'dark' ? 'dark' : DEFAULT_THEME)
 }
 
 /**

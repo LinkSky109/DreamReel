@@ -85,12 +85,14 @@ DreamReel 让每个人都能像做梦一样拍电影。覆盖剧本、分镜、�
 
 ## 技术栈
 
-- **运行时**: Node.js >= 18
-- **框架**: Express 4
-- **语言**: JavaScript (ES Modules)
+- **运行时**: Node.js >= 20.19
+- **后端**: Express 4（JavaScript / ES Modules）
+- **前端**: React 19 + TypeScript + Vite（源码在 `web/`，构建产物输出到 `public/`）
+- **UI 组件**: Radix UI 无头组件 + cmdk（命令面板）+ Sonner（Toast）+ Lucide（1.75px 线性图标）
+- **前端测试**: Vitest + Testing Library；类型检查 `tsc --noEmit`
 - **视频处理**: ffmpeg（合成、拼接、配音、缩略图提取）
-- **测试**: Node.js built-in test runner（`npm test` 全量执行，当前 488 个用例；测试使用独立 STORAGE_PATH，不污染开发库）
-- **代码规范**: ESLint + Prettier
+- **测试**: Node.js built-in test runner（后端）+ Vitest（前端）；测试使用独立 STORAGE_PATH，不污染开发库
+- **代码规范**: ESLint + Prettier（前端另有 TypeScript 严格模式）
 - **提交规范**: Conventional Commits
 - **认证**: JWT (HMAC-SHA256, 零依赖)
 - **密码哈希**: scrypt (Node.js 内置 crypto)
@@ -106,14 +108,23 @@ npm install
 # 复制环境变量
 cp .env.example .env
 
+# 构建前端（React → public/）
+npm run build
+
 # 启动服务器（默认 mock 模式，无需 API Key）
 npm start
 
 # 打开浏览器访问
 open http://localhost:3000
 
-# 运行测试
-npm test
+# 前端开发（Vite 热更新，:5173，/api 代理到 :3000）
+npm run dev:web
+
+# 校验
+npm run lint        # 后端 + legacy 前端
+npm run typecheck   # React/TypeScript
+npm test            # 后端测试
+npm run test:web    # 前端测试
 
 # 生成程序化 BGM/SFX 素材包（首次使用音频 tab 时执行一次）
 npm run seed:audio
