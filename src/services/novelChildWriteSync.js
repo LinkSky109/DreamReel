@@ -1,6 +1,7 @@
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import { toChildPayload } from '../repositories/novelChildRepository.js'
+import { enqueue, outboxEnabled } from './outboxStore.js'
 
 /**
  * 小说子集合写镜像（chunks / characters / entities / seasons / episodes / assets）。
@@ -182,12 +183,20 @@ export function createNovelChildWriteSync({
 
   function scheduleUpsert(kind, doc) {
     if (!enabled || !doc?.id || !doc?.novelId) return
+    if (outboxEnabled()) {
+      enqueue({ kind, op: 'upsert', payload: doc, orgId })
+      return
+    }
     queue.set(`${kind}:${doc.id}`, { op: 'upsert', kind, doc })
     scheduleFlush()
   }
 
   function scheduleDelete(kind, id) {
     if (!enabled || !id) return
+    if (outboxEnabled()) {
+      enqueue({ kind, op: 'delete', payload: { id }, orgId })
+      return
+    }
     queue.set(`${kind}:${id}`, { op: 'delete', kind, id })
     scheduleFlush()
   }
@@ -207,6 +216,10 @@ export function createNovelChildWriteSync({
 
   function scheduleDeleteStates(novelId, characterId = null, episodeNo = null) {
     if (!enabled || !novelId) return
+    if (outboxEnabled()) {
+      enqueue({ kind: 'states', op: 'deleteStates', payload: { novelId, characterId, episodeNo }, orgId })
+      return
+    }
     const key = `states:delete:${novelId}:${characterId || '*'}:${episodeNo ?? '*'}`
     queue.set(key, { op: 'deleteStates', novelId, characterId, episodeNo })
     scheduleFlush()
@@ -214,6 +227,12 @@ export function createNovelChildWriteSync({
 
   function scheduleDeleteByNovel(novelId) {
     if (!enabled || !novelId) return
+    if (outboxEnabled()) {
+      for (const kind of Object.keys(SPECS)) {
+        enqueue({ kind, op: 'deleteByNovel', payload: { novelId }, orgId })
+      }
+      return
+    }
     for (const kind of Object.keys(SPECS)) {
       queue.set(`${kind}:novel:${novelId}`, { op: 'deleteNovel', kind, novelId })
     }
@@ -245,6 +264,59 @@ export function createNovelChildWriteSync({
     flush: flushNow,
     pending: () => queue.size,
   }
+}
+
+export async function applyChildUpsert(pool, kind, doc, orgId) {
+  const spec = SPECS[kind]
+  if (!spec) throw new Error(`未知子集合：${kind}`)
+  const now = new Date()
+  const createdAt = doc.createdAt ? new Date(doc.createdAt) : now
+  const updatedAt = doc.updatedAt ? new Date(doc.updatedAt) : now
+  const mapped = spec.map(doc)
+  const params = [doc.id, orgId, doc.novelId, ...mapped.slice(2), JSON.stringify(spec.payload(doc)), nextSortOrder(), createdAt, updatedAt]
+  await pool.query(
+    `INSERT INTO ${spec.table} (${spec.columns}) VALUES (${spec.values})
+     ON CONFLICT (id) DO UPDATE SET ${spec.update},
+       updated_at = EXCLUDED.updated_at,
+       deleted_at = NULL,
+       version = ${spec.table}.version + 1`,
+    params
+  )
+}
+
+export async function applyChildDelete(pool, kind, id, orgId) {
+  const spec = SPECS[kind]
+  if (!spec) throw new Error(`未知子集合：${kind}`)
+  const now = new Date()
+  await pool.query(
+    `UPDATE ${spec.table} SET deleted_at = $3, updated_at = $3, version = version + 1
+     WHERE id = $1 AND org_id = $2 AND deleted_at IS NULL`,
+    [id, orgId, now]
+  )
+}
+
+export async function applyChildDeleteByNovel(pool, kind, novelId, orgId) {
+  const spec = SPECS[kind]
+  if (!spec) throw new Error(`未知子集合：${kind}`)
+  const now = new Date()
+  await pool.query(
+    `UPDATE ${spec.table} SET deleted_at = $3, updated_at = $3, version = version + 1
+     WHERE novel_id = $1 AND org_id = $2 AND deleted_at IS NULL`,
+    [novelId, orgId, now]
+  )
+}
+
+export async function applyChildDeleteStates(pool, novelId, orgId, characterId = null, episodeNo = null) {
+  const now = new Date()
+  await pool.query(
+    `UPDATE novel_character_states
+       SET deleted_at = $5, updated_at = $5, version = version + 1
+     WHERE novel_id = $1 AND org_id = $2
+       AND ($3::text IS NULL OR character_id = $3::text)
+       AND ($4::int IS NULL OR episode_no = $4::int)
+       AND deleted_at IS NULL`,
+    [novelId, orgId, characterId || null, episodeNo ?? null, now]
+  )
 }
 
 async function defaultGetPool() {

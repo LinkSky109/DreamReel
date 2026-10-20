@@ -283,3 +283,44 @@ npm run db:verify:novel-children
   按项目中的集合 ID 顺序返回，并计算 `count/live/selected`。
 
 实测：timeline 58 组、两处集合列表与 legacy 完全一致；0 回退告警。
+
+## Phase 4 可靠性：outbox
+
+写路径不再直接 fire-and-forget，而是先落 `outbox_events`（009 迁移），由 worker 幂等应用：
+
+- 事件字段：`kind / op / payload / status / attempts / available_at / locked_at`；
+- `FOR UPDATE SKIP LOCKED` 领取，支持多实例；
+- 失败按指数退避重试，8 次后进入 `dead`；
+- `processing` 超时（默认 120s）会被回收为 `pending`；
+- 事件应用幂等：upsert、软删除都可重复执行。
+
+开关：
+
+```bash
+OUTBOX_ENABLED=true
+OUTBOX_INTERVAL_MS=2000
+OUTBOX_BATCH_SIZE=20
+OUTBOX_MAX_ATTEMPTS=8
+```
+
+运维：
+
+```bash
+npm run outbox:stats
+npm run outbox:run
+npm run outbox:retry-dead
+```
+
+覆盖：novels 主表 + 9 类子集合（含作品级删除、状态条件删除）。
+
+联调实测（`OUTBOX_ENABLED=true`）：
+
+- 新建小说 → 2.5s 内可读到；删除 → 列表消失；
+- 共 11 个事件全部 `done`（1 个 novel upsert、9 个 deleteByNovel、1 个 novel delete）；
+- 0 错误日志。
+
+仍存在的边界：
+
+- enqueue 是异步写入；JSON 写完到事件落库之间进程崩溃会丢该事件。JSON 仍是事实源，可用迁移/对账脚本重建；
+- `dead` 事件需要人工排查后 `outbox:retry-dead`；
+- 写主库切换（关闭 JSON 写）尚未进行。

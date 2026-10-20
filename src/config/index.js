@@ -47,6 +47,13 @@ const config = {
   idempotency: {
     ttlMs: parseInt(process.env.IDEMPOTENCY_TTL_MS, 10) || 24 * 60 * 60 * 1000,
   },
+  outbox: {
+    enabled: process.env.OUTBOX_ENABLED === 'true',
+    intervalMs: parseInt(process.env.OUTBOX_INTERVAL_MS, 10) || 2000,
+    batchSize: parseInt(process.env.OUTBOX_BATCH_SIZE, 10) || 20,
+    maxAttempts: parseInt(process.env.OUTBOX_MAX_ATTEMPTS, 10) || 8,
+    lockTimeoutSeconds: parseInt(process.env.OUTBOX_LOCK_TIMEOUT_SECONDS, 10) || 120,
+  },
   // novels 读写切换：legacy(默认) | shadow(影子读) | postgres
   novels: {
     repoMode: process.env.NOVEL_REPO_MODE || 'legacy',
