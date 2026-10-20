@@ -34,6 +34,8 @@ export class Shot {
     versions,
     characterActions,
     directorGuidance,
+    sourceNovelId,
+    sourceStoryboardId,
     createdAt,
     updatedAt,
   }) {
@@ -60,6 +62,9 @@ export class Shot {
     this.characterActions = characterActions || {} // { characterId: { expression, action, position } }
     // R29：导演模式为该镜头生成的表演/节奏指导
     this.directorGuidance = directorGuidance || ''
+    // 小说分镜板导入来源（用于去重与追溯）
+    this.sourceNovelId = sourceNovelId || null
+    this.sourceStoryboardId = sourceStoryboardId || null
     this.createdAt = createdAt || new Date().toISOString()
     this.updatedAt = updatedAt || new Date().toISOString()
   }
@@ -97,6 +102,8 @@ export class Shot {
       versions: this.versions,
       characterActions: this.characterActions,
       directorGuidance: this.directorGuidance,
+      sourceNovelId: this.sourceNovelId,
+      sourceStoryboardId: this.sourceStoryboardId,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     }

@@ -250,19 +250,33 @@ router.post('/:id/storyboard/import', async (req, res) => {
           style: novel.style?.name || '',
           userId: req.user?.id,
         })
+    const existing = new Set(
+      (target.shots || [])
+        .filter((shot) => shot.sourceNovelId === novel.id && shot.sourceStoryboardId)
+        .map((shot) => shot.sourceStoryboardId)
+    )
+    let imported = 0
+    let skipped = 0
     for (const shot of drafts) {
+      if (existing.has(shot.id)) {
+        skipped++
+        continue
+      }
       target.addShot({
         description: shot.text,
         narration: shot.text,
         duration: shot.duration || 5,
         shotType: shot.shotType,
         cameraMovement: shot.camera,
+        sourceNovelId: novel.id,
+        sourceStoryboardId: shot.id,
       })
+      imported++
     }
-    await projectService.updateProject(target.id, { shots: target.shots })
+    if (imported) await projectService.updateProject(target.id, { shots: target.shots })
     res.status(201).json({
       success: true,
-      data: { projectId: target.id, projectName: target.name, shots: drafts.length },
+      data: { projectId: target.id, projectName: target.name, shots: imported, skipped, total: drafts.length },
     })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })

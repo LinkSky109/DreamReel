@@ -459,7 +459,7 @@ export const api = {
   deleteNovelStoryboardShot: (id: string, sid: string) =>
     requestData<unknown>(`/novels/${id}/storyboard/${sid}`, { method: 'DELETE' }),
   importNovelStoryboard: (id: string, body: { projectId?: string; name?: string } = {}) =>
-    requestData<{ projectId: string; projectName: string; shots: number }>(
+    requestData<{ projectId: string; projectName: string; shots: number; skipped?: number; total?: number }>(
       `/novels/${id}/storyboard/import`,
       { method: 'POST', body }
     ),

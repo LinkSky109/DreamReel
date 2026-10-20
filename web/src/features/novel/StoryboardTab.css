@@ -119,3 +119,26 @@
     width: 100%;
   }
 }
+
+.dr-storyboard-import {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dr-storyboard-import-modes {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.dr-storyboard-import-modes .dr-chip {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.dr-storyboard-import-modes .dr-chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}

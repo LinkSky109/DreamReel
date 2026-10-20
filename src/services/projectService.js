@@ -108,6 +108,8 @@ function hydrateProject(data) {
         model: s.model,
         errorMessage: s.errorMessage,
         locked: s.locked || false,
+        sourceNovelId: s.sourceNovelId ?? null,
+        sourceStoryboardId: s.sourceStoryboardId ?? null,
         versions: s.versions || [],
         characterActions: s.characterActions || {},
         directorGuidance: s.directorGuidance || '',

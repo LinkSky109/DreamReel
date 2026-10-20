@@ -12,6 +12,7 @@ const createNovelStoryboardFromMarks = vi.fn()
 const updateNovelStoryboardShot = vi.fn()
 const deleteNovelStoryboardShot = vi.fn()
 const importNovelStoryboard = vi.fn()
+const listProjects = vi.fn()
 
 vi.mock('../../lib/api', () => ({
   api: {
@@ -19,7 +20,8 @@ vi.mock('../../lib/api', () => ({
     createNovelStoryboardFromMarks: (id: string) => createNovelStoryboardFromMarks(id),
     updateNovelStoryboardShot: (id: string, sid: string, body: unknown) => updateNovelStoryboardShot(id, sid, body),
     deleteNovelStoryboardShot: (id: string, sid: string) => deleteNovelStoryboardShot(id, sid),
-    importNovelStoryboard: (id: string) => importNovelStoryboard(id),
+    importNovelStoryboard: (id: string, body: unknown) => importNovelStoryboard(id, body),
+    listProjects: (params: unknown) => listProjects(params),
   },
 }))
 
@@ -70,7 +72,8 @@ describe('StoryboardTab', () => {
     createNovelStoryboardFromMarks.mockResolvedValue({ shots: [shot], created: 2 })
     updateNovelStoryboardShot.mockResolvedValue(shot)
     deleteNovelStoryboardShot.mockResolvedValue({})
-    importNovelStoryboard.mockResolvedValue({ projectId: 'p1', projectName: '长夜将明 · 分镜板', shots: 1 })
+    importNovelStoryboard.mockResolvedValue({ projectId: 'p1', projectName: '长夜将明 · 分镜板', shots: 1, skipped: 0, total: 1 })
+    listProjects.mockResolvedValue({ total: 1, items: [{ id: 'p2', name: '已有项目', shots: [{ id: 's' }] }] })
   })
 
   it('渲染分镜草稿与来源', async () => {
@@ -111,12 +114,26 @@ describe('StoryboardTab', () => {
     await waitFor(() => expect(deleteNovelStoryboardShot).toHaveBeenCalledWith('n1', 's1'))
   })
 
-  it('送入项目后跳转编辑器', async () => {
+  it('送入新项目后跳转编辑器', async () => {
     const user = userEvent.setup()
     renderTab()
     await screen.findByDisplayValue('风从北面来。')
     await user.click(screen.getByRole('button', { name: '送入项目' }))
-    await waitFor(() => expect(importNovelStoryboard).toHaveBeenCalledWith('n1'))
+    await user.click(await screen.findByRole('button', { name: '确认送入' }))
+    await waitFor(() => expect(importNovelStoryboard).toHaveBeenCalledWith('n1', expect.objectContaining({ projectId: undefined })))
     expect(await screen.findByText('editor page')).toBeInTheDocument()
+  })
+
+  it('可追加到已有项目', async () => {
+    const user = userEvent.setup()
+    renderTab()
+    await screen.findByDisplayValue('风从北面来。')
+    await user.click(screen.getByRole('button', { name: '送入项目' }))
+    await user.click(await screen.findByRole('button', { name: '追加到已有项目' }))
+    await user.selectOptions(await screen.findByRole('combobox'), 'p2')
+    await user.click(screen.getByRole('button', { name: '确认送入' }))
+    await waitFor(() =>
+      expect(importNovelStoryboard).toHaveBeenCalledWith('n1', expect.objectContaining({ projectId: 'p2' }))
+    )
   })
 })

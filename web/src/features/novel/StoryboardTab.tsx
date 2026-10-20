@@ -6,6 +6,7 @@ import { useLang } from '../../lib/i18n'
 import { showToast } from '../../lib/toast'
 import type { NovelDetail, NovelStoryboardShot } from '../../domain/types'
 import { Icon } from '../../components/Icon'
+import { Modal } from '../../components/Modal'
 import './StoryboardTab.css'
 
 const SHOT_TYPES = ['远景', '全景', '中景', '近景', '特写']
@@ -16,6 +17,10 @@ export function StoryboardTab({ novel, onChanged }: { novel: NovelDetail; onChan
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const marks = novel.marks ?? []
+  const [importOpen, setImportOpen] = useState(false)
+  const [importMode, setImportMode] = useState<'new' | 'existing'>('new')
+  const [projectName, setProjectName] = useState(`《${novel.title}》· 分镜板`)
+  const [targetProjectId, setTargetProjectId] = useState('')
 
   const dataQuery = useQuery({
     queryKey: ['novel-storyboard', novel.id],
@@ -50,10 +55,25 @@ export function StoryboardTab({ novel, onChanged }: { novel: NovelDetail; onChan
     onError: (error: Error) => showToast(error.message, 'error'),
   })
 
+  const projectsQuery = useQuery({
+    queryKey: ['projects', 'storyboard-import'],
+    queryFn: () => api.listProjects({ limit: 100 }),
+    enabled: importOpen,
+  })
+
   const importToProject = useMutation({
-    mutationFn: () => api.importNovelStoryboard(novel.id),
+    mutationFn: () =>
+      api.importNovelStoryboard(novel.id, {
+        projectId: importMode === 'existing' ? targetProjectId : undefined,
+        name: importMode === 'new' ? projectName : undefined,
+      }),
     onSuccess: (result) => {
-      showToast(t(`已送入项目「${result.projectName}」（${result.shots} 个镜头）`, `Imported ${result.shots} shots into ${result.projectName}`), 'success')
+      const skipped = result.skipped ? t(`，跳过 ${result.skipped} 个重复`, `, skipped ${result.skipped}`) : ''
+      showToast(
+        t(`已送入项目「${result.projectName}」（${result.shots} 个镜头${skipped}）`, `Imported ${result.shots} shots into ${result.projectName}${skipped}`),
+        'success'
+      )
+      setImportOpen(false)
       navigate(`/project/${result.projectId}?tab=shots`)
     },
     onError: (error: Error) => showToast(error.message, 'error'),
@@ -108,9 +128,9 @@ export function StoryboardTab({ novel, onChanged }: { novel: NovelDetail; onChan
             <Icon name="download" size={14} />
             {t('导出 JSON', 'Export JSON')}
           </button>
-          <button className="dr-btn" type="button" disabled={!shots.length || importToProject.isPending} onClick={() => importToProject.mutate()}>
+          <button className="dr-btn" type="button" disabled={!shots.length || importToProject.isPending} onClick={() => setImportOpen(true)}>
             <Icon name="arrow-right" size={14} />
-            {importToProject.isPending ? t('送入中…', 'Importing…') : t('送入项目', 'Import to project')}
+            {t('送入项目', 'Import to project')}
           </button>
         </div>
       </div>
@@ -142,6 +162,79 @@ export function StoryboardTab({ novel, onChanged }: { novel: NovelDetail; onChan
           ))}
         </div>
       )}
+
+      <Modal
+        open={importOpen}
+        title={t('送入项目', 'Import to project')}
+        onClose={() => (!importToProject.isPending ? setImportOpen(false) : undefined)}
+        footer={
+          <>
+            <button className="dr-btn" type="button" disabled={importToProject.isPending} onClick={() => setImportOpen(false)}>
+              {t('取消', 'Cancel')}
+            </button>
+            <button
+              className="dr-btn dr-btn-primary"
+              type="button"
+              disabled={importToProject.isPending || (importMode === 'existing' && !targetProjectId)}
+              onClick={() => importToProject.mutate()}
+            >
+              {importToProject.isPending ? t('送入中…', 'Importing…') : t('确认送入', 'Import')}
+            </button>
+          </>
+        }
+      >
+        <div className="dr-storyboard-import">
+          <div className="dr-storyboard-import-modes" role="group" aria-label={t('送入方式', 'Import mode')}>
+            <button
+              type="button"
+              className={`dr-chip ${importMode === 'new' ? 'is-active' : ''}`}
+              aria-pressed={importMode === 'new'}
+              onClick={() => setImportMode('new')}
+            >
+              {t('新建项目', 'New project')}
+            </button>
+            <button
+              type="button"
+              className={`dr-chip ${importMode === 'existing' ? 'is-active' : ''}`}
+              aria-pressed={importMode === 'existing'}
+              onClick={() => setImportMode('existing')}
+            >
+              {t('追加到已有项目', 'Append to existing')}
+            </button>
+          </div>
+
+          {importMode === 'new' ? (
+            <label className="dr-field">
+              <span>{t('项目名称', 'Project name')}</span>
+              <input className="dr-input" value={projectName} onChange={(event) => setProjectName(event.target.value)} />
+            </label>
+          ) : (
+            <label className="dr-field">
+              <span>{t('选择项目', 'Choose project')}</span>
+              <select
+                className="dr-input"
+                value={targetProjectId}
+                onChange={(event) => setTargetProjectId(event.target.value)}
+                disabled={projectsQuery.isLoading}
+              >
+                <option value="">{t('请选择项目', 'Select a project')}</option>
+                {(projectsQuery.data?.items ?? []).map((project) => (
+                  <option value={project.id} key={project.id}>
+                    {project.name}（{project.shots?.length ?? 0} {t('镜', 'shots')}）
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <p className="dr-novel-note">
+            {t(
+              `将送入 ${shots.length} 个分镜；同一小说同一草稿重复送入会自动跳过。`,
+              `${shots.length} shots will be imported; duplicates from the same storyboard are skipped.`
+            )}
+          </p>
+        </div>
+      </Modal>
     </>
   )
 }
