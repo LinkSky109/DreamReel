@@ -141,8 +141,10 @@ async function requestData<T>(path: string, options: RequestOptions = {}): Promi
 export const api = {
   // Auth
   getMe: () => request<{ user: CurrentUser }>('/auth/me'),
-  login: (body: { username: string; password: string }) =>
+  login: (body: { email: string; password: string }) =>
     request<{ token: string; user: CurrentUser }>('/auth/login', { method: 'POST', body }),
+  register: (body: { username: string; email: string; password: string }) =>
+    request<{ token: string; user: CurrentUser }>('/auth/register', { method: 'POST', body }),
 
   // Quota
   getQuota: () => request<QuotaOverview>('/quota/me'),

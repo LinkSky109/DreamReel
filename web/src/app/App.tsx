@@ -24,6 +24,9 @@ const DocsPage = lazy(() =>
 const ModerationPage = lazy(() =>
   import('../pages/Moderation').then((module) => ({ default: module.ModerationPage }))
 )
+const LoginPage = lazy(() =>
+  import('../pages/Login').then((module) => ({ default: module.LoginPage }))
+)
 const ShotsPage = lazy(() =>
   import('../pages/ShotsPage').then((module) => ({ default: module.ShotsPage }))
 )
@@ -151,7 +154,7 @@ export function App() {
             element={<LegacyView module="settings" renderer="renderSettingsPage" title="系统监控" />}
           />
           <Route path="/recycle-bin" element={<LegacyView module="recycleBin" renderer="renderRecycleBin" title="回收站" />} />
-          <Route path="/login" element={<LegacyView module="auth" renderer="renderAuthPage" title="登录" />} />
+          <Route path="/login" element={<LoginPage />} />
 
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

@@ -20,6 +20,13 @@ function isActivePath(pathname: string, path: string): boolean {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const [authed, setAuthed] = useState(hasToken)
+
+  useEffect(() => {
+    const sync = () => setAuthed(hasToken())
+    window.addEventListener('dreamreel:auth', sync)
+    return () => window.removeEventListener('dreamreel:auth', sync)
+  }, [])
   const location = useLocation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -71,7 +78,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const meQuery = useQuery({
     queryKey: ['me'],
     queryFn: () => api.getMe(),
-    enabled: hasToken(),
+    enabled: authed,
     retry: false,
     staleTime: 120_000,
   })

@@ -12,6 +12,7 @@ export function LogoutPage() {
     } catch {
       // ignore
     }
+    window.dispatchEvent(new Event('dreamreel:auth'))
     queryClient.clear()
     navigate('/login', { replace: true })
   }, [navigate, queryClient])
