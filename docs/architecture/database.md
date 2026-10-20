@@ -135,3 +135,40 @@ NOVEL_WRITE_MODE=dual     # JSON 写入成功后异步镜像 PG
 - 镜像为 fire-and-forget，进程退出前可能未落库；
 - `updateNovelProject` 调用频繁（如重算 counts），双写期间 PG 写放大会高于 JSON；
 - 需定期执行 `npm run db:verify:novels` 对账。
+
+## Phase 4 扩面：章节 / 角色 / 世界观（只读）
+
+同一开关 `NOVEL_REPO_MODE` 同时作用于：
+
+- `GET /api/novels/:id/chunks`
+- `GET /api/novels/:id/characters`
+- `GET /api/novels/:id/world/entities`
+
+迁移：
+
+```bash
+npm run db:migrate:novel-children            # chunks + characters + entities
+npm run db:migrate:novel-children -- --kind=chunks
+npm run db:verify:novel-children
+```
+
+实测（真实数据）：
+
+| 集合 | 行数 | 迁移差异 | shadow 告警 | PG vs JSON |
+|---|---:|---:|---:|---|
+| chunks | 1206 | 0 | 0 | 内容与顺序一致 |
+| characters | 559 | 0 | 0 | 内容与顺序一致 |
+| entities | 725 | 0 | 0 | 内容与顺序一致 |
+
+### 顺序稳定性（005 迁移）
+
+JSON 对象插入顺序是角色/实体列表的隐含契约；`created_at` 可能相同，不能作为稳定排序。
+新增 `sort_order` 列，迁移时写入源顺序，PG 查询按 `sort_order` 排序：
+
+- 角色/实体保持与旧接口完全相同的顺序；
+- 实体仍按 `mentions` 降序，`sort_order` 作为稳定次级顺序。
+
+### 选择集过滤
+
+角色/世界观列表会按 `selectedCharacterSet` / `selectedWorldSet` 过滤。迁移期这两个配置仍在 JSON，
+PG 读取后在服务层做同样的过滤与排序，保证响应语义不变。

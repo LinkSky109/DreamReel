@@ -1,6 +1,7 @@
 import express, { Router } from 'express'
 import { storageService } from '../services/storageService.js'
 import { novelReadService } from '../services/novelReadService.js'
+import { novelChildReadService } from '../services/novelChildReadService.js'
 import {
   createNovelProject,
   getNovelProject,
@@ -311,10 +312,10 @@ router.post('/:id/ingest', async (req, res) => {
 })
 
 // 切片列表（?meta=1 只返回目录信息，避免真本书一次传 10MB 正文）
-router.get('/:id/chunks', (req, res) => {
+router.get('/:id/chunks', async (req, res) => {
   try {
     getNovelProject(req.params.id)
-    const chunks = listChunks(req.params.id)
+    const chunks = await novelChildReadService.list('chunks', req.params.id, { requestId: req.id })
     if (req.query.meta === '1') {
       return res.json({
         success: true,
@@ -413,10 +414,11 @@ router.post('/:id/extract-all', async (req, res) => {
 })
 
 // 角色列表
-router.get('/:id/characters', (req, res) => {
+router.get('/:id/characters', async (req, res) => {
   try {
     getNovelProject(req.params.id)
-    res.json({ success: true, data: listCharacters(req.params.id) })
+    const rows = await novelChildReadService.list('characters', req.params.id, { requestId: req.id })
+    res.json({ success: true, data: rows })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1082,10 +1084,12 @@ router.get('/:id/world', (req, res) => {
 })
 
 // 实体列表（可按 type 过滤）
-router.get('/:id/world/entities', (req, res) => {
+router.get('/:id/world/entities', async (req, res) => {
   try {
     getNovelProject(req.params.id)
-    res.json({ success: true, data: listEntities(req.params.id, req.query.type) })
+    let rows = await novelChildReadService.list('entities', req.params.id, { requestId: req.id })
+    if (req.query.type) rows = rows.filter((e) => e.type === req.query.type)
+    res.json({ success: true, data: rows })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
