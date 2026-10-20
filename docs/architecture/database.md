@@ -263,3 +263,14 @@ npm run db:verify:novel-children
 - `createCharacterSet` / `createWorldSet` → upsert。
 
 联调实测：状态写入后 PG 为「青年」，集合各 1 行，按角色删除后 `deleted_at` 置位。
+
+## 开发环境切换结果（2026-10-20）
+
+`.env` 已切到 `NOVEL_REPO_MODE=postgres`、`NOVEL_WRITE_MODE=dual`。
+
+- 9 个读接口与 legacy 响应完全一致；
+- 写入后立即读验证通过（创建可见、删除消失）；
+- 回退告警 0，镜像失败告警 0；
+- 回滚只需改回 `legacy`，JSON 始终是最新事实源。
+
+详见 `docs/runbooks/novels-postgres-cutover.md`。

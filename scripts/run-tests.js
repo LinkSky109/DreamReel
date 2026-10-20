@@ -57,6 +57,11 @@ const result = spawnSync(
       MINIMAX_API_KEY: '',
       WAN_API_KEY: '',
       ELEVENLABS_API_KEY: '',
+      // 测试固定走 JSON 存储；需要 PostgreSQL 契约测试时显式传入 DATABASE_URL
+      DB_DRIVER: 'json',
+      NOVEL_REPO_MODE: 'legacy',
+      NOVEL_WRITE_MODE: 'legacy',
+      DATABASE_URL: process.env.DATABASE_URL || '',
     },
   }
 )
