@@ -24,7 +24,6 @@ import { CollaborationStage } from './CollaborationStage'
 import { VersionsStage } from './VersionsStage'
 import { SettingsStage } from './SettingsStage'
 import { AiAssistantPanel } from './AiAssistantPanel'
-import { LegacyEditorStage } from './LegacyEditorStage'
 import './editor.css'
 
 export type SaveState = 'saved' | 'saving' | 'error'
@@ -37,7 +36,6 @@ export function EditorPage() {
   const { t, lang } = useLang()
 
   const stage = normalizeStage(searchParams.get('tab'))
-  const legacyAudio = stage === 'dubbing' && searchParams.get('legacy') === '1'
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [renameOpen, setRenameOpen] = useState(false)
@@ -100,7 +98,6 @@ export function EditorPage() {
   const setStage = (next: string) => {
     const params = new URLSearchParams(searchParams)
     params.set('tab', next)
-    params.delete('legacy')
     setSearchParams(params, { replace: true })
   }
 
@@ -289,7 +286,7 @@ export function EditorPage() {
 
         {stage === 'generate' ? <GenerateStage project={project} onRefresh={refresh} /> : null}
 
-        {stage === 'dubbing' && !legacyAudio ? (
+        {stage === 'dubbing' ? (
           <DubbingStage project={project} onUpdated={onUpdated} onSaveState={setSaveState} />
         ) : null}
 
@@ -321,12 +318,9 @@ export function EditorPage() {
           />
         ) : null}
 
-        {stage === 'dubbing' && legacyAudio ? (
-          <LegacyEditorStage projectId={project.id} tab="dubbing" />
-        ) : null}
       </div>
 
-      {!legacyAudio ? <AiAssistantPanel projectId={project.id} /> : null}
+      <AiAssistantPanel projectId={project.id} />
 
       <footer className="ed-statusbar">
         <span>{t('连接正常', 'Connected')}</span>

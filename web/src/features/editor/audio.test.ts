@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planShotBlocks, planVoiceBlocks, splitTracks, trackBlockStyle } from './audio'
+import { planShotBlocks, planVoiceBlocks, splitTracks, subtitlePreviewStyle, trackBlockStyle } from './audio'
 import type { DubbingTrack, EditPlan, Shot } from '../../domain/types'
 
 function track(overrides: Partial<DubbingTrack>): DubbingTrack {
@@ -74,5 +74,21 @@ describe('audio helpers', () => {
     expect(blocks).toHaveLength(1)
     expect(blocks[0].shotId).toBe('a')
     expect(blocks[0].text).toBe('你好')
+  })
+})
+
+
+describe('subtitle preview style', () => {
+  it('生成字号/颜色/阴影样式', () => {
+    const css = subtitlePreviewStyle({ fontSize: 32, fontColor: '#FF0000', bold: true, shadow: true })
+    expect(css.fontSize).toBe('32px')
+    expect(css.color).toBe('#FF0000')
+    expect(css.fontWeight).toBe(700)
+    expect(String(css.textShadow)).toContain('rgba(0,0,0,0.8)')
+  })
+
+  it('无阴影时使用描边', () => {
+    const css = subtitlePreviewStyle({ shadow: false, strokeWidth: 3, strokeColor: '#00FF00' })
+    expect(css.WebkitTextStroke).toBe('3px #00FF00')
   })
 })

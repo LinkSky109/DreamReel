@@ -78,6 +78,7 @@ export interface Project {
   }
   dialogueAssignments?: Record<string, string>
   editPlan?: EditPlan | null
+  subtitleStyle?: SubtitleStyle
   tags: string[]
   isFavorite: boolean
   isArchived: boolean
@@ -231,6 +232,9 @@ export interface BgmItem {
   emotion?: string
   bpm?: number
   available?: boolean
+  url?: string
+  filename?: string
+  duration?: number
 }
 
 export interface Character {
@@ -384,4 +388,38 @@ export interface AiQuickAction {
   id: string
   label: string
   prompt: string
+}
+
+export interface SfxItem {
+  id: string
+  name: string
+  category?: string
+  tags?: string[]
+  url?: string
+  available?: boolean
+  duration?: number
+}
+
+export interface AudioPreviewResult {
+  previewId: string
+  url: string
+  duration: number
+  tracks: { volume: number }[]
+  placeholderVoices?: boolean
+  ttsProvider?: string
+  generatedAt?: string
+}
+
+export interface SubtitleStyle {
+  fontFamily?: string
+  fontSize?: number
+  fontColor?: string
+  strokeColor?: string
+  strokeWidth?: number
+  position?: 'bottom' | 'top' | 'center'
+  bold?: boolean
+  italic?: boolean
+  shadow?: boolean
+  bilingual?: boolean
+  secondaryLanguage?: string
 }

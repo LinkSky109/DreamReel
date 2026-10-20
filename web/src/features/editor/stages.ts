@@ -17,7 +17,6 @@ export type StageDef = {
   zh: string
   en: string
   icon: string
-  legacy?: boolean
 }
 
 // 规范 §8：五阶段 + 七个扩展标签，顺序固定

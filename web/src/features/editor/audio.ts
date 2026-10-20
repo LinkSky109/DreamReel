@@ -1,4 +1,4 @@
-import type { DubbingTrack, EditPlan, EditPlanShot, Shot } from '../../domain/types'
+import type { DubbingTrack, EditPlan, EditPlanShot, Shot, SubtitleStyle } from '../../domain/types'
 
 export type BlockStyle = { left: string; width: string }
 
@@ -60,4 +60,32 @@ export function planVoiceBlocks(plan: EditPlan, shots: Shot[]): VoiceBlock[] {
       return { shotId: shot.shotId, text, left, width }
     })
     .filter((block): block is VoiceBlock => block !== null)
+}
+
+
+export function subtitlePreviewStyle(style: SubtitleStyle = {}): Record<string, string | number> {
+  const resolved = {
+    fontSize: style.fontSize ?? 24,
+    fontColor: style.fontColor ?? '#FFFFFF',
+    fontFamily: style.fontFamily ?? 'Arial',
+    strokeColor: style.strokeColor ?? '#000000',
+    strokeWidth: style.strokeWidth ?? 2,
+    bold: style.bold ?? false,
+    italic: style.italic ?? false,
+    shadow: style.shadow !== false,
+  }
+  const css: Record<string, string | number> = {
+    fontSize: `${resolved.fontSize}px`,
+    color: resolved.fontColor,
+    fontFamily: resolved.fontFamily,
+    lineHeight: 1.4,
+  }
+  if (resolved.bold) css.fontWeight = 700
+  if (resolved.italic) css.fontStyle = 'italic'
+  if (resolved.shadow) {
+    css.textShadow = `0 0 4px ${resolved.strokeColor}, 1px 1px 2px rgba(0,0,0,0.8)`
+  } else if (resolved.strokeWidth > 0) {
+    css.WebkitTextStroke = `${resolved.strokeWidth}px ${resolved.strokeColor}`
+  }
+  return css
 }

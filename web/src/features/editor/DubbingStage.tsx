@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { useLang } from '../../lib/i18n'
 import { showToast } from '../../lib/toast'
-import type { DubbingResult, Project } from '../../domain/types'
+import type { AudioPreviewResult, DubbingResult, Project } from '../../domain/types'
 import { Icon } from '../../components/Icon'
 import type { SaveState } from './EditorPage'
 import { downloadText } from './utils'
 import { splitTracks, trackBlockStyle } from './audio'
+import { AudioLibrary } from './AudioLibrary'
+import { SubtitleStyleCard } from './SubtitleStyleCard'
 
 type Props = {
   project: Project
@@ -41,6 +42,9 @@ export function DubbingStage({ project, onUpdated, onSaveState }: Props) {
   )
   const [result, setResult] = useState<DubbingResult | null>(null)
   const [previewUrl, setPreviewUrl] = useState('')
+  const [selectedBgm, setSelectedBgm] = useState(project.audioConfig?.bgmId ?? '')
+  const [selectedSfx, setSelectedSfx] = useState<string[]>(project.audioConfig?.sfxIds ?? [])
+  const [mixPreview, setMixPreview] = useState<AudioPreviewResult | null>(null)
   const [audioConfig, setAudioConfig] = useState({
     voiceVolume: project.audioConfig?.voiceVolume ?? 1,
     bgmVolume: project.audioConfig?.bgmVolume ?? 0.3,
@@ -128,6 +132,8 @@ export function DubbingStage({ project, onUpdated, onSaveState }: Props) {
         audioConfig: {
           ...(project.audioConfig ?? {}),
           ...audioConfig,
+          bgmId: selectedBgm || null,
+          sfxIds: selectedSfx,
         },
       })
       onUpdated(updated)
@@ -138,6 +144,21 @@ export function DubbingStage({ project, onUpdated, onSaveState }: Props) {
       showToast((error as Error).message, 'error')
     }
   }
+
+  const mixMutation = useMutation({
+    mutationFn: () =>
+      api.previewAudioMix({
+        projectId: project.id,
+        language,
+        voiceId,
+        speed,
+      }),
+    onSuccess: (preview) => {
+      setMixPreview(preview)
+      showToast(t('混音预听已生成', 'Mix preview ready'))
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  })
 
   const tracks = result?.audioTracks ?? []
   const totalDuration = Math.max(result?.totalDuration ?? 0, 0.1)
@@ -156,10 +177,6 @@ export function DubbingStage({ project, onUpdated, onSaveState }: Props) {
             )}
           </div>
         </div>
-        <Link className="dr-btn" to={`/project/${project.id}?tab=dubbing&legacy=1`}>
-          <Icon name="settings" size={15} />
-          {t('旧版音频工作台（BGM / 音效 / 字幕样式）', 'Legacy audio workbench')}
-        </Link>
       </section>
 
       <section className="dr-card ed-dub-controls">
@@ -306,6 +323,18 @@ export function DubbingStage({ project, onUpdated, onSaveState }: Props) {
         </div>
       </section>
 
+      <AudioLibrary
+        project={project}
+        selectedBgm={selectedBgm}
+        onSelectBgm={setSelectedBgm}
+        selectedSfx={selectedSfx}
+        onToggleSfx={(id) =>
+          setSelectedSfx((current) =>
+            current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+          )
+        }
+      />
+
       {result ? (
         <section className="dr-card ed-dub-result">
           <div className="ed-section-title-row">
@@ -441,6 +470,38 @@ export function DubbingStage({ project, onUpdated, onSaveState }: Props) {
           </button>
         </div>
       </section>
+
+      <section className="dr-card ed-mix-card">
+        <div className="ed-section-title-row">
+          <strong>{t('混音预听', 'Mix preview')}</strong>
+          <button
+            type="button"
+            className="dr-btn"
+            disabled={mixMutation.isPending}
+            onClick={() => mixMutation.mutate()}
+          >
+            <Icon name="play" size={15} />
+            {mixMutation.isPending ? t('生成中…', 'Rendering…') : t('生成预听', 'Generate preview')}
+          </button>
+        </div>
+        <p className="dr-hint">
+          {t(
+            '使用已保存的音频配置（BGM / 音效 / 音量）生成一段混音预听；请先保存配置。',
+            'Uses the saved audio config; save settings first.'
+          )}
+        </p>
+        {mixPreview ? (
+          <div className="ed-mix-result">
+            <audio controls src={mixPreview.url} />
+            <div className="dr-hint">
+              {mixPreview.tracks.length} {t('轨', 'tracks')} · {Number(mixPreview.duration).toFixed(1)}s
+              {mixPreview.placeholderVoices ? ` · ${t('包含占位音', 'includes placeholder audio')}` : ''}
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      <SubtitleStyleCard project={project} onUpdated={onUpdated} onSaveState={onSaveState} />
     </div>
   )
 }

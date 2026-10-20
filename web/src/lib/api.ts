@@ -1,6 +1,7 @@
 import type {
   AiMessage,
   AiQuickAction,
+  AudioPreviewResult,
   BgmItem,
   Character,
   CommentItem,
@@ -19,6 +20,7 @@ import type {
   ProjectScript,
   ProjectVersion,
   SceneItem,
+  SfxItem,
   ShareSettings,
   VersionCompare,
   Voice,
@@ -268,7 +270,29 @@ export const api = {
   getTransitionSupport: (projectId: string) =>
     request<{ xfade: boolean }>(`/edit-plans/${projectId}/transition-support`),
   listBgm: (params: { emotion?: string; search?: string } = {}) =>
-    request<{ items: BgmItem[] }>(`/audio/bgm${buildQuery(params)}`),
+    request<{
+      items: BgmItem[]
+      total?: number
+      emotions?: { id: string; name: string; icon?: string }[]
+    }>(`/audio/bgm${buildQuery(params)}`),
+  listSfx: (params: { category?: string; search?: string } = {}) =>
+    request<{
+      items: SfxItem[]
+      total?: number
+      categories?: { id: string; name: string; icon?: string }[]
+    }>(`/audio/sfx${buildQuery(params)}`),
+  recommendBgm: (scriptText: string) =>
+    request<{
+      emotion: string
+      emotionName: string
+      recommendations: BgmItem[]
+    }>('/audio/bgm/recommend', { method: 'POST', body: { scriptText } }),
+  previewAudioMix: (body: {
+    projectId: string
+    language?: string
+    voiceId?: string
+    speed?: number
+  }) => request<AudioPreviewResult>('/audio/preview', { method: 'POST', body }),
 
   // Templates
   listTemplates: (params: { category?: string; search?: string; type?: string } = {}) =>

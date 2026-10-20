@@ -29,7 +29,8 @@ describe('editor stages', () => {
 
 
 describe('migration status', () => {
-  it('所有 12 个阶段均已迁移，无默认 legacy 阶段', () => {
-    expect(ALL_STAGES.filter((stage) => stage.legacy)).toHaveLength(0)
+  it('12 个阶段全部由 React 承载', () => {
+    expect(ALL_STAGES).toHaveLength(12)
+    expect(ALL_STAGES.every((stage) => !('legacy' in stage))).toBe(true)
   })
 })

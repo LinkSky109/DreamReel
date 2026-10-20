@@ -1889,3 +1889,144 @@
     max-height: calc(100vh - 120px);
   }
 }
+
+/* ============ Audio library / mix / subtitle ============ */
+
+.ed-audio-library,
+.ed-mix-card,
+.ed-subtitle-card {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ed-library-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 10px;
+}
+
+.ed-library-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ed-library-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ed-library-filters .dr-select {
+  max-width: 160px;
+}
+
+.ed-library-filters .dr-input {
+  flex: 1;
+  min-width: 140px;
+}
+
+.ed-library-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 150px;
+  overflow: auto;
+}
+
+.ed-library-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ed-library-play {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.ed-library-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 10px;
+}
+
+.ed-library-preview audio {
+  flex: 1;
+  height: 32px;
+  max-width: 420px;
+}
+
+.ed-mix-result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ed-mix-result audio {
+  width: 100%;
+  max-width: 520px;
+  height: 34px;
+}
+
+.ed-subtitle-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ed-color-input {
+  width: 72px;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.ed-subtitle-checks {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.ed-subtitle-preview {
+  position: relative;
+  height: 110px;
+  background: #000;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.ed-subtitle-preview-text {
+  position: absolute;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@media (max-width: 1023px) {
+  .ed-subtitle-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .ed-subtitle-controls {
+    grid-template-columns: 1fr;
+  }
+  .ed-library-filters .dr-select {
+    max-width: none;
+    width: 100%;
+  }
+}
