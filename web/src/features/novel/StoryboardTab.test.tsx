@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { StoryboardTab } from './StoryboardTab'
 import { LangProvider } from '../../lib/i18n'
 import type { NovelDetail } from '../../domain/types'
@@ -10,6 +11,7 @@ const getNovelStoryboard = vi.fn()
 const createNovelStoryboardFromMarks = vi.fn()
 const updateNovelStoryboardShot = vi.fn()
 const deleteNovelStoryboardShot = vi.fn()
+const importNovelStoryboard = vi.fn()
 
 vi.mock('../../lib/api', () => ({
   api: {
@@ -17,6 +19,7 @@ vi.mock('../../lib/api', () => ({
     createNovelStoryboardFromMarks: (id: string) => createNovelStoryboardFromMarks(id),
     updateNovelStoryboardShot: (id: string, sid: string, body: unknown) => updateNovelStoryboardShot(id, sid, body),
     deleteNovelStoryboardShot: (id: string, sid: string) => deleteNovelStoryboardShot(id, sid),
+    importNovelStoryboard: (id: string) => importNovelStoryboard(id),
   },
 }))
 
@@ -49,7 +52,12 @@ function renderTab() {
   return render(
     <QueryClientProvider client={client}>
       <LangProvider>
-        <StoryboardTab novel={novel} onChanged={vi.fn()} />
+        <MemoryRouter initialEntries={['/']}>
+          <Routes>
+            <Route path="/" element={<StoryboardTab novel={novel} onChanged={vi.fn()} />} />
+            <Route path="/project/:id" element={<div>editor page</div>} />
+          </Routes>
+        </MemoryRouter>
       </LangProvider>
     </QueryClientProvider>
   )
@@ -62,6 +70,7 @@ describe('StoryboardTab', () => {
     createNovelStoryboardFromMarks.mockResolvedValue({ shots: [shot], created: 2 })
     updateNovelStoryboardShot.mockResolvedValue(shot)
     deleteNovelStoryboardShot.mockResolvedValue({})
+    importNovelStoryboard.mockResolvedValue({ projectId: 'p1', projectName: '长夜将明 · 分镜板', shots: 1 })
   })
 
   it('渲染分镜草稿与来源', async () => {
@@ -100,5 +109,14 @@ describe('StoryboardTab', () => {
     await screen.findByDisplayValue('风从北面来。')
     await user.click(screen.getByRole('button', { name: '删除分镜' }))
     await waitFor(() => expect(deleteNovelStoryboardShot).toHaveBeenCalledWith('n1', 's1'))
+  })
+
+  it('送入项目后跳转编辑器', async () => {
+    const user = userEvent.setup()
+    renderTab()
+    await screen.findByDisplayValue('风从北面来。')
+    await user.click(screen.getByRole('button', { name: '送入项目' }))
+    await waitFor(() => expect(importNovelStoryboard).toHaveBeenCalledWith('n1'))
+    expect(await screen.findByText('editor page')).toBeInTheDocument()
   })
 })

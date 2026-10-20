@@ -39,6 +39,7 @@ import { CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
 import { optionalClampInt } from '../utils/coerce.js'
 import { generateId } from '../utils/idGenerator.js'
+import { projectService } from '../services/projectService.js'
 import { tryAcquire, release } from '../utils/asyncLock.js'
 import { getJobs } from '../services/extractionStatus.js'
 import { extractAll } from '../services/combinedExtractionService.js'
@@ -227,6 +228,42 @@ router.delete('/:id/storyboard/:sid', (req, res) => {
     if (next.length === project.storyboard.length) throw new Error('storyboard shot not found')
     updateNovelProject(req.params.id, { storyboard: next })
     res.json({ success: true, data: { removed: 1 } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 把分镜草稿送入项目（不传 projectId 则新建项目）
+router.post('/:id/storyboard/import', async (req, res) => {
+  try {
+    const novel = getNovelProject(req.params.id)
+    const drafts = novel.storyboard || []
+    if (!drafts.length) return res.status(400).json({ success: false, error: '分镜板为空，先标记章节并生成草稿' })
+    const { projectId, name } = req.body || {}
+    const target = projectId
+      ? await projectService.getProject(projectId)
+      : await projectService.createProject({
+          name: name || `《${novel.title}》· 分镜板`,
+          description: `由小说《${novel.title}》的段落标记生成`,
+          targetDuration: drafts.reduce((sum, shot) => sum + (shot.duration || 5), 0),
+          platform: 'landscape',
+          style: novel.style?.name || '',
+          userId: req.user?.id,
+        })
+    for (const shot of drafts) {
+      target.addShot({
+        description: shot.text,
+        narration: shot.text,
+        duration: shot.duration || 5,
+        shotType: shot.shotType,
+        cameraMovement: shot.camera,
+      })
+    }
+    await projectService.updateProject(target.id, { shots: target.shots })
+    res.status(201).json({
+      success: true,
+      data: { projectId: target.id, projectName: target.name, shots: drafts.length },
+    })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

@@ -458,6 +458,11 @@ export const api = {
   ) => requestData<NovelStoryboardShot>(`/novels/${id}/storyboard/${sid}`, { method: 'PATCH', body }),
   deleteNovelStoryboardShot: (id: string, sid: string) =>
     requestData<unknown>(`/novels/${id}/storyboard/${sid}`, { method: 'DELETE' }),
+  importNovelStoryboard: (id: string, body: { projectId?: string; name?: string } = {}) =>
+    requestData<{ projectId: string; projectName: string; shots: number }>(
+      `/novels/${id}/storyboard/import`,
+      { method: 'POST', body }
+    ),
   toggleNovelMark: (id: string, chapter: number, para: number) =>
     requestData<{ marks: NovelMark[]; marked: boolean }>(`/novels/${id}/marks/toggle`, {
       method: 'POST',

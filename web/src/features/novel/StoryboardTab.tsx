@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { useLang } from '../../lib/i18n'
@@ -13,6 +14,7 @@ const CAMERAS = ['固定', '推', '拉', '摇', '移', '跟']
 export function StoryboardTab({ novel, onChanged }: { novel: NovelDetail; onChanged: () => void }) {
   const { t } = useLang()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const marks = novel.marks ?? []
 
   const dataQuery = useQuery({
@@ -44,6 +46,15 @@ export function StoryboardTab({ novel, onChanged }: { novel: NovelDetail; onChan
     onSuccess: () => {
       showToast(t('已删除分镜', 'Shot deleted'), 'success')
       refresh()
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  })
+
+  const importToProject = useMutation({
+    mutationFn: () => api.importNovelStoryboard(novel.id),
+    onSuccess: (result) => {
+      showToast(t(`已送入项目「${result.projectName}」（${result.shots} 个镜头）`, `Imported ${result.shots} shots into ${result.projectName}`), 'success')
+      navigate(`/project/${result.projectId}?tab=shots`)
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   })
@@ -96,6 +107,10 @@ export function StoryboardTab({ novel, onChanged }: { novel: NovelDetail; onChan
           <button className="dr-btn" type="button" disabled={!shots.length} onClick={exportJson}>
             <Icon name="download" size={14} />
             {t('导出 JSON', 'Export JSON')}
+          </button>
+          <button className="dr-btn" type="button" disabled={!shots.length || importToProject.isPending} onClick={() => importToProject.mutate()}>
+            <Icon name="arrow-right" size={14} />
+            {importToProject.isPending ? t('送入中…', 'Importing…') : t('送入项目', 'Import to project')}
           </button>
         </div>
       </div>
