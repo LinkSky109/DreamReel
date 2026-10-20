@@ -12,6 +12,18 @@ import './Novels.css'
 
 const STAGES = ['source', 'characters', 'world', 'series', 'episodes', 'assets', 'compose'] as const
 
+const COVERS: { match: RegExp; src: string }[] = [
+  { match: /聊斋/, src: '/media/covers/liaozhai.svg' },
+  { match: /西游/, src: '/media/covers/xiyouji.svg' },
+  { match: /镜花缘/, src: '/media/covers/jinghuayuan.svg' },
+  { match: /儒林/, src: '/media/covers/rulinshi.svg' },
+  { match: /呐喊/, src: '/media/covers/nahan.svg' },
+]
+
+function coverFor(title: string) {
+  return COVERS.find((item) => item.match.test(title))?.src ?? null
+}
+
 function progressOf(novel: NovelProject) {
   if (novel.stats?.progress) return novel.stats.progress
   return Math.round(((novelStageIndex(novel.stage) + 1) / STAGES.length) * 100)
@@ -198,12 +210,23 @@ export function NovelsPage() {
             const stats = novel.stats
             const progress = progressOf(novel)
             const statusValue = statusOf(novel)
+            const cover = coverFor(novel.title)
             return (
               <article className="novel-card" key={novel.id}>
-                <Link className="novel-cover" to={`/novel/${novel.id}`} aria-label={t(`打开小说：${novel.title}`, `Open ${novel.title}`)}>
-                  <span className="novel-cover-mark">梦</span>
-                  <span className="novel-cover-name">{novel.title}</span>
-                  <span className="novel-cover-author">{novel.author || t('佚名', 'Unknown')}</span>
+                <Link
+                  className={`novel-cover ${cover ? 'has-image' : ''}`}
+                  to={`/novel/${novel.id}`}
+                  aria-label={t(`打开小说：${novel.title}`, `Open ${novel.title}`)}
+                >
+                  {cover ? (
+                    <img src={cover} alt="" />
+                  ) : (
+                    <>
+                      <span className="novel-cover-mark">梦</span>
+                      <span className="novel-cover-name">{novel.title}</span>
+                      <span className="novel-cover-author">{novel.author || t('佚名', 'Unknown')}</span>
+                    </>
+                  )}
                 </Link>
                 <div className="novel-body">
                   <div className="novel-title-row">

@@ -100,7 +100,8 @@ export class NovelCharacter {
     }
     this.card = base
     this.provider = data.provider || 'heuristic' // heuristic | llm
-    this.status = data.status || 'pending' // pending | approved
+    this.status = data.status || 'pending' // pending | approved | revision
+    this.note = data.note || ''
     // 人工修订记录 [{ field, from, to, at }]
     this.reviewEdits = Array.isArray(data.reviewEdits) ? data.reviewEdits : []
     this.createdAt = data.createdAt || new Date().toISOString()

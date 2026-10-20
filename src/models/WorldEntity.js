@@ -197,6 +197,8 @@ export class WorldEntity {
     this.firstChapter = data.firstChapter ?? null
     this.mentions = data.mentions ?? 0
     this.provider = data.provider || 'heuristic'
+    this.status = data.status || 'pending' // pending | confirmed | revision
+    this.note = data.note || ''
     this.createdAt = data.createdAt || new Date().toISOString()
   }
 

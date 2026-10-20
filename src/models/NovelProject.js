@@ -28,6 +28,8 @@ export class NovelProject {
     this.selectedWorldSet = data.selectedWorldSet || null
     // 该小说的模型偏好（供应商/模型），抽取时按 小说 → 用户 → 全局 → Mock 解析
     this.providerPreferences = data.providerPreferences || { llm: null, updatedAt: null }
+    // 章节段落标记：{ chapter: 章节序号, para: 段落下标, at }
+    this.marks = Array.isArray(data.marks) ? data.marks : []
     this.createdAt = data.createdAt || new Date().toISOString()
     this.updatedAt = data.updatedAt || this.createdAt
   }

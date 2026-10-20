@@ -36,6 +36,8 @@ export function NovelDetailPage() {
   const queryClient = useQueryClient()
   const [chapterOpen, setChapterOpen] = useState<NovelChunk | null>(null)
   const [inspectorOpen, setInspectorOpen] = useState(false)
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null)
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null)
 
   const tabParam = params.get('tab') as TabKey | null
   const tab: TabKey = TABS.some((item) => item.key === tabParam) ? (tabParam as TabKey) : 'stage'
@@ -46,7 +48,7 @@ export function NovelDetailPage() {
     enabled: Boolean(id),
   })
   const charactersQuery = useQuery({
-    queryKey: ['novel-characters', id],
+    queryKey: ['novel-characters', id, 'rail'],
     queryFn: () => api.listNovelCharacters(id),
     enabled: Boolean(id),
   })
@@ -63,8 +65,25 @@ export function NovelDetailPage() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['novel', id] })
+    queryClient.invalidateQueries({ queryKey: ['novel-characters', id] })
+    queryClient.invalidateQueries({ queryKey: ['novel-world-entities', id] })
     queryClient.invalidateQueries({ queryKey: ['novels'] })
   }
+
+  const markMutation = useMutation({
+    mutationFn: ({ chapter, para }: { chapter: number; para: number }) => api.toggleNovelMark(id, chapter, para),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['novel', id] }),
+    onError: (error: Error) => showToast(error.message, 'error'),
+  })
+
+  const confirmAll = useMutation({
+    mutationFn: () => api.confirmAllNovelReview(id),
+    onSuccess: (result) => {
+      showToast(t(`已确认 ${result.characters} 个角色、${result.entities} 个世界观实体`, `Confirmed ${result.characters} characters and ${result.entities} entities`), 'success')
+      invalidate()
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  })
 
   const setTab = (key: TabKey) => {
     const next = new URLSearchParams(params)
@@ -104,6 +123,24 @@ export function NovelDetailPage() {
   const currentIndex = novelStageIndex(novel.stage)
   const progress = Math.round(((currentIndex + 1) / NOVEL_STAGES.length) * 100)
   const approved = novel.reviewStats?.approved ?? characters.filter((item) => item.status === 'approved').length
+  const marks = novel.marks ?? []
+  const selectedCharacter = characters.find((item) => item.id === selectedCharacterId) ?? null
+  const selectedEntity = entities.find((item) => item.id === selectedEntityId) ?? null
+
+  const saveReview = async (status: string, note: string) => {
+    if (selectedCharacter) {
+      await api.reviewNovelCharacter(id, selectedCharacter.id, {
+        status: status as 'pending' | 'approved' | 'revision',
+        note,
+      })
+    } else if (selectedEntity) {
+      await api.reviewNovelWorldEntity(id, selectedEntity.id, {
+        status: status as 'pending' | 'confirmed' | 'revision',
+        note,
+      })
+    }
+    invalidate()
+  }
   const tabMeta = TABS.find((item) => item.key === tab) ?? TABS[0]
   const nextTab: TabKey =
     tab === 'stage' || tab === 'source'
@@ -229,12 +266,16 @@ export function NovelDetailPage() {
               <span>{t('章节', 'Chapters')}</span>
               <span>{chunks.length}</span>
             </div>
-            {chunks.slice(0, 8).map((chunk) => (
-              <button key={chunk.id} type="button" className="nv-rail-item" onClick={() => setChapterOpen(chunk)}>
-                <span className="nv-rail-no">{String(chunk.index + 1).padStart(2, '0')}</span>
-                <span className="nv-rail-name">{chunk.chapterTitle || t('未命名章节', 'Untitled')}</span>
-              </button>
-            ))}
+            {chunks.slice(0, 8).map((chunk) => {
+              const markedCount = marks.filter((mark) => mark.chapter === chunk.index).length
+              return (
+                <button key={chunk.id} type="button" className="nv-rail-item" onClick={() => setChapterOpen(chunk)}>
+                  <span className="nv-rail-no">{String(chunk.index + 1).padStart(2, '0')}</span>
+                  <span className="nv-rail-name">{chunk.chapterTitle || t('未命名章节', 'Untitled')}</span>
+                  {markedCount ? <span className="nv-rail-badge">{markedCount}</span> : null}
+                </button>
+              )
+            })}
             {chunks.length === 0 ? (
               <button type="button" className="nv-rail-item" onClick={() => setTab('source')}>
                 <span className="nv-rail-no">＋</span>
@@ -258,12 +299,21 @@ export function NovelDetailPage() {
               <button
                 key={character.id}
                 type="button"
-                className={`nv-rail-item ${tab === 'characters' ? 'is-active' : ''}`}
-                onClick={() => setTab('characters')}
+                className={`nv-rail-item ${selectedCharacterId === character.id ? 'is-active' : ''}`}
+                onClick={() => {
+                  setSelectedCharacterId(character.id)
+                  setSelectedEntityId(null)
+                  setTab('characters')
+                  setInspectorOpen(true)
+                }}
               >
                 <span className="nv-rail-avatar">{character.name.slice(0, 1)}</span>
                 <span className="nv-rail-name">{character.name}</span>
-                <span className={`nv-rail-state is-${character.status === 'approved' ? 'done' : 'todo'}`} />
+                <span
+                  className={`nv-rail-state is-${
+                    character.status === 'approved' ? 'done' : character.status === 'revision' ? 'revision' : 'todo'
+                  }`}
+                />
               </button>
             ))}
             {characters.length === 0 ? (
@@ -283,11 +333,21 @@ export function NovelDetailPage() {
               <button
                 key={entity.id}
                 type="button"
-                className={`nv-rail-item ${tab === 'world' ? 'is-active' : ''}`}
-                onClick={() => setTab('world')}
+                className={`nv-rail-item ${selectedEntityId === entity.id ? 'is-active' : ''}`}
+                onClick={() => {
+                  setSelectedEntityId(entity.id)
+                  setSelectedCharacterId(null)
+                  setTab('world')
+                  setInspectorOpen(true)
+                }}
               >
                 <span className="nv-rail-no">◇</span>
                 <span className="nv-rail-name">{entity.name}</span>
+                <span
+                  className={`nv-rail-state is-${
+                    entity.status === 'confirmed' ? 'done' : entity.status === 'revision' ? 'revision' : 'todo'
+                  }`}
+                />
               </button>
             ))}
             {entities.length === 0 ? (
@@ -322,47 +382,84 @@ export function NovelDetailPage() {
           {tab === 'sync' ? <SyncTab novel={novel} onChanged={invalidate} /> : null}
         </section>
 
-        <aside className={`nv-inspector ${inspectorOpen ? 'is-open' : ''}`} aria-label={t('制作概览', 'Production overview')}>
-          <div className="nv-inspector-head">
-            <div>
-              <p className="nv-eyebrow">{t('制作概览', 'Overview')}</p>
-              <h2>{novelStageLabel(novel.stage, lang)}</h2>
-            </div>
-            <button className="dr-icon-btn nv-inspector-close" type="button" aria-label={t('关闭概览', 'Close overview')} onClick={() => setInspectorOpen(false)}>
-              <Icon name="close" size={15} />
-            </button>
-          </div>
-          <div className="nv-inspector-body">
-            <div className="nv-progress-block">
-              <div className="nv-progress-row">
-                <span>{t('总进度', 'Overall progress')}</span>
-                <span>{progress}%</span>
+        <aside className={`nv-inspector ${inspectorOpen ? 'is-open' : ''}`} aria-label={t('审校检查器', 'Review inspector')}>
+          {selectedCharacter ? (
+            <ReviewInspector
+              key={selectedCharacter.id}
+              kind="character"
+              name={selectedCharacter.name}
+              status={selectedCharacter.status}
+              note={selectedCharacter.note ?? ''}
+              onSave={saveReview}
+              onConfirmAll={() => confirmAll.mutate()}
+              onClose={() => {
+                setSelectedCharacterId(null)
+                setInspectorOpen(false)
+              }}
+            />
+          ) : selectedEntity ? (
+            <ReviewInspector
+              key={selectedEntity.id}
+              kind="world"
+              name={selectedEntity.name}
+              status={selectedEntity.status ?? 'pending'}
+              note={selectedEntity.note ?? ''}
+              onSave={saveReview}
+              onConfirmAll={() => confirmAll.mutate()}
+              onClose={() => {
+                setSelectedEntityId(null)
+                setInspectorOpen(false)
+              }}
+            />
+          ) : (
+            <>
+              <div className="nv-inspector-head">
+                <div>
+                  <p className="nv-eyebrow">{t('制作概览', 'Overview')}</p>
+                  <h2>{novelStageLabel(novel.stage, lang)}</h2>
+                </div>
+                <button className="dr-icon-btn nv-inspector-close" type="button" aria-label={t('关闭概览', 'Close overview')} onClick={() => setInspectorOpen(false)}>
+                  <Icon name="close" size={15} />
+                </button>
               </div>
-              <div className="nv-progress-track">
-                <span style={{ width: `${progress}%` }} />
+              <div className="nv-inspector-body">
+                <div className="nv-progress-block">
+                  <div className="nv-progress-row">
+                    <span>{t('总进度', 'Overall progress')}</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div className="nv-progress-track">
+                    <span style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+                <dl className="nv-inspector-list">
+                  <div><dt>{t('章节', 'Chapters')}</dt><dd>{novel.counts?.chapters ?? chunks.length}</dd></div>
+                  <div><dt>{t('段落标记', 'Paragraph marks')}</dt><dd>{marks.length}</dd></div>
+                  <div><dt>{t('角色卡', 'Characters')}</dt><dd>{characters.length}</dd></div>
+                  <div><dt>{t('已确认', 'Approved')}</dt><dd>{approved}</dd></div>
+                  <div><dt>{t('世界观', 'World')}</dt><dd>{entities.length}</dd></div>
+                  <div><dt>{t('季 / 集', 'Seasons / eps')}</dt><dd>{novel.counts?.seasons ?? 0} / {novel.counts?.episodes ?? 0}</dd></div>
+                </dl>
+                <button className="dr-btn" type="button" disabled={confirmAll.isPending} onClick={() => confirmAll.mutate()}>
+                  {confirmAll.isPending ? t('确认中…', 'Confirming…') : t('全部确认', 'Confirm all')}
+                </button>
+                <div className="nv-inspector-next">
+                  <span>{t('下一步', 'Next step')}</span>
+                  <strong>{lang === 'en' ? TABS.find((item) => item.key === nextTab)?.en : TABS.find((item) => item.key === nextTab)?.zh}</strong>
+                  <button className="dr-btn dr-btn-primary" type="button" onClick={() => setTab(nextTab)}>
+                    {t('继续', 'Continue')}
+                  </button>
+                </div>
+                <div className="nv-inspector-links">
+                  <button type="button" onClick={() => setTab('characters')}>{t('审校角色', 'Review characters')}</button>
+                  <button type="button" onClick={() => setTab('world')}>{t('审校世界观', 'Review world')}</button>
+                  <button type="button" onClick={() => setTab('series')}>{t('分季分集', 'Seasons')}</button>
+                  <button type="button" onClick={() => setTab('episode')}>{t('单集制作', 'Episodes')}</button>
+                  <button type="button" onClick={() => setTab('sync')}>{t('风格与同步', 'Style & sync')}</button>
+                </div>
               </div>
-            </div>
-            <dl className="nv-inspector-list">
-              <div><dt>{t('章节', 'Chapters')}</dt><dd>{novel.counts?.chapters ?? chunks.length}</dd></div>
-              <div><dt>{t('角色卡', 'Characters')}</dt><dd>{characters.length}</dd></div>
-              <div><dt>{t('已确认', 'Approved')}</dt><dd>{approved}</dd></div>
-              <div><dt>{t('世界观', 'World')}</dt><dd>{entities.length}</dd></div>
-              <div><dt>{t('季 / 集', 'Seasons / eps')}</dt><dd>{novel.counts?.seasons ?? 0} / {novel.counts?.episodes ?? 0}</dd></div>
-            </dl>
-            <div className="nv-inspector-next">
-              <span>{t('下一步', 'Next step')}</span>
-              <strong>{lang === 'en' ? TABS.find((item) => item.key === nextTab)?.en : TABS.find((item) => item.key === nextTab)?.zh}</strong>
-              <button className="dr-btn dr-btn-primary" type="button" onClick={() => setTab(nextTab)}>
-                {t('继续', 'Continue')}
-              </button>
-            </div>
-            <div className="nv-inspector-links">
-              <button type="button" onClick={() => setTab('characters')}>{t('审校角色', 'Review characters')}</button>
-              <button type="button" onClick={() => setTab('series')}>{t('分季分集', 'Seasons')}</button>
-              <button type="button" onClick={() => setTab('episode')}>{t('单集制作', 'Episodes')}</button>
-              <button type="button" onClick={() => setTab('sync')}>{t('风格与同步', 'Style & sync')}</button>
-            </div>
-          </div>
+            </>
+          )}
         </aside>
         <button className={`nv-inspector-scrim ${inspectorOpen ? 'is-open' : ''}`} type="button" aria-label={t('关闭概览', 'Close overview')} onClick={() => setInspectorOpen(false)} />
       </div>
@@ -382,9 +479,23 @@ export function NovelDetailPage() {
           <p className="nv-reader-meta">
             CHAPTER {String((chapterOpen?.index ?? 0) + 1).padStart(2, '0')} · {novel.title}
           </p>
-          {(chapterOpen?.text ?? '').split(/\n+/).filter(Boolean).map((paragraph, index) => (
-            <p key={index}>{paragraph}</p>
-          ))}
+          <p className="nv-reader-hint">
+            {t('点击段落标记为分镜素材；再次点击取消。', 'Click a paragraph to mark it as storyboard material.')}
+          </p>
+          {(chapterOpen?.text ?? '').split(/\n+/).filter(Boolean).map((paragraph, index) => {
+            const marked = marks.some((mark) => mark.chapter === (chapterOpen?.index ?? 0) && mark.para === index)
+            return (
+              <button
+                key={index}
+                type="button"
+                className={`nv-reader-para ${marked ? 'is-marked' : ''}`}
+                aria-pressed={marked}
+                onClick={() => markMutation.mutate({ chapter: chapterOpen?.index ?? 0, para: index })}
+              >
+                {paragraph}
+              </button>
+            )
+          })}
         </div>
       </Modal>
     </div>
@@ -560,5 +671,105 @@ function SourceTab({ novel, onIngested }: { novel: NovelDetail; onIngested: () =
         </span>
       </div>
     </section>
+  )
+}
+
+function ReviewInspector({
+  kind,
+  name,
+  status,
+  note,
+  onSave,
+  onConfirmAll,
+  onClose,
+}: {
+  kind: 'character' | 'world'
+  name: string
+  status: string
+  note: string
+  onSave: (status: string, note: string) => Promise<void>
+  onConfirmAll: () => void
+  onClose: () => void
+}) {
+  const { t } = useLang()
+  const [draft, setDraft] = useState(note)
+  const [busy, setBusy] = useState(false)
+  const options =
+    kind === 'character'
+      ? [
+          { key: 'pending', label: t('待审', 'Pending') },
+          { key: 'approved', label: t('已确认', 'Approved') },
+          { key: 'revision', label: t('需修订', 'Revision') },
+        ]
+      : [
+          { key: 'pending', label: t('待审', 'Pending') },
+          { key: 'confirmed', label: t('已确认', 'Confirmed') },
+          { key: 'revision', label: t('需修订', 'Revision') },
+        ]
+
+  const save = async (nextStatus = status) => {
+    setBusy(true)
+    try {
+      await onSave(nextStatus, draft)
+      showToast(t('审校状态已保存', 'Review saved'), 'success')
+    } catch (error) {
+      showToast((error as Error).message, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="nv-inspector-head">
+        <div>
+          <p className="nv-eyebrow">{t('审校检查器', 'Review inspector')}</p>
+          <h2>{name}</h2>
+        </div>
+        <button className="dr-icon-btn nv-inspector-close" type="button" aria-label={t('关闭审校', 'Close review')} onClick={onClose}>
+          <Icon name="close" size={15} />
+        </button>
+      </div>
+      <div className="nv-inspector-body">
+        <div className="nv-review-states">
+          {options.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              className={`nv-review-state is-${option.key} ${status === option.key ? 'is-active' : ''}`}
+              aria-pressed={status === option.key}
+              disabled={busy}
+              onClick={() => save(option.key)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <dl className="nv-inspector-list">
+          <div><dt>{t('类型', 'Type')}</dt><dd>{kind === 'character' ? t('角色卡', 'Character') : t('世界观实体', 'World entity')}</dd></div>
+          <div><dt>{t('当前状态', 'Status')}</dt><dd>{options.find((option) => option.key === status)?.label ?? status}</dd></div>
+        </dl>
+        <label className="dr-field">
+          <span>{t('审校备注', 'Review note')}</span>
+          <textarea
+            className="dr-input nv-review-note"
+            rows={4}
+            placeholder={t('记录需要回原文核对的地方…', 'Notes to verify against the source…')}
+            value={draft}
+            disabled={busy}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+        </label>
+        <button className="dr-btn dr-btn-primary" type="button" disabled={busy} onClick={() => save()}>
+          {busy ? t('保存中…', 'Saving…') : t('保存备注', 'Save note')}
+        </button>
+        <button className="dr-btn" type="button" disabled={busy} onClick={onConfirmAll}>
+          {t('全部确认', 'Confirm all')}
+        </button>
+        <button className="dr-btn" type="button" onClick={onClose}>
+          {t('返回概览', 'Back to overview')}
+        </button>
+      </div>
+    </>
   )
 }

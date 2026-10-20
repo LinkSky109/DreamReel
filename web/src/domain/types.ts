@@ -506,6 +506,12 @@ export interface NovelReviewStats {
   revisionRate?: number
 }
 
+export interface NovelMark {
+  chapter: number
+  para: number
+  at?: string
+}
+
 export interface NovelListStats {
   words: number
   chapters: number
@@ -540,6 +546,7 @@ export interface NovelProject {
   createdAt: string
   updatedAt: string
   stats?: NovelListStats
+  marks?: NovelMark[]
 }
 
 export interface NovelDetail extends NovelProject {
@@ -569,7 +576,8 @@ export interface NovelCharacter {
   kind: 'individual' | 'group'
   card: Record<string, string>
   provider: string
-  status: 'pending' | 'approved' | string
+  status: 'pending' | 'approved' | 'revision' | string
+  note?: string
   reviewEdits?: { field: string; from?: string; to?: string; at?: string }[]
   createdAt: string
   updatedAt: string
@@ -614,6 +622,8 @@ export interface NovelWorldEntity {
   firstChapter?: number | null
   mentions: number
   provider: string
+  status?: 'pending' | 'confirmed' | 'revision' | string
+  note?: string
   createdAt: string
 }
 

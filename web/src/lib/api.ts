@@ -36,6 +36,7 @@ import type {
   NovelSeriesEstimate,
   NovelSeriesPlanResult,
   NovelManifest,
+  NovelMark,
   NovelSeasonAssetSubset,
   NovelSyncLedger,
   NovelSyncResult,
@@ -440,6 +441,26 @@ export const api = {
     requestData<{ deleted?: boolean }>(`/novels/${id}`, { method: 'DELETE' }),
   getNovel: (id: string) => requestData<NovelDetail>(`/novels/${id}`),
   getNovelChunks: (id: string) => requestData<NovelChunk[]>(`/novels/${id}/chunks`),
+  toggleNovelMark: (id: string, chapter: number, para: number) =>
+    requestData<{ marks: NovelMark[]; marked: boolean }>(`/novels/${id}/marks/toggle`, {
+      method: 'POST',
+      body: { chapter, para },
+    }),
+  reviewNovelCharacter: (
+    id: string,
+    cid: string,
+    body: { status?: 'pending' | 'approved' | 'revision'; note?: string }
+  ) => requestData<unknown>(`/novels/${id}/characters/${cid}/review`, { method: 'PATCH', body }),
+  reviewNovelWorldEntity: (
+    id: string,
+    eid: string,
+    body: { status?: 'pending' | 'confirmed' | 'revision'; note?: string }
+  ) => requestData<unknown>(`/novels/${id}/world/entities/${eid}/review`, { method: 'PATCH', body }),
+  confirmAllNovelReview: (id: string) =>
+    requestData<{ characters: number; entities: number }>(`/novels/${id}/review/confirm-all`, {
+      method: 'POST',
+      body: {},
+    }),
   advanceNovel: (id: string, to?: string) =>
     requestData<{ stage: string }>(`/novels/${id}/advance`, { method: 'POST', body: to ? { to } : {} }),
   ingestNovel: (

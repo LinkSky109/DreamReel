@@ -135,6 +135,26 @@ router.get('/:id', (req, res) => {
   }
 })
 
+// 章节段落标记：切换某段是否作为分镜素材
+router.post('/:id/marks/toggle', (req, res) => {
+  try {
+    const { chapter, para } = req.body || {}
+    if (!Number.isInteger(chapter) || !Number.isInteger(para)) {
+      return res.status(400).json({ success: false, error: 'chapter/para 必须是整数' })
+    }
+    const project = getNovelProject(req.params.id)
+    const marks = Array.isArray(project.marks) ? project.marks : []
+    const index = marks.findIndex((mark) => mark.chapter === chapter && mark.para === para)
+    const next = index >= 0
+      ? marks.filter((_, i) => i !== index)
+      : [...marks, { chapter, para, at: new Date().toISOString() }]
+    const updated = updateNovelProject(req.params.id, { marks: next })
+    res.json({ success: true, data: { marks: updated.marks, marked: index < 0 } })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
 // 设置全书风格（MVP：全书统一）
 router.put('/:id/style', (req, res) => {
   try {
@@ -268,6 +288,46 @@ router.post('/:id/characters/:cid/approve', (req, res) => {
   try {
     const character = applyEdits(req.params.id, req.params.cid, {}, { approve: true })
     res.json({ success: true, data: character })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 审校状态 + 备注（角色）
+router.patch('/:id/characters/:cid/review', (req, res) => {
+  try {
+    const { status, note } = req.body || {}
+    if (status && !['pending', 'approved', 'revision'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'status 必须是 pending/approved/revision' })
+    }
+    const character = storageService.getNovelCharacter(req.params.cid)
+    if (!character || character.novelId !== req.params.id) throw new Error('character not found')
+    if (status) character.status = status
+    if (note !== undefined) character.note = String(note).slice(0, 2000)
+    character.updatedAt = new Date().toISOString()
+    storageService.updateNovelCharacter(character)
+    res.json({ success: true, data: character })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 一键确认全部角色与世界观
+router.post('/:id/review/confirm-all', (req, res) => {
+  try {
+    const now = new Date().toISOString()
+    const characters = listCharacters(req.params.id)
+    for (const character of characters) {
+      character.status = 'approved'
+      character.updatedAt = now
+      storageService.updateNovelCharacter(character)
+    }
+    const entities = listEntities(req.params.id)
+    for (const entity of entities) {
+      entity.status = 'confirmed'
+      storageService.updateWorldEntity(entity)
+    }
+    res.json({ success: true, data: { characters: characters.length, entities: entities.length } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1092,6 +1152,24 @@ router.post('/:id/characters/select', (req, res) => {
     const { setId } = req.body || {}
     if (!setId) return res.status(400).json({ success: false, error: 'setId required' })
     res.json({ success: true, data: selectCharacterSet(req.params.id, setId) })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 审校状态 + 备注（世界观实体）
+router.patch('/:id/world/entities/:eid/review', (req, res) => {
+  try {
+    const { status, note } = req.body || {}
+    if (status && !['pending', 'confirmed', 'revision'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'status 必须是 pending/confirmed/revision' })
+    }
+    const entity = storageService.getWorldEntity(req.params.eid)
+    if (!entity || entity.novelId !== req.params.id) throw new Error('world entity not found')
+    if (status) entity.status = status
+    if (note !== undefined) entity.note = String(note).slice(0, 2000)
+    storageService.updateWorldEntity(entity)
+    res.json({ success: true, data: entity })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
