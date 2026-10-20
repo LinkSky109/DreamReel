@@ -16,6 +16,8 @@ import type {
   ModerationLog,
   NotificationItem,
   NotificationPreferences,
+  NovelDetail,
+  NovelIngestResult,
   NovelProject,
   Project,
   ProjectListResponse,
@@ -404,6 +406,13 @@ export const api = {
     requestData<NovelProject>('/novels', { method: 'POST', body }),
   deleteNovel: (id: string) =>
     requestData<{ deleted?: boolean }>(`/novels/${id}`, { method: 'DELETE' }),
+  getNovel: (id: string) => requestData<NovelDetail>(`/novels/${id}`),
+  advanceNovel: (id: string, to?: string) =>
+    requestData<{ stage: string }>(`/novels/${id}/advance`, { method: 'POST', body: to ? { to } : {} }),
+  ingestNovel: (
+    id: string,
+    body: { sourceType: 'qishuxia-txt' | 'text'; url?: string; text?: string }
+  ) => requestData<NovelIngestResult>(`/novels/${id}/ingest`, { method: 'POST', body }),
 
   // Settings & system
   getSystemInfo: () => request<SystemInfo>('/system/info'),

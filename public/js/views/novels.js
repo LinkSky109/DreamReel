@@ -172,11 +172,17 @@ function locked(novel, stage) {
   return stageIdx(novel.stage) > stageIdx(stage)
 }
 
+const LEGACY_TABS = ['stage', 'source', 'characters', 'world', 'series', 'episode', 'art', 'sync']
+
 export async function renderNovelsPage(container, novelId) {
   stopQuarkQrPoll()
   if (novelId) {
     if (state.novelId !== novelId) state.worldType = 'all'
     state.novelId = novelId
+    // 新版详情页把未迁移的标签通过 ?tab= 交给旧版，打开即定位
+    const q = new URLSearchParams((location.hash.split('?')[1] || ''))
+    const qtab = q.get('tab')
+    if (qtab && LEGACY_TABS.includes(qtab)) state.tab = qtab
     return renderDetail(container)
   }
   return renderList(container)

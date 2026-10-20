@@ -497,6 +497,11 @@ export interface NovelStyle {
   description?: string
 }
 
+export interface NovelReviewStats {
+  approved?: number
+  revisionRate?: number
+}
+
 export interface NovelProject {
   id: string
   title: string
@@ -510,4 +515,14 @@ export interface NovelProject {
   counts: NovelCounts
   createdAt: string
   updatedAt: string
+}
+
+export interface NovelDetail extends NovelProject {
+  reviewStats?: NovelReviewStats
+}
+
+export interface NovelIngestResult {
+  chapters?: number
+  chunks?: number
+  [key: string]: unknown
 }

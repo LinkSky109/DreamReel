@@ -69,7 +69,7 @@ export function labelForPath(pathname: string): string {
   if (navItem) return navItem.label
   if (EXTRA_LABELS[pathname]) return EXTRA_LABELS[pathname]
   if (pathname.startsWith('/project/')) return '项目编辑器'
-  if (pathname.startsWith('/novel/')) return '小说工作台'
+  if (pathname.startsWith('/novel/') || pathname.startsWith('/novel-legacy/')) return '小说工作台'
   if (pathname.startsWith('/creator/')) return '创作者主页'
   if (pathname.startsWith('/studio/')) return '剧场计划'
   if (pathname.startsWith('/team/')) return '团队协作'

@@ -24,6 +24,9 @@ const DocsPage = lazy(() =>
 const ModerationPage = lazy(() =>
   import('../pages/Moderation').then((module) => ({ default: module.ModerationPage }))
 )
+const NovelDetailPage = lazy(() =>
+  import('../pages/NovelDetail').then((module) => ({ default: module.NovelDetailPage }))
+)
 const NovelsPage = lazy(() =>
   import('../pages/Novels').then((module) => ({ default: module.NovelsPage }))
 )
@@ -111,9 +114,10 @@ export function App() {
             path="/novels"
             element={<NovelsPage />}
           />
+          <Route path="/novel/:id" element={<NovelDetailPage />} />
           <Route
-            path="/novel/:id"
-            element={<LegacyParamRoute module="novels" renderer="renderNovelsPage" title="小说工作台" />}
+            path="/novel-legacy/:id"
+            element={<LegacyParamRoute module="novels" renderer="renderNovelsPage" title="小说工作台（旧版）" />}
           />
 
           {/* 其余页面：渐进迁移桥 */}

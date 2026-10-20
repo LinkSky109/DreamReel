@@ -4,24 +4,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useLang } from '../lib/i18n'
 import { showToast } from '../lib/toast'
-import type { NovelProject, NovelStage } from '../domain/types'
+import type { NovelProject } from '../domain/types'
+import { novelStageLabel } from '../lib/novel'
 import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import './Novels.css'
-
-const STAGE_LABELS: Record<NovelStage, { zh: string; en: string }> = {
-  source: { zh: '来源', en: 'Source' },
-  characters: { zh: '角色', en: 'Characters' },
-  world: { zh: '世界观', en: 'World' },
-  series: { zh: '分季分集', en: 'Seasons' },
-  episodes: { zh: '单集剧本', en: 'Episodes' },
-  assets: { zh: '单集资产', en: 'Assets' },
-  compose: { zh: '成片', en: 'Compose' },
-}
-
-function stageLabel(stage: NovelStage, zh: boolean) {
-  return STAGE_LABELS[stage]?.[zh ? 'zh' : 'en'] ?? stage
-}
 
 export function NovelsPage() {
   const navigate = useNavigate()
@@ -168,7 +155,7 @@ export function NovelsPage() {
                   {novel.author ? <span>{novel.author}</span> : null}
                 </div>
                 <div className="dr-novel-meta">
-                  <span className="dr-tag">{stageLabel(novel.stage, lang === 'zh')}</span>
+                  <span className="dr-tag">{novelStageLabel(novel.stage, lang)}</span>
                   <span>
                     {t('章', 'Ch')} {novel.counts?.chapters ?? 0}
                   </span>
