@@ -24,6 +24,9 @@ const DocsPage = lazy(() =>
 const ModerationPage = lazy(() =>
   import('../pages/Moderation').then((module) => ({ default: module.ModerationPage }))
 )
+const NovelsPage = lazy(() =>
+  import('../pages/Novels').then((module) => ({ default: module.NovelsPage }))
+)
 const SettingsPage = lazy(() =>
   import('../pages/Settings').then((module) => ({ default: module.SettingsPage }))
 )
@@ -106,7 +109,7 @@ export function App() {
           {/* 小说剧场 */}
           <Route
             path="/novels"
-            element={<LegacyView module="novels" renderer="renderNovelsPage" title="小说剧场" />}
+            element={<NovelsPage />}
           />
           <Route
             path="/novel/:id"

@@ -479,3 +479,35 @@ export interface SubscriptionFeatures {
   currentPeriodEnd?: string | null
   cancelAtPeriodEnd?: boolean
 }
+
+
+export type NovelStage = 'source' | 'characters' | 'world' | 'series' | 'episodes' | 'assets' | 'compose'
+
+export interface NovelCounts {
+  chapters: number
+  characters: number
+  worldEntities?: number
+  seasons?: number
+  episodes?: number
+}
+
+export interface NovelStyle {
+  scope?: string
+  name?: string
+  description?: string
+}
+
+export interface NovelProject {
+  id: string
+  title: string
+  author?: string
+  category?: string
+  sourceType?: string
+  sourceRef?: string
+  style?: NovelStyle
+  stage: NovelStage
+  status?: string
+  counts: NovelCounts
+  createdAt: string
+  updatedAt: string
+}

@@ -16,6 +16,7 @@ import type {
   ModerationLog,
   NotificationItem,
   NotificationPreferences,
+  NovelProject,
   Project,
   ProjectListResponse,
   ProjectScript,
@@ -94,6 +95,11 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 
   return payload as T
+}
+
+async function requestData<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const payload = await request<{ data: T }>(path, options)
+  return payload.data
 }
 
 export const api = {
@@ -391,6 +397,13 @@ export const api = {
     request<AiMessage>(`/ai-assistant/quick-action/${projectId}`, { method: 'POST', body: { actionId } }),
   clearAiConversation: (projectId: string) =>
     request<{ success: boolean }>(`/ai-assistant/conversation/${projectId}`, { method: 'DELETE' }),
+
+  // Novel theater
+  listNovels: () => requestData<NovelProject[]>('/novels'),
+  createNovel: (body: { title: string; author?: string; sourceRef?: string; sourceType?: string }) =>
+    requestData<NovelProject>('/novels', { method: 'POST', body }),
+  deleteNovel: (id: string) =>
+    requestData<{ deleted?: boolean }>(`/novels/${id}`, { method: 'DELETE' }),
 
   // Settings & system
   getSystemInfo: () => request<SystemInfo>('/system/info'),
