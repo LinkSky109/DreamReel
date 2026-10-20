@@ -4,7 +4,6 @@ import { api } from '../lib/api'
 import { useLang } from '../lib/i18n'
 import {
   formatDate,
-  platformLabel,
   progressOf,
   projectStatus,
   relativeTime,
@@ -14,6 +13,8 @@ import {
 } from '../lib/format'
 import type { Project } from '../domain/types'
 import { Icon } from '../components/Icon'
+import { projectCover } from '../lib/media'
+import { readWorkspacePreferences } from '../lib/preferences'
 
 function greeting(hour: number, lang: string): string {
   if (lang === 'en') {
@@ -44,7 +45,6 @@ export function DashboardPage() {
     queryKey: ['templates', 'dashboard'],
     queryFn: () => api.listTemplates(),
   })
-  const quotaQuery = useQuery({ queryKey: ['quota'], queryFn: () => api.getQuota() })
 
   const isLoading = projectsQuery.isLoading || recentQuery.isLoading
   const isError = projectsQuery.isError || recentQuery.isError
@@ -110,200 +110,189 @@ export function DashboardPage() {
 
   const hour = new Date().getHours()
 
+  const workspaceName = readWorkspacePreferences().workspaceName
+  const displayName = workspaceName.endsWith('工作室')
+    ? workspaceName.slice(0, -'工作室'.length)
+    : workspaceName && workspaceName !== '我的工作区'
+      ? workspaceName
+      : t('创作者', 'creator')
+  const completedShots = (project: Project) =>
+    (project.shots ?? []).filter((shot) => shot.status === 'completed').length
+  const pendingShots = (project: Project) =>
+    (project.shots ?? []).filter((shot) => shot.status !== 'completed').length
+  const week = (() => {
+    const date = new Date()
+    const first = new Date(date.getFullYear(), 0, 1)
+    return Math.ceil(((date.getTime() - first.getTime()) / 86400000 + first.getDay() + 1) / 7)
+  })()
+  const queue = [...active, ...recent.filter((item) => !active.some((a) => a.id === item.id))].slice(0, 3)
+
   return (
-    <div className="dr-page">
-      <div className="dr-page-head">
+    <div className="dr-page dash-page">
+      <header className="dash-head">
         <div>
-          <div className="dr-eyebrow">{formatDate()}</div>
-          <h1 className="dr-display">
-            {greeting(hour, lang)}
-            {t('，现在该继续创作了', ' — ready to keep creating')}
+          <p className="dash-eyebrow">Workbench · {formatDate()}</p>
+          <h1>
+            {greeting(hour, lang)}，{displayName}。
           </h1>
-          <p className="dr-page-sub">
-            {t(
-              '一句话、一部小说，都能走到可交付的短片。',
-              'From one line or one novel to a deliverable short film.'
-            )}
+          <p className="dash-lead">
+            {continueProject
+              ? t(
+                  `《${continueProject.name}》还有 ${pendingShots(continueProject)} 个镜头待处理，另外 ${Math.max(active.length - 1, 0)} 个项目等待下一步。`,
+                  `"${continueProject.name}" has ${pendingShots(continueProject)} shots pending. ${Math.max(active.length - 1, 0)} more projects need your next step.`
+                )
+              : t('从一句话开始，把故事拆成剧本、分镜和可交付的短片。', 'Start with one line and turn it into a script, storyboard and film.')}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            type="button"
-            className="dr-btn dr-btn-primary dr-btn-lg"
-            onClick={() => navigate('/projects?create=1')}
-          >
-            <Icon name="plus" size={16} />
-            {t('新建项目', 'New project')}
-          </button>
-          <Link className="dr-btn dr-btn-lg" to="/templates">
-            {t('从模板开始', 'Start from template')}
-          </Link>
-        </div>
-      </div>
+        <button type="button" className="dr-btn dr-btn-primary dash-create" onClick={() => navigate('/projects?create=1')}>
+          <Icon name="plus" size={15} />
+          {t('新建项目', 'New project')}
+        </button>
+      </header>
 
       {projects.length === 0 ? (
-        <div className="dr-card dr-state" style={{ padding: 64 }}>
+        <div className="dr-card dr-state dash-empty">
           <div className="dr-state-icon">
             <Icon name="sparkles" size={22} />
           </div>
           <div className="dr-state-title">{t('从一句话开始', 'Start with one line')}</div>
-          <div style={{ maxWidth: 420 }}>
-            {t(
-              '还没有项目。创建一个项目，生成剧本与分镜，再逐镜生成、配音、剪辑。',
-              'No projects yet. Create one, generate a script and storyboard, then produce shots.'
-            )}
-          </div>
-          <button
-            type="button"
-            className="dr-btn dr-btn-primary"
-            onClick={() => navigate('/projects?create=1')}
-          >
+          <p>{t('还没有项目。创建一个项目，生成剧本与分镜，再逐镜生成、配音、剪辑。', 'No projects yet. Create one, generate a script and storyboard, then produce shots.')}</p>
+          <button type="button" className="dr-btn dr-btn-primary" onClick={() => navigate('/projects?create=1')}>
             <Icon name="plus" size={15} />
             {t('新建第一个项目', 'Create your first project')}
           </button>
         </div>
       ) : (
         <>
-          <div className="dr-hero">
+          <div className="dash-grid">
             {continueProject ? (
-              <section className="dr-card dr-continue" aria-labelledby="continue-title">
-                <div className="dr-continue-cover" aria-hidden="true" />
-                <div className="dr-eyebrow">{t('继续创作', 'Continue')}</div>
-                <h2 id="continue-title" style={{ fontSize: 24, lineHeight: 1.25 }}>
-                  {continueProject.name}
-                </h2>
-                <div className="dr-continue-meta">
-                  <span className={`dr-status ${statusTone(projectStatus(continueProject))}`}>
-                    <span className="dr-dot" />
-                    {statusLabel(projectStatus(continueProject))}
-                  </span>
-                  <span>{platformLabel(continueProject.platform)}</span>
-                  <span>{continueProject.shots?.length ?? 0} {t('镜', 'shots')}</span>
-                  <span>{totalDuration(continueProject)}s</span>
-                </div>
-                <div>
-                  <div className="dr-progress" aria-label={t('项目进度', 'Project progress')}>
-                    <span style={{ width: `${progressOf(continueProject)}%` }} />
+              <article className="continue-card">
+                <img src={projectCover(continueProject)} alt="" />
+                <div className="continue-body">
+                  <div className="continue-kicker">
+                    <span className="continue-pill">{t('继续创作', 'Continue')}</span>
+                    <span>{t('上次编辑', 'Last edited')} {relativeTime(continueProject.updatedAt)}</span>
                   </div>
-                  <div className="dr-hint" style={{ marginTop: 6 }}>
-                    {progressOf(continueProject)}% · {t('下一步', 'Next')}：
-                    {projectStatus(continueProject) === 'empty'
-                      ? t('生成剧本', 'Generate script')
-                      : t('继续生成分镜', 'Continue storyboard')}
+                  <h2>{continueProject.name}</h2>
+                  <p className="continue-sub">
+                    {(continueProject.shots ?? []).length} {t('个镜头', 'shots')} · {completedShots(continueProject)} {t('已生成', 'generated')} ·{' '}
+                    {pendingShots(continueProject)} {t('待处理', 'pending')}
+                    {continueProject.style ? ` · ${continueProject.style}` : ''}
+                  </p>
+                  <div className="continue-progress">
+                    <div className="continue-bar">
+                      <span style={{ width: `${progressOf(continueProject)}%` }} />
+                    </div>
+                    <span className="continue-pct">{progressOf(continueProject)}%</span>
+                  </div>
+                  <div className="continue-actions">
+                    <button className="dr-btn continue-primary" type="button" onClick={() => navigate(`/project/${continueProject.id}?tab=shots`)}>
+                      <Icon name="play" size={15} />
+                      {t('进入故事板', 'Open storyboard')}
+                    </button>
+                    <button className="continue-link" type="button" onClick={() => navigate(`/project/${continueProject.id}?tab=script`)}>
+                      {t('查看剧本', 'View script')}
+                      <Icon name="arrow-right" size={14} />
+                    </button>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-                  <button
-                    type="button"
-                    className="dr-btn dr-btn-primary"
-                    onClick={() => navigate(`/project/${continueProject.id}?tab=shots`)}
-                  >
-                    {t('进入分镜', 'Open storyboard')}
-                    <Icon name="arrow-right" size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    className="dr-btn"
-                    onClick={() => navigate(`/project/${continueProject.id}?tab=script`)}
-                  >
-                    {t('查看剧本', 'View script')}
-                  </button>
-                </div>
-              </section>
+              </article>
             ) : null}
 
-            <section className="dr-card dr-queue" aria-labelledby="queue-title">
-              <div className="dr-section-head" style={{ marginBottom: 4 }}>
-                <h2 className="dr-section-title" id="queue-title">
-                  {t('制作队列', 'Production queue')}
-                </h2>
-                <span className="dr-hint">{weeklyCompleted} {t('本周完成', 'done this week')}</span>
+            <aside className="side-panel">
+              <div className="side-panel-head">
+                <h2>{t('最近制作', 'Recent work')}</h2>
+                <span>WEEK {week}</span>
               </div>
-              {active.length === 0 ? (
-                <div className="dr-state" style={{ padding: 24 }}>
-                  <div>{t('暂无进行中的任务', 'Nothing in progress')}</div>
+              <div className="stat-strip">
+                <div className="stat-cell">
+                  <div className="stat-value">{active.length}</div>
+                  <div className="stat-label">{t('进行中', 'In progress')}</div>
                 </div>
-              ) : (
-                active.slice(0, 3).map((project) => {
-                  const pending = (project.shots ?? []).filter(
-                    (shot) => shot.status !== 'completed'
-                  ).length
-                  return (
-                    <Link
-                      className="dr-queue-item"
-                      key={project.id}
-                      to={`/project/${project.id}?tab=shots`}
-                    >
-                      <div className="dr-queue-main">
-                        <div className="dr-queue-title">{project.name}</div>
-                        <div className="dr-queue-sub">
-                          {statusLabel(projectStatus(project))} · {pending} {t('镜待处理', 'shots pending')}
-                        </div>
-                      </div>
-                      <Icon name="arrow-right" size={15} />
-                    </Link>
-                  )
-                })
-              )}
-              <div className="dr-grid dr-grid-3" style={{ gap: 8, marginTop: 'auto' }}>
-                <div className="dr-card dr-stat" style={{ padding: 10 }}>
-                  <span className="dr-stat-value">{active.length}</span>
-                  <span className="dr-stat-label">{t('进行中', 'In progress')}</span>
+                <div className="stat-cell">
+                  <div className="stat-value">{generatedShots}</div>
+                  <div className="stat-label">{t('已生成镜头', 'Shots done')}</div>
                 </div>
-                <div className="dr-card dr-stat" style={{ padding: 10 }}>
-                  <span className="dr-stat-value">{generatedShots}</span>
-                  <span className="dr-stat-label">{t('已生成镜头', 'Shots generated')}</span>
-                </div>
-                <div className="dr-card dr-stat" style={{ padding: 10 }}>
-                  <span className="dr-stat-value">{quotaQuery.data?.video.daily.remaining ?? '—'}</span>
-                  <span className="dr-stat-label">{t('今日额度', 'Today quota')}</span>
+                <div className="stat-cell">
+                  <div className="stat-value">{weeklyCompleted}</div>
+                  <div className="stat-label">{t('本周成片', 'This week')}</div>
                 </div>
               </div>
-            </section>
+              <div className="side-queue">
+                {queue.map((project) => (
+                  <Link className="queue-row" key={project.id} to={`/project/${project.id}?tab=shots`}>
+                    <span className="queue-thumb">
+                      <img src={projectCover(project)} alt="" />
+                    </span>
+                    <span className="queue-copy">
+                      <span className="queue-name">{project.name}</span>
+                      <span className="queue-meta">
+                        <span className="queue-dot" />
+                        {statusLabel(projectStatus(project))} · {pendingShots(project)} {t('镜待处理', 'pending')}
+                      </span>
+                    </span>
+                    <span className="queue-mini">
+                      <span>{progressOf(project)}%</span>
+                      <span className="queue-track">
+                        <span style={{ width: `${progressOf(project)}%` }} />
+                      </span>
+                    </span>
+                  </Link>
+                ))}
+                {queue.length === 0 ? <p className="dr-hint" style={{ padding: 16 }}>{t('暂无进行中的任务', 'Nothing in progress')}</p> : null}
+              </div>
+              <div className="side-panel-foot">
+                <Link to="/projects">
+                  {t('查看全部项目', 'View all projects')}
+                  <Icon name="arrow-right" size={14} />
+                </Link>
+              </div>
+            </aside>
           </div>
 
-          <section className="dr-section" aria-labelledby="recent-title">
-            <div className="dr-section-head">
-              <h2 className="dr-section-title" id="recent-title">
-                {t('最近项目', 'Recent projects')}
-              </h2>
-              <Link className="dr-btn dr-btn-ghost" to="/projects">
-                {t('查看全部', 'View all')}
+          <section className="dash-section" aria-labelledby="recent-title">
+            <div className="dash-section-head">
+              <div>
+                <h2 id="recent-title">{t('最近项目', 'Recent projects')}</h2>
+                <p>{t('从上次停下的地方继续。', 'Pick up where you left off.')}</p>
+              </div>
+              <Link className="dash-head-link" to="/projects">
+                {t('全部项目', 'All projects')}
                 <Icon name="arrow-right" size={14} />
               </Link>
             </div>
             <div className="dr-project-grid">
-              {recent.map((project) => (
+              {recent.slice(0, 6).map((project) => (
                 <DashboardProjectCard key={project.id} project={project} />
               ))}
             </div>
           </section>
 
-          <section className="dr-section" aria-labelledby="templates-title">
-            <div className="dr-section-head">
-              <h2 className="dr-section-title" id="templates-title">
-                {t('从模板开始', 'Start from a template')}
-              </h2>
-              <Link className="dr-btn dr-btn-ghost" to="/templates">
-                {t('全部模板', 'All templates')}
+          <section className="dash-section" aria-labelledby="templates-title">
+            <div className="dash-section-head">
+              <div>
+                <h2 id="templates-title">{t('从模板开始', 'Start from a template')}</h2>
+                <p>{t('选一个结构，把想法直接放进去。', 'Choose a structure and drop your idea in.')}</p>
+              </div>
+              <Link className="dash-head-link" to="/templates">
+                {t('浏览模板库', 'Browse templates')}
                 <Icon name="arrow-right" size={14} />
               </Link>
             </div>
-            <div className="dr-grid dr-grid-3">
-              {templates.map((template) => (
+            <div className="dr-template-grid">
+              {templates.map((template, index) => (
                 <Link
-                  className="dr-card dr-card-hover dr-template-card"
+                  className="dr-template-tile"
                   key={template.id}
                   to={`/templates?template=${encodeURIComponent(template.id)}`}
+                  style={{ ['--tile-hue' as string]: `${(index * 47 + 205) % 360}` }}
                 >
-                  <div className="dr-template-name">{template.name}</div>
-                  <div className="dr-template-desc">{template.description}</div>
-                  <div className="dr-tag-row">
-                    <span className="dr-tag">{template.category}</span>
-                    {template.config?.targetDuration ? (
-                      <span className="dr-tag">{template.config.targetDuration}s</span>
-                    ) : null}
-                  </div>
+                  <span className="dr-template-tile-icon">{template.icon ?? '◈'}</span>
+                  <span className="dr-template-tile-name">{template.name}</span>
+                  <span className="dr-template-tile-meta">
+                    {template.category}
+                    {template.config?.targetDuration ? ` · ${template.config.targetDuration}s` : ''}
+                  </span>
                 </Link>
               ))}
             </div>
@@ -322,11 +311,9 @@ function DashboardProjectCard({ project }: { project: Project }) {
   return (
     <Link className="dr-card dr-card-hover dr-project-card" to={`/project/${project.id}`}>
       <div className="dr-project-cover">
-        {project.coverUrl ? (
-          <img src={project.coverUrl} alt="" loading="lazy" />
-        ) : (
-          <div className="dr-project-cover-fallback">{t('暂无封面', 'No cover')}</div>
-        )}
+        <img src={projectCover(project)} alt="" loading="lazy" />
+        <span className={`dr-project-status ${statusTone(status)}`}>{statusLabel(status)}</span>
+        <span className="dr-project-duration">{totalDuration(project)}s</span>
       </div>
       <div className="dr-project-body">
         <div className="dr-project-title">{project.name}</div>

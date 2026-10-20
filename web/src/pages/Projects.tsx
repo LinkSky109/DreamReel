@@ -7,7 +7,6 @@ import { api } from '../lib/api'
 import { useLang } from '../lib/i18n'
 import { showToast } from '../lib/toast'
 import {
-  platformLabel,
   progressOf,
   projectStatus,
   relativeTime,
@@ -19,6 +18,7 @@ import type { Project } from '../domain/types'
 import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import { readWorkspacePreferences } from '../lib/preferences'
+import { projectCover } from '../lib/media'
 
 export function ProjectsPage() {
   const navigate = useNavigate()
@@ -153,11 +153,15 @@ export function ProjectsPage() {
 
   return (
     <div className="dr-page">
-      <div className="dr-page-head">
+      <div className="projects-head">
         <div>
-          <h1 className="dr-page-title">{t('项目库', 'Projects')}</h1>
-          <p className="dr-page-sub">
-            {t('管理所有项目、版本与归档。', 'Manage all projects, versions, and archives.')}
+          <p className="dash-eyebrow">Library</p>
+          <h1>{t('项目库', 'Projects')}</h1>
+          <p className="projects-lead">
+            {t(
+              '所有项目、镜头与版本都在这里。按状态筛选，或直接搜索片名、风格和标签。',
+              'All projects, shots and versions. Filter by status or search by title, style and tag.'
+            )}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -191,7 +195,7 @@ export function ProjectsPage() {
         </div>
       </div>
 
-      <div className="dr-card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="project-filter-bar">
         <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 200 }}>
           <span style={{ position: 'absolute', left: 9, top: 9, color: 'var(--meta)' }}>
             <Icon name="search" size={15} />
@@ -481,11 +485,9 @@ function ProjectCard({
   return (
     <article className="dr-card dr-card-hover dr-project-card">
       <div className="dr-project-cover" onClick={onOpen} role="presentation">
-        {project.coverUrl ? (
-          <img src={project.coverUrl} alt="" loading="lazy" />
-        ) : (
-          <div className="dr-project-cover-fallback">{platformLabel(project.platform)}</div>
-        )}
+        <img src={projectCover(project)} alt="" loading="lazy" />
+        <span className={`dr-project-status ${statusTone(status)}`}>{statusLabel(status)}</span>
+        <span className="dr-project-duration">{totalDuration(project)}s</span>
         <div style={{ position: 'absolute', top: 8, left: 8 }}>
           <Checkbox.Root
             className="dr-checkbox"
