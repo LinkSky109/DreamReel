@@ -1,4 +1,5 @@
 import { authService } from '../services/authService.js'
+import { authContextFromUser } from '../security/policy.js'
 
 /**
  * 认证中间件
@@ -17,6 +18,7 @@ export function authRequired(req, res, next) {
   }
 
   req.user = user
+  req.auth = authContextFromUser(user)
   next()
 }
 
@@ -31,6 +33,7 @@ export function authOptional(req, _res, next) {
     const user = authService.verifyToken(token)
     if (user) {
       req.user = user
+      req.auth = authContextFromUser(user)
     }
   }
   next()

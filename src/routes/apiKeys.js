@@ -1,10 +1,12 @@
 import { Router } from 'express'
 import { apiKeyService } from '../services/apiKeyService.js'
+import { requirePermission } from '../middleware/authorize.js'
+import { PERMISSIONS } from '../security/roles.js'
 
 const router = Router()
 
 // 创建（完整 key 仅返回一次）
-router.post('/', async (req, res) => {
+router.post('/', requirePermission(PERMISSIONS.API_KEY_MANAGE), async (req, res) => {
   try {
     const result = await apiKeyService.createKey({
       name: req.body.name,

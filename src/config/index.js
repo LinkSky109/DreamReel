@@ -33,6 +33,10 @@ const config = {
   },
   // legacy | session
   authMode: process.env.AUTH_MODE || 'legacy',
+  auth: {
+    // 强制登录；默认关闭，避免打断现有匿名页面
+    enforce: process.env.REQUIRE_AUTH === 'true',
+  },
   // single | organization
   tenancyMode: process.env.TENANCY_MODE || 'single',
   // 反向代理层数；Nginx 后置为 1，直接暴露时为 false
@@ -46,6 +50,9 @@ const config = {
   },
   idempotency: {
     ttlMs: parseInt(process.env.IDEMPOTENCY_TTL_MS, 10) || 24 * 60 * 60 * 1000,
+  },
+  audit: {
+    enabled: process.env.AUDIT_ENABLED !== 'false',
   },
   outbox: {
     enabled: process.env.OUTBOX_ENABLED === 'true',

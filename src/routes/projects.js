@@ -8,6 +8,8 @@ import config from '../config/index.js'
 import logger from '../utils/logger.js'
 
 import { requireProjectOwnership } from '../middleware/projectAccess.js'
+import { requirePermission } from '../middleware/authorize.js'
+import { PERMISSIONS } from '../security/roles.js'
 const STORAGE_DIR = path.resolve(config.storage.path)
 const STORAGE_ROOT = STORAGE_DIR + path.sep
 
@@ -355,7 +357,7 @@ router.post('/:projectId/cover', async (req, res) => {
 })
 
 // 删除项目
-router.delete('/:projectId', async (req, res) => {
+router.delete('/:projectId', requirePermission(PERMISSIONS.PROJECT_DELETE), async (req, res) => {
   try {
     const project = await projectService.getProject(req.params.projectId)
     const deletedFiles = cleanupProjectFiles(project)

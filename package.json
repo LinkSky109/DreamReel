@@ -35,7 +35,8 @@
     "db:verify:novel-children": "node scripts/migrate-novel-children-to-pg.js --verify",
     "outbox:stats": "node scripts/outbox.js --stats",
     "outbox:run": "node scripts/outbox.js --run-once",
-    "outbox:retry-dead": "node scripts/outbox.js --retry-dead"
+    "outbox:retry-dead": "node scripts/outbox.js --retry-dead",
+    "audit:verify": "node scripts/audit.js --verify"
   },
   "keywords": [
     "ai-video",

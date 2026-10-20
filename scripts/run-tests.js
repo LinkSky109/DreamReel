@@ -61,6 +61,8 @@ const result = spawnSync(
       DB_DRIVER: 'json',
       NOVEL_REPO_MODE: 'legacy',
       NOVEL_WRITE_MODE: 'legacy',
+      OUTBOX_ENABLED: 'false',
+      REQUIRE_AUTH: 'false',
       DATABASE_URL: process.env.DATABASE_URL || '',
     },
   }

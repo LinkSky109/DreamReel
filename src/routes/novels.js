@@ -53,6 +53,8 @@ import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, 
 import { beginRun, cancelRun, isCancelled, finishRun, getRunStatus } from '../services/bulkControl.js'
 import { validateBody } from '../middleware/validate.js'
 import { bulkGenerateAssetsSchema } from '../contracts/assets.js'
+import { requirePermission } from '../middleware/authorize.js'
+import { PERMISSIONS } from '../security/roles.js'
 import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
 
 /**
@@ -120,7 +122,7 @@ router.get('/', async (req, res) => {
 })
 
 // 删除项目（db 关联记录 + 所有落盘目录，不可恢复）
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requirePermission(PERMISSIONS.NOVEL_DELETE), (req, res) => {
   try {
     const data = deleteNovelProject(req.params.id)
     res.json({ success: true, data })

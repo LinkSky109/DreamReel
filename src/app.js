@@ -10,6 +10,9 @@ import logger from './utils/logger.js'
 import { mountApi } from './routes/index.js'
 import metaV1Router from './routes/v1/meta.js'
 import { apiVersion } from './middleware/apiVersion.js'
+import { authOptional } from './middleware/auth.js'
+import { authGate } from './middleware/authGate.js'
+import { auditWrites } from './middleware/audit.js'
 import { rateLimit } from './middleware/rateLimit.js'
 import { idempotency } from './middleware/idempotency.js'
 import { mediaAccess } from './middleware/mediaAccess.js'
@@ -107,6 +110,9 @@ app.get('/health/ready', async (_req, res) => {
   }
   return res.json({ status: 'ready', storage: 'ok', db: config.db.driver })
 })
+
+// 认证解析 + 写操作审计 + 强制登录闸门（默认关闭）
+app.use('/api', authOptional, auditWrites, authGate)
 
 // API 版本标记：/api 兼容期保留并提示弃用，/api/v1 为新客户端入口
 app.use('/api', apiVersion('legacy'))
