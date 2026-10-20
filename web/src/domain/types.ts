@@ -56,6 +56,11 @@ export interface ProjectScript {
   shots?: ScriptScene[]
 }
 
+export interface RecycleBinItem extends Project {
+  deletedAt?: string
+  deletedBy?: string
+}
+
 export interface Project {
   id: string
   name: string

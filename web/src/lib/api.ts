@@ -57,6 +57,7 @@ import type {
   ProjectListResponse,
   ProjectScript,
   ProjectVersion,
+  RecycleBinItem,
   ProviderStatus,
   SceneItem,
   SfxItem,
@@ -175,6 +176,18 @@ export const api = {
   }) => request<Project>('/projects', { method: 'POST', body }),
   updateProject: (id: string, body: Partial<Project>) =>
     request<Project>(`/projects/${id}`, { method: 'PUT', body }),
+  getRecycleBin: (limit = 50) =>
+    request<{ total: number; items: RecycleBinItem[] }>(`/projects/recycle-bin/list${buildQuery({ limit })}`),
+  getRecycleBinStats: () =>
+    request<{ total: number; oldestDeletedAt?: string | null; newestDeletedAt?: string | null }>(
+      '/projects/recycle-bin/stats'
+    ),
+  restoreProject: (id: string) =>
+    request<{ success?: boolean }>(`/projects/recycle-bin/${id}/restore`, { method: 'POST', body: {} }),
+  permanentlyDeleteProject: (id: string) =>
+    request<{ success?: boolean }>(`/projects/recycle-bin/${id}`, { method: 'DELETE' }),
+  emptyRecycleBin: () =>
+    request<{ deletedCount: number }>('/projects/recycle-bin', { method: 'DELETE' }),
   deleteProject: (id: string) => request<{ success: boolean }>(`/projects/${id}`, { method: 'DELETE' }),
   toggleFavorite: (id: string) =>
     request<{ isFavorite: boolean }>(`/projects/${id}/favorite`, { method: 'POST' }),
