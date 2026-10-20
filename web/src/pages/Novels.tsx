@@ -216,13 +216,12 @@ export function NovelsPage() {
                 <Link
                   className={`novel-cover ${cover ? 'has-image' : ''}`}
                   to={`/novel/${novel.id}`}
-                  aria-label={t(`打开小说：${novel.title}`, `Open ${novel.title}`)}
                 >
                   {cover ? (
                     <img src={cover} alt="" />
                   ) : (
                     <>
-                      <span className="novel-cover-mark">梦</span>
+                      <span className="novel-cover-mark" aria-hidden="true">梦</span>
                       <span className="novel-cover-name">{novel.title}</span>
                       <span className="novel-cover-author">{novel.author || t('佚名', 'Unknown')}</span>
                     </>

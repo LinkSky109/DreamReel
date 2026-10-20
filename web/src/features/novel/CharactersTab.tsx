@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { useLang } from '../../lib/i18n'
 import { showToast } from '../../lib/toast'
-import { formatValue } from '../../lib/format'
+import {formatValue, pluralize } from '../../lib/format'
 import { novelStageIndex } from '../../lib/novel'
 import type { NovelCardField, NovelCharacter, NovelDetail } from '../../domain/types'
 import { Icon } from '../../components/Icon'
@@ -19,7 +19,7 @@ type CharacterData = {
 }
 
 export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChanged: () => void }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const queryClient = useQueryClient()
   const [provider, setProvider] = useState<'llm' | 'heuristic'>('llm')
   const [query, setQuery] = useState('')
@@ -167,7 +167,7 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
   const changeEditField = (field: string) => {
     if (!editing) return
     const value =
-      field === 'name' ? editing.character.name : formatValue(editing.character.card?.[field] ?? '')
+      field === 'name' ? editing.character.name : formatValue(editing.character.card?.[field] ?? '', lang)
     setEditing({ ...editing, field, value })
   }
 
@@ -301,7 +301,7 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
                 title={set.live === 0 ? t('该备选的数据已被早期版本清除，无法恢复', 'This set is no longer available') : ''}
                 onClick={() => selectSet.mutate(set.id)}
               >
-                {set.count} {t('个', 'items')} · {set.provider}
+                {set.count} {t('个', pluralize(set.count, 'item'))} · {set.provider}
                 {set.selected ? t('（当前）', ' (current)') : ''}
                 {set.live === 0 ? t('（已失效）', ' (stale)') : ''}
               </button>
@@ -383,7 +383,7 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
               <div className="dr-character-card-body">
                 {Object.entries(groups).map(([groupKey, groupLabel]) => {
                   const rows = fields.filter(
-                    (field) => field.group === groupKey && formatValue(character.card?.[field.key])
+                    (field) => field.group === groupKey && formatValue(character.card?.[field.key], lang)
                   )
                   if (!rows.length) return null
                   return (
@@ -393,7 +393,7 @@ export function CharactersTab({ novel, onChanged }: { novel: NovelDetail; onChan
                         {rows.map((field) => (
                           <div className="dr-character-row" key={field.key}>
                             <dt>{field.label}</dt>
-                            <dd>{formatValue(character.card[field.key])}</dd>
+                            <dd>{formatValue(character.card[field.key], lang)}</dd>
                           </div>
                         ))}
                       </dl>

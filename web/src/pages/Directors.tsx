@@ -8,6 +8,7 @@ import type { ApplyDirectorResult, DirectorProfile } from '../domain/types'
 import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import './Directors.css'
+import { pluralize } from '../lib/format'
 
 export function DirectorsPage() {
   const navigate = useNavigate()
@@ -209,7 +210,7 @@ export function DirectorsPage() {
                       <option value="">{t('请选择项目', 'Select a project')}</option>
                       {projects.map((item) => (
                         <option key={item.id} value={item.id}>
-                          {item.name} · {item.shots?.length ?? 0} {t('镜', 'shots')}
+                          {item.name} · {item.shots?.length ?? 0} {t('镜', pluralize(item.shots?.length ?? 0, 'shot'))}
                         </option>
                       ))}
                     </select>

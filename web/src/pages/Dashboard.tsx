@@ -2,15 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useLang } from '../lib/i18n'
-import {
-  formatDate,
+import { formatDate,
   progressOf,
   projectStatus,
   relativeTime,
   statusLabel,
   statusTone,
-  totalDuration,
-} from '../lib/format'
+  totalDuration, pluralize } from '../lib/format'
 import type { Project } from '../domain/types'
 import { Icon } from '../components/Icon'
 import { projectCover, templateCover } from '../lib/media'
@@ -131,7 +129,7 @@ export function DashboardPage() {
     <div className="dr-page dash-page">
       <header className="dash-head">
         <div>
-          <p className="dash-eyebrow">Workbench · {formatDate()}</p>
+          <p className="dash-eyebrow">Workbench · {formatDate(new Date(), lang)}</p>
           <h1>
             {greeting(hour, lang)}，{displayName}。
           </h1>
@@ -171,11 +169,11 @@ export function DashboardPage() {
                 <div className="continue-body">
                   <div className="continue-kicker">
                     <span className="continue-pill">{t('继续创作', 'Continue')}</span>
-                    <span>{t('上次编辑', 'Last edited')} {relativeTime(continueProject.updatedAt)}</span>
+                    <span>{t('上次编辑', 'Last edited')} {relativeTime(continueProject.updatedAt, lang)}</span>
                   </div>
                   <h2>{continueProject.name}</h2>
                   <p className="continue-sub">
-                    {(continueProject.shots ?? []).length} {t('个镜头', 'shots')} · {completedShots(continueProject)} {t('已生成', 'generated')} ·{' '}
+                    {(continueProject.shots ?? []).length} {t('个镜头', pluralize((continueProject.shots ?? []).length, 'shot'))} · {completedShots(continueProject)} {t('已生成', 'generated')} ·{' '}
                     {pendingShots(continueProject)} {t('待处理', 'pending')}
                     {continueProject.style ? ` · ${continueProject.style}` : ''}
                   </p>
@@ -228,7 +226,7 @@ export function DashboardPage() {
                       <span className="queue-name">{project.name}</span>
                       <span className="queue-meta">
                         <span className="queue-dot" />
-                        {statusLabel(projectStatus(project))} · {pendingShots(project)} {t('镜待处理', 'pending')}
+                        {statusLabel(projectStatus(project), lang)} · {pendingShots(project)} {t('镜待处理', 'pending')}
                       </span>
                     </span>
                     <span className="queue-mini">
@@ -308,7 +306,7 @@ export function DashboardPage() {
 }
 
 function DashboardProjectCard({ project }: { project: Project }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const status = projectStatus(project)
   const shots = project.shots ?? []
 
@@ -316,7 +314,7 @@ function DashboardProjectCard({ project }: { project: Project }) {
     <Link className="dr-card dr-card-hover dr-project-card" to={`/project/${project.id}`}>
       <div className="dr-project-cover">
         <img src={projectCover(project)} alt="" loading="lazy" />
-        <span className={`dr-project-status ${statusTone(status)}`}>{statusLabel(status)}</span>
+        <span className={`dr-project-status ${statusTone(status)}`}>{statusLabel(status, lang)}</span>
         <span className="dr-project-duration">{totalDuration(project)}s</span>
       </div>
       <div className="dr-project-body">
@@ -324,12 +322,12 @@ function DashboardProjectCard({ project }: { project: Project }) {
         <div className="dr-project-meta">
           <span className={`dr-status ${statusTone(status)}`}>
             <span className="dr-dot" />
-            {statusLabel(status)}
+            {statusLabel(status, lang)}
           </span>
-          <span>{shots.length} {t('镜', 'shots')}</span>
+          <span>{shots.length} {t('镜', pluralize(shots.length, 'shot'))}</span>
         </div>
         <div className="dr-project-foot">
-          <span className="dr-hint">{relativeTime(project.updatedAt)}</span>
+          <span className="dr-hint">{relativeTime(project.updatedAt, lang)}</span>
           <span className="dr-hint">{progressOf(project)}%</span>
         </div>
       </div>

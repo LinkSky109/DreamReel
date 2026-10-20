@@ -13,7 +13,7 @@ type Props = {
 }
 
 export function CollaborationStage({ project }: Props) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const queryClient = useQueryClient()
   const [userName, setUserName] = useState('匿名用户')
   const [content, setContent] = useState('')
@@ -151,7 +151,7 @@ export function CollaborationStage({ project }: Props) {
                           S{String(shot.index + 1).padStart(2, '0')}
                         </span>
                       ) : null}
-                      <span className="dr-hint">{relativeTime(comment.createdAt)}</span>
+                      <span className="dr-hint">{relativeTime(comment.createdAt, lang)}</span>
                       {comment.resolved ? (
                         <span className="dr-status is-completed">
                           <span className="dr-dot" />

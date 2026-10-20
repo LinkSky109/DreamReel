@@ -4,7 +4,7 @@ import { useLang } from '../../lib/i18n'
 import { showToast } from '../../lib/toast'
 import type { Project, Shot } from '../../domain/types'
 import { Icon } from '../../components/Icon'
-import { statusLabel, statusTone } from '../../lib/format'
+import {statusLabel, statusTone, pluralize } from '../../lib/format'
 import { aspectRatioOf, totalDuration } from './utils'
 
 type Props = {
@@ -13,7 +13,7 @@ type Props = {
 }
 
 export function GenerateStage({ project, onRefresh }: Props) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const shots = project.shots ?? []
   const pending = shots.filter((shot) => shot.status === 'pending').length
   const generating = shots.filter((shot) => shot.status === 'generating').length
@@ -73,7 +73,7 @@ export function GenerateStage({ project, onRefresh }: Props) {
         <div>
           <strong>{t('生成队列', 'Generation queue')}</strong>
           <div className="dr-hint">
-            {shots.length} {t('镜', 'shots')} · {totalDuration(shots)}s ·{' '}
+            {shots.length} {t('镜', pluralize(shots.length, 'shot'))} · {totalDuration(shots)}s ·{' '}
             {t('锁定镜头会被跳过', 'Locked shots are skipped')}
           </div>
         </div>
@@ -121,7 +121,7 @@ export function GenerateStage({ project, onRefresh }: Props) {
                   <td>
                     <span className={`dr-status ${statusTone(shot.status)}`}>
                       <span className="dr-dot" />
-                      {statusLabel(shot.status)}
+                      {statusLabel(shot.status, lang)}
                     </span>
                   </td>
                   <td>{shot.duration}s</td>

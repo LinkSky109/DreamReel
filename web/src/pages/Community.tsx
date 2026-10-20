@@ -50,7 +50,7 @@ function ScoreBars({ review, compact = false }: { review: CommunityReview; compa
 
 export function CommunityPage() {
   const queryClient = useQueryClient()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const userId = useMemo(currentUserId, [])
   const [period, setPeriod] = useState<Period>('weekly')
   const [writeOpen, setWriteOpen] = useState(false)
@@ -170,7 +170,7 @@ export function CommunityPage() {
       </div>
 
       <div className="community-layout">
-        <main className="community-feed">
+        <section className="community-feed" aria-label={t('影评列表', 'Reviews')}>
           {reviewsQuery.isLoading ? (
             <>{[0, 1].map((key) => <div className="dr-skeleton community-skeleton" key={key} />)}</>
           ) : reviewsQuery.isError ? (
@@ -195,7 +195,7 @@ export function CommunityPage() {
                     <div className="community-byline">
                       <span>@{review.userId}</span>
                       {review.movieId ? <span>{t('影片', 'Film')} · {review.movieId}</span> : null}
-                      <span>{relativeTime(review.createdAt)}</span>
+                      <span>{relativeTime(review.createdAt, lang)}</span>
                     </div>
                   </div>
                   <div className="community-overall">
@@ -223,7 +223,7 @@ export function CommunityPage() {
               </article>
             ))
           )}
-        </main>
+        </section>
 
         <aside className="community-side">
           <section className="community-panel">
@@ -363,7 +363,7 @@ export function CommunityPage() {
             <div className="community-byline">
               <span>@{selected.userId}</span>
               {selected.movieId ? <span>{t('影片', 'Film')} · {selected.movieId}</span> : null}
-              <span>{relativeTime(selected.createdAt)}</span>
+              <span>{relativeTime(selected.createdAt, lang)}</span>
               <span>{t('综合', 'Overall')} {(Number(selected.overallScore) / 2).toFixed(1)} / 5</span>
             </div>
             <ScoreBars review={selected} />

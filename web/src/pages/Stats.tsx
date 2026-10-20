@@ -4,33 +4,41 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useLang } from '../lib/i18n'
 import { projectCover } from '../lib/media'
-import { progressOf, relativeTime } from '../lib/format'
+import { formatNumber, pluralize, progressOf, relativeTime } from '../lib/format'
 import { Icon } from '../components/Icon'
 import './Stats.css'
 
-const STYLE_NAMES: Record<string, string> = {
-  none: '无风格',
-  nolan: '诺兰',
-  'wes-anderson': '韦斯·安德森',
-  tarantino: '昆汀',
-  'wong-kar-wai': '王家卫',
-  'studio-ghibli': '吉卜力',
-  'blade-runner': '赛博朋克',
-  minimalist: '极简主义',
-  documentary: '纪录片',
-  noir: '黑色电影',
-  cinematic: '电影感',
-  clean: '干净',
+type Bilingual = { zh: string; en: string }
+
+const STYLE_NAMES: Record<string, Bilingual> = {
+  none: { zh: '无风格', en: 'No style' },
+  nolan: { zh: '诺兰', en: 'Nolan' },
+  'wes-anderson': { zh: '韦斯·安德森', en: 'Wes Anderson' },
+  tarantino: { zh: '昆汀', en: 'Tarantino' },
+  'wong-kar-wai': { zh: '王家卫', en: 'Wong Kar-wai' },
+  'studio-ghibli': { zh: '吉卜力', en: 'Studio Ghibli' },
+  'blade-runner': { zh: '赛博朋克', en: 'Cyberpunk' },
+  minimalist: { zh: '极简主义', en: 'Minimalist' },
+  documentary: { zh: '纪录片', en: 'Documentary' },
+  noir: { zh: '黑色电影', en: 'Film noir' },
+  cinematic: { zh: '电影感', en: 'Cinematic' },
+  clean: { zh: '干净', en: 'Clean' },
 }
 
-const PLATFORM_NAMES: Record<string, string> = {
-  landscape: '横屏 16:9',
-  portrait: '竖屏 9:16',
-  square: '方形 1:1',
+const PLATFORM_NAMES: Record<string, Bilingual> = {
+  landscape: { zh: '横屏 16:9', en: 'Landscape 16:9' },
+  portrait: { zh: '竖屏 9:16', en: 'Portrait 9:16' },
+  square: { zh: '方形 1:1', en: 'Square 1:1' },
+}
+
+function bilingualLabel(map: Record<string, Bilingual>, key: string | undefined, lang: 'zh' | 'en'): string {
+  if (!key) return lang === 'en' ? 'Unknown' : '未知'
+  const item = map[key]
+  return item ? (lang === 'en' ? item.en : item.zh) : key
 }
 
 export function StatsPage() {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [range, setRange] = useState(14)
 
   const dashboardQuery = useQuery({
@@ -105,8 +113,8 @@ export function StatsPage() {
       <div className="stats-hero">
         <div className="stats-hero-cell">
           <span>{t('已生成镜头', 'Generated shots')}</span>
-          <strong>{overview.completedShots}</strong>
-          <small>{t('共', 'of')} {overview.totalShots} {t('个镜头', 'shots')}</small>
+          <strong>{formatNumber(overview.completedShots, lang)}</strong>
+          <small>{t('共', 'of')} {formatNumber(overview.totalShots, lang)} {t('个镜头', pluralize(overview.totalShots, 'shot'))}</small>
         </div>
         <div className="stats-hero-cell">
           <span>{t('镜头完成率', 'Completion rate')}</span>
@@ -115,13 +123,13 @@ export function StatsPage() {
         </div>
         <div className="stats-hero-cell">
           <span>{t('项目总数', 'Projects')}</span>
-          <strong>{overview.totalProjects}</strong>
-          <small>{overview.totalCharacters} {t('个角色', 'characters')}</small>
+          <strong>{formatNumber(overview.totalProjects, lang)}</strong>
+          <small>{formatNumber(overview.totalCharacters, lang)} {t('个角色', pluralize(overview.totalCharacters, 'character'))}</small>
         </div>
         <div className="stats-hero-cell">
           <span>{t('视频生成', 'Video generations')}</span>
-          <strong>{overview.totalVideoGenerations}</strong>
-          <small>{overview.totalExports} {t('次导出', 'exports')}</small>
+          <strong>{formatNumber(overview.totalVideoGenerations, lang)}</strong>
+          <small>{formatNumber(overview.totalExports, lang)} {t('次导出', pluralize(overview.totalExports, 'export'))}</small>
         </div>
       </div>
 
@@ -196,7 +204,7 @@ export function StatsPage() {
           <div className="stats-styles">
             {data.styleDistribution.slice(0, 5).map((item) => (
               <div className="stats-style" key={item.styleId ?? item.count}>
-                <span>{STYLE_NAMES[item.styleId ?? ''] ?? item.styleId ?? t('未知', 'Unknown')}</span>
+                <span>{bilingualLabel(STYLE_NAMES, item.styleId, lang)}</span>
                 <div className="stats-style-track"><span style={{ width: `${(item.count / styleTotal) * 100}%` }} /></div>
                 <span>{item.count}</span>
               </div>
@@ -208,7 +216,7 @@ export function StatsPage() {
           <div className="stats-platforms">
             {data.platformDistribution.map((item) => (
               <span className="dr-tag" key={item.platform}>
-                {PLATFORM_NAMES[item.platform ?? ''] ?? item.platform} · {item.count}
+                {bilingualLabel(PLATFORM_NAMES, item.platform, lang)} · {item.count}
               </span>
             ))}
             {data.platformDistribution.length === 0 ? <span className="dr-hint">{t('暂无数据', 'No data')}</span> : null}
@@ -236,9 +244,9 @@ export function StatsPage() {
               <div className="dr-project-body">
                 <div className="dr-project-title">{project.name}</div>
                 <div className="dr-project-meta">
-                  <span>{project.shots?.length ?? 0} {t('镜', 'shots')}</span>
+                  <span>{project.shots?.length ?? 0} {t('镜', pluralize(project.shots?.length ?? 0, 'shot'))}</span>
                   <span>{progressOf(project)}%</span>
-                  <span>{relativeTime(project.updatedAt)}</span>
+                  <span>{relativeTime(project.updatedAt, lang)}</span>
                 </div>
               </div>
             </Link>

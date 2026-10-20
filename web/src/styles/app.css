@@ -2497,3 +2497,143 @@ p {
 .dr-project-card.is-batch .dr-project-status {
   left: 40px;
 }
+
+/* ---------- Mobile touch targets (spec §13.1: ≥44px at 375) ---------- */
+
+.dr-project-open {
+  padding: 4px 0;
+  min-height: 30px;
+  color: inherit;
+  border-radius: var(--radius-sm);
+}
+
+.dr-project-open:hover .dr-project-title {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .dr-project-open {
+    min-height: 44px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  .dr-project-fav {
+    width: 44px;
+    height: 44px;
+    top: 6px;
+    right: 6px;
+  }
+
+  .project-status-chip {
+    height: 44px;
+    padding: 0 14px;
+  }
+
+  .dr-sidebar-foot a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 10px;
+  }
+}
+
+@media (max-width: 767px) {
+  .dr-btn,
+  .dr-btn-lg {
+    min-height: 44px;
+  }
+
+  .dr-icon-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .gallery-categories button,
+  .auth-tabs button,
+  .pricing-cycle button {
+    min-height: 44px;
+  }
+
+  .dr-settings-nav {
+    align-items: center;
+  }
+
+  .dr-settings-nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 14px;
+    white-space: nowrap;
+  }
+
+  .api-actions .dr-btn,
+  .dr-webhook-actions .dr-btn {
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 767px) {
+  .gallery-author {
+    min-height: 44px;
+  }
+
+  .gallery-like {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .dr-inline-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 6px;
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+@media (max-width: 767px) {
+  .dr-chip,
+  .nv-chip {
+    min-height: 44px;
+  }
+
+  .novel-title {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
+/* ---------- Skip link ---------- */
+
+.dr-skip-link {
+  position: fixed;
+  top: -60px;
+  left: 12px;
+  z-index: 200;
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--shadow-float);
+  transition: top var(--motion-fast) ease;
+}
+
+.dr-skip-link:focus,
+.dr-skip-link:focus-visible {
+  top: 12px;
+}

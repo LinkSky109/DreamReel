@@ -5,14 +5,14 @@ import { api } from '../lib/api'
 import { useLang } from '../lib/i18n'
 import { showToast } from '../lib/toast'
 import { projectCover } from '../lib/media'
-import { relativeTime, totalDuration } from '../lib/format'
+import {relativeTime, totalDuration, pluralize } from '../lib/format'
 import type { RecycleBinItem } from '../domain/types'
 import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import './RecycleBin.css'
 
 export function RecycleBinPage() {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const queryClient = useQueryClient()
   const [pendingDelete, setPendingDelete] = useState<RecycleBinItem | null>(null)
   const [confirmEmpty, setConfirmEmpty] = useState(false)
@@ -101,7 +101,7 @@ export function RecycleBinPage() {
       ) : total === 0 ? (
         <div className="dr-card dr-state recycle-empty">
           <Icon name="trash" size={26} />
-          <h3>{t('回收站是空的', 'Recycle bin is empty')}</h3>
+          <h2>{t('回收站是空的', 'Recycle bin is empty')}</h2>
           <p>{t('删除的项目会出现在这里，可随时恢复。', 'Deleted projects appear here and can be restored.')}</p>
           <Link className="dr-btn dr-btn-primary" to="/projects">
             {t('去项目库', 'Go to projects')}
@@ -112,7 +112,7 @@ export function RecycleBinPage() {
           <div className="recycle-stats">
             {t('共', 'Total')} <strong>{total}</strong> {t('个项目', 'projects')}
             {dataQuery.data?.stats?.newestDeletedAt ? (
-              <span>· {t('最近删除', 'Newest')} {relativeTime(dataQuery.data.stats.newestDeletedAt)}</span>
+              <span>· {t('最近删除', 'Newest')} {relativeTime(dataQuery.data.stats.newestDeletedAt, lang)}</span>
             ) : null}
           </div>
           <div className="recycle-list">
@@ -125,8 +125,8 @@ export function RecycleBinPage() {
                   <h2>{item.name}</h2>
                   <p>{item.description || t('暂无描述', 'No description')}</p>
                   <div className="recycle-meta">
-                    <span>{t('删除于', 'Deleted')} {item.deletedAt ? relativeTime(item.deletedAt) : '—'}</span>
-                    <span>{item.shots?.length ?? 0} {t('镜', 'shots')}</span>
+                    <span>{t('删除于', 'Deleted')} {item.deletedAt ? relativeTime(item.deletedAt, lang) : '—'}</span>
+                    <span>{item.shots?.length ?? 0} {t('镜', pluralize(item.shots?.length ?? 0, 'shot'))}</span>
                     <span>{totalDuration(item)}s</span>
                     {item.style ? <span>{item.style}</span> : null}
                   </div>

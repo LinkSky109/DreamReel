@@ -7,6 +7,7 @@ import { showToast } from '../lib/toast'
 import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import './Studios.css'
+import { pluralize } from '../lib/format'
 
 function currentUser() {
   try {
@@ -350,7 +351,7 @@ function StudioDetail({ studioId }: { studioId: string }) {
               <Link to={`/project/${work.id}`} className="studio-work" key={work.id}>
                 <span>{initials(work.name)}</span>
                 <strong>{work.name}</strong>
-                <small>{work.status || '—'} · {work.shotCount ?? 0} {t('镜', 'shots')}</small>
+                <small>{work.status || '—'} · {work.shotCount ?? 0} {t('镜', pluralize(work.shotCount ?? 0, 'shot'))}</small>
               </Link>
             ))}
           </div>

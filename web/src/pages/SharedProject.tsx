@@ -1,14 +1,48 @@
-import { useParams } from 'react-router-dom'
+import { useEffect, type ReactNode } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useLang } from '../lib/i18n'
 import { Icon } from '../components/Icon'
 import { formatDate, statusLabel, statusTone } from '../lib/format'
 import { totalDuration } from '../features/editor/utils'
+import './SharedProject.css'
+
+function ShareFrame({ children }: { children: ReactNode }) {
+  const { t } = useLang()
+  return (
+    <div className="share-shell">
+      <header className="share-topbar">
+        <Link className="share-brand" to="/">
+          <span className="share-brand-mark" aria-hidden="true">
+            DR
+          </span>
+          <span>
+            DreamReel <em>梦卷</em>
+          </span>
+        </Link>
+        <div className="share-topbar-actions">
+          <span className="share-readonly">
+            <Icon name="shield" size={13} />
+            {t('只读分享', 'Read-only share')}
+          </span>
+          <Link className="dr-btn" to="/">
+            {t('打开 DreamReel', 'Open DreamReel')}
+          </Link>
+        </div>
+      </header>
+      <main className="share-main dr-page">{children}</main>
+      <footer className="share-foot">
+        <span>{t('由 DreamReel 生成并分享', 'Generated and shared with DreamReel')}</span>
+        <span>© {new Date().getFullYear()} DreamReel</span>
+      </footer>
+    </div>
+  )
+}
 
 export function SharedProjectPage() {
   const { token = '' } = useParams()
-  const { t } = useLang()
+  const { t, lang } = useLang()
 
   const sharedQuery = useQuery({
     queryKey: ['shared', token],
@@ -23,40 +57,52 @@ export function SharedProjectPage() {
     retry: false,
   })
 
+  const project = projectQuery.data
+
+  useEffect(() => {
+    if (project?.name) document.title = `${project.name} · DreamReel`
+    return () => {
+      document.title = 'DreamReel / 梦卷 — AI 短片创作平台'
+    }
+  }, [project?.name])
+
   if (sharedQuery.isLoading || projectQuery.isLoading) {
     return (
-      <div className="dr-page">
-        <div className="dr-card dr-state" style={{ padding: 48 }}>
-          {t('加载分享内容…', 'Loading shared project…')}
+      <ShareFrame>
+        <div className="dr-card dr-state share-state" role="status">
+          <div className="dr-skeleton" style={{ height: 28, width: 260 }} />
+          <div className="dr-skeleton" style={{ height: 160, width: '100%' }} />
+          <span>{t('加载分享内容…', 'Loading shared project…')}</span>
         </div>
-      </div>
+      </ShareFrame>
     )
   }
 
   if (sharedQuery.isError || !sharedQuery.data) {
     return (
-      <div className="dr-page">
-        <div className="dr-card dr-state" style={{ padding: 56 }}>
+      <ShareFrame>
+        <div className="dr-card dr-state share-state">
           <div className="dr-state-icon">
             <Icon name="alert" size={22} />
           </div>
           <div className="dr-state-title">{t('分享链接无效', 'Invalid share link')}</div>
-          <div>
-            {t('链接可能已关闭公开访问，或项目已被删除。', 'Public access may be off, or the project was deleted.')}
-          </div>
+          <p>{t('链接可能已关闭公开访问，或项目已被删除。', 'Public access may be off, or the project was deleted.')}</p>
         </div>
-      </div>
+      </ShareFrame>
     )
   }
 
-  const project = projectQuery.data
-  if (!project) {
+  if (projectQuery.isError || !project) {
     return (
-      <div className="dr-page">
-        <div className="dr-card dr-state" style={{ padding: 56 }}>
+      <ShareFrame>
+        <div className="dr-card dr-state share-state">
+          <div className="dr-state-icon">
+            <Icon name="alert" size={22} />
+          </div>
           <div className="dr-state-title">{t('项目不可用', 'Project unavailable')}</div>
+          <p>{t('项目可能已被删除，或当前分享链接没有访问权限。', 'The project may be deleted or this link no longer has access.')}</p>
         </div>
-      </div>
+      </ShareFrame>
     )
   }
 
@@ -64,10 +110,12 @@ export function SharedProjectPage() {
   const shareQuery = `?share=${encodeURIComponent(token)}`
 
   return (
-    <div className="dr-page">
-      <div className="dr-page-head">
+    <ShareFrame>
+      <div className="share-head">
         <div>
-          <div className="dr-eyebrow">{t('分享预览', 'Shared preview')} · {formatDate()}</div>
+          <div className="dr-eyebrow">
+            {t('分享预览', 'Shared preview')} · {formatDate(new Date(), lang)}
+          </div>
           <h1 className="dr-display">{project.name}</h1>
           <p className="dr-page-sub">{project.description || t('暂无简介', 'No synopsis')}</p>
         </div>
@@ -77,7 +125,7 @@ export function SharedProjectPage() {
         </span>
       </div>
 
-      <div className="dr-grid dr-grid-6" style={{ marginBottom: 18 }}>
+      <div className="share-stats">
         {[
           { label: t('镜头', 'Shots'), value: shots.length },
           { label: t('时长', 'Duration'), value: `${totalDuration(shots)}s` },
@@ -91,37 +139,43 @@ export function SharedProjectPage() {
         ))}
       </div>
 
-      <div className="dr-project-grid">
-        {shots.map((shot) => (
-          <article className="dr-card dr-project-card" key={shot.id}>
-            <div className="dr-project-cover">
-              {shot.videoUrl ? (
-                <video
-                  src={`${shot.videoUrl}${shareQuery}`}
-                  controls
-                  preload="metadata"
-                  playsInline
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-              ) : (
-                <div className="dr-project-cover-fallback">{t('未生成', 'Not generated')}</div>
-              )}
-            </div>
-            <div className="dr-project-body">
-              <div className="dr-project-title">
-                S{String(shot.index + 1).padStart(2, '0')} · {shot.description}
+      {shots.length === 0 ? (
+        <div className="dr-card dr-state share-state">
+          <div className="dr-state-icon">
+            <Icon name="film" size={24} />
+          </div>
+          <div className="dr-state-title">{t('还没有镜头', 'No shots yet')}</div>
+          <p>{t('作者还在制作中，稍后再来看看。', 'The creator is still working on it. Check back later.')}</p>
+        </div>
+      ) : (
+        <div className="share-grid">
+          {shots.map((shot) => (
+            <article className="dr-card share-card" key={shot.id}>
+              <div className="share-cover">
+                {shot.videoUrl ? (
+                  <video src={`${shot.videoUrl}${shareQuery}`} controls preload="metadata" playsInline />
+                ) : shot.imageUrl ? (
+                  <img src={`${shot.imageUrl}${shareQuery}`} alt="" loading="lazy" />
+                ) : (
+                  <div className="share-cover-fallback">{t('未生成', 'Not generated')}</div>
+                )}
               </div>
-              <div className="dr-project-meta">
-                <span className={`dr-status ${statusTone(shot.status)}`}>
-                  <span className="dr-dot" />
-                  {statusLabel(shot.status)}
-                </span>
-                <span>{shot.duration}s</span>
+              <div className="share-card-body">
+                <div className="share-card-title">
+                  S{String(shot.index + 1).padStart(2, '0')} · {shot.description}
+                </div>
+                <div className="share-card-meta">
+                  <span className={`dr-status ${statusTone(shot.status)}`}>
+                    <span className="dr-dot" />
+                    {statusLabel(shot.status, lang)}
+                  </span>
+                  <span>{shot.duration}s</span>
+                </div>
               </div>
-            </div>
-          </article>
-        ))}
-      </div>
-    </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </ShareFrame>
   )
 }

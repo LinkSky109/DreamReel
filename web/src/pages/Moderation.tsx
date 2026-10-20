@@ -19,7 +19,7 @@ const LEVEL_LABEL: Record<string, string> = {
 }
 
 export function ModerationPage() {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [text, setText] = useState('')
 
   const statsQuery = useQuery({
@@ -160,7 +160,7 @@ export function ModerationPage() {
               <tbody>
                 {logs.map((log, index) => (
                   <tr key={String(log.id ?? index)}>
-                    <td style={{ whiteSpace: 'nowrap' }}>{relativeTime(String(log.timestamp ?? ''))}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{relativeTime(String(log.timestamp ?? ''), lang)}</td>
                     <td>
                       <span className={`dr-status ${LEVEL_TONE[String(log.level)] ?? ''}`}>
                         <span className="dr-dot" />

@@ -24,9 +24,9 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      '/api': apiProxy,
+      // 仅代理 /api/ 前缀；避免 /api-console、/api-keys 等前端路由被误转发到后端
+      '^/api/': apiProxy,
       '/storage': apiProxy,
-      '/legacy': apiProxy,
       // 过渡期兼容旧路径
       '/js': apiProxy,
       '/css': apiProxy,

@@ -35,7 +35,7 @@ export function StoryboardStage({
   onSaveState,
   styles,
 }: Props) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all')
   const [inspectorOpen, setInspectorOpen] = useState(false)
   const [draft, setDraft] = useState({ description: '', duration: 5, dialogue: '', narration: '' })
@@ -298,7 +298,7 @@ export function StoryboardStage({
                   <strong>S{String(selectedShot.index + 1).padStart(2, '0')}</strong>
                   <span className={`dr-status ${statusTone(selectedShot.status)}`} style={{ marginLeft: 8 }}>
                     <span className="dr-dot" />
-                    {statusLabel(selectedShot.status)}
+                    {statusLabel(selectedShot.status, lang)}
                   </span>
                 </div>
                 <button
@@ -356,7 +356,7 @@ export function StoryboardStage({
                 <div className="dr-field">
                   <span className="dr-label">{t('机位 / 运动', 'Camera')}</span>
                   <span className="ed-readonly">
-                    {shotTypeLabel(selectedShot.shotType)} · {cameraLabel(selectedShot.cameraMovement)}
+                    {shotTypeLabel(selectedShot.shotType, lang)} · {cameraLabel(selectedShot.cameraMovement, lang)}
                   </span>
                 </div>
               </div>
@@ -489,7 +489,7 @@ function ShotCard({
   onGenerate: () => void
   generating: boolean
 }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   return (
     <article className={`ed-shot-card${selected ? ' is-selected' : ''}`}>
       <div
@@ -527,14 +527,14 @@ function ShotCard({
             <span className="ed-shot-no">S{String(shot.index + 1).padStart(2, '0')}</span>
             <span className={`dr-status ${statusTone(shot.status)}`}>
               <span className="dr-dot" />
-              {statusLabel(shot.status)}
+              {statusLabel(shot.status, lang)}
             </span>
             <span className="ed-shot-duration">{shot.duration}s</span>
           </div>
           <p className="ed-shot-desc">{shot.description || t('未填写画面描述', 'No description')}</p>
           <div className="ed-shot-meta">
-            <span>{shotTypeLabel(shot.shotType)}</span>
-            <span>{cameraLabel(shot.cameraMovement)}</span>
+            <span>{shotTypeLabel(shot.shotType, lang)}</span>
+            <span>{cameraLabel(shot.cameraMovement, lang)}</span>
             {(shot.versions?.length ?? 0) > 0 ? <span>v{(shot.versions?.length ?? 0) + 1}</span> : null}
             {source ? (
               <Link

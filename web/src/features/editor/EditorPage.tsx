@@ -8,7 +8,7 @@ import { showToast } from '../../lib/toast'
 import type { Project } from '../../domain/types'
 import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
-import { statusLabel, statusTone } from '../../lib/format'
+import {statusLabel, statusTone, pluralize } from '../../lib/format'
 import { EXTENDED_STAGES, PRIMARY_STAGES, normalizeStage, stageLabel } from './stages'
 import { aspectRatioOf, totalDuration } from './utils'
 import { ScriptStage } from './ScriptStage'
@@ -175,7 +175,7 @@ export function EditorPage() {
         <div className="ed-title">
           <h1 title={project.name}>{project.name}</h1>
           <span className="ed-title-meta">
-            {aspectRatioOf(project)} · {shots.length} {t('镜', 'shots')} · {totalDuration(shots)}s
+            {aspectRatioOf(project)} · {shots.length} {t('镜', pluralize(shots.length, 'shot'))} · {totalDuration(shots)}s
           </span>
         </div>
 
@@ -353,7 +353,7 @@ export function EditorPage() {
       <footer className="ed-statusbar">
         <span>{t('连接正常', 'Connected')}</span>
         <span>
-          {shots.length} {t('镜', 'shots')} · {totalDuration(shots)}s
+          {shots.length} {t('镜', pluralize(shots.length, 'shot'))} · {totalDuration(shots)}s
         </span>
         <span>
           {t('画幅', 'Aspect')} {aspectRatioOf(project)}
@@ -422,10 +422,11 @@ export function EditorPage() {
 }
 
 export function ShotStatus({ status }: { status: string }) {
+  const { lang } = useLang()
   return (
     <span className={`dr-status ${statusTone(status)}`}>
       <span className="dr-dot" />
-      {statusLabel(status)}
+      {statusLabel(status, lang)}
     </span>
   )
 }

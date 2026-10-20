@@ -49,6 +49,23 @@ function installLegacyHashBridge() {
 
 installLegacyHashBridge()
 
+/**
+ * PWA：仅生产环境注册，避免开发时 Service Worker 缓存 Vite 模块。
+ * 更新策略见 public/sw.js（按 CACHE_VERSION 清理旧缓存）。
+ */
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  const registerServiceWorker = () => {
+    navigator.serviceWorker.register('/sw.js').catch((error) => {
+      console.warn('[pwa] service worker registration failed', error)
+    })
+  }
+  if (document.readyState === 'complete') {
+    registerServiceWorker()
+  } else {
+    window.addEventListener('load', registerServiceWorker, { once: true })
+  }
+}
+
 const rootElement = document.getElementById('root')
 if (!rootElement) throw new Error('#root not found')
 

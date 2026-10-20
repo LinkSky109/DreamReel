@@ -1,54 +1,98 @@
 /**
- * R19：DreamReel Service Worker
- * 离线应用外壳（app shell）缓存。
+ * DreamReel Service Worker
+ * 策略：
+ * - 导航请求：网络优先，离线回退缓存的 index.html
+ * - /assets/ 哈希产物：缓存优先（文件名含内容哈希，可长期缓存）
+ * - 其他同源静态资源：网络优先，成功写入缓存，离线回退
+ * - API / storage / 非 GET / 跨域：完全交给浏览器
  *
- * 注意：静态资源改为「网络优先」——缓存优先会导致改完代码后页面一直用旧 JS（看不到更新）。
- * 网络优先 + 缓存回退：联网时永远拿最新，离线时回退到缓存。
+ * 发布新版本时 bump CACHE_VERSION。
  */
-const CACHE_VERSION = 'dreamreel-v5'
+const CACHE_VERSION = 'dreamreel-v6'
+const CACHE_PREFIX = 'dreamreel-'
+const OFFLINE_URL = '/index.html'
 const APP_SHELL = [
   '/',
-  '/index.html',
-  '/css/style.css',
-  '/js/api.js',
-  '/js/i18n.js',
+  OFFLINE_URL,
   '/manifest.webmanifest',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/icon.svg',
+  '/css/style.css',
 ]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) => cache.addAll(APP_SHELL)).catch(() => {})
+    caches.open(CACHE_VERSION).then((cache) =>
+      Promise.allSettled(APP_SHELL.map((url) => cache.add(new Request(url, { cache: 'reload' }))))
+    )
   )
   self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)))
-    )
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_VERSION)
+            .map((key) => caches.delete(key))
+        )
+      )
+      .then(() => self.clients.claim())
   )
-  self.clients.claim()
 })
 
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
+
   const url = new URL(request.url)
-  // 跨域、API、媒体文件：交给浏览器（不经过 SW 缓存）
   if (url.origin !== self.location.origin) return
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/storage/')) return
+  if (url.pathname === '/sw.js') return
 
-  // 静态资源 / 导航：网络优先，失败回退缓存（离线可用）
-  event.respondWith(
-    fetch(request)
-      .then((resp) => {
-        if (resp && resp.ok) {
-          const copy = resp.clone()
-          caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy)).catch(() => {})
-        }
-        return resp
-      })
-      .catch(() => caches.match(request).then((cached) => cached || caches.match('/index.html')))
-  )
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirst(request, OFFLINE_URL))
+    return
+  }
+
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(cacheFirst(request))
+    return
+  }
+
+  event.respondWith(networkFirst(request))
 })
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request)
+  if (cached) return cached
+  const response = await fetch(request)
+  if (response && response.ok) {
+    const cache = await caches.open(CACHE_VERSION)
+    cache.put(request, response.clone())
+  }
+  return response
+}
+
+async function networkFirst(request, fallbackUrl) {
+  try {
+    const response = await fetch(request)
+    if (response && response.ok) {
+      const cache = await caches.open(CACHE_VERSION)
+      cache.put(request, response.clone())
+    }
+    return response
+  } catch (error) {
+    const cached = await caches.match(request)
+    if (cached) return cached
+    if (fallbackUrl) {
+      const fallback = await caches.match(fallbackUrl)
+      if (fallback) return fallback
+    }
+    throw error
+  }
+}

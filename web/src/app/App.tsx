@@ -4,7 +4,6 @@ import { AppShell } from './AppShell'
 import { ErrorBoundary } from './ErrorBoundary'
 import { NotFoundPage } from '../pages/NotFound'
 import { LogoutPage } from '../pages/Logout'
-import { LegacyView } from '../features/legacy/LegacyView'
 
 const DashboardPage = lazy(() =>
   import('../pages/Dashboard').then((module) => ({ default: module.DashboardPage }))
@@ -72,6 +71,21 @@ const SharedProjectPage = lazy(() =>
 const EditorPage = lazy(() =>
   import('../features/editor/EditorPage').then((module) => ({ default: module.EditorPage }))
 )
+const TeamsPage = lazy(() =>
+  import('../pages/Teams').then((module) => ({ default: module.TeamsPage }))
+)
+const EnterprisePage = lazy(() =>
+  import('../pages/Enterprise').then((module) => ({ default: module.EnterprisePage }))
+)
+const ApiConsolePage = lazy(() =>
+  import('../pages/ApiConsole').then((module) => ({ default: module.ApiConsolePage }))
+)
+const GalleryPage = lazy(() =>
+  import('../pages/Gallery').then((module) => ({ default: module.GalleryPage }))
+)
+const CreatorPage = lazy(() =>
+  import('../pages/Creator').then((module) => ({ default: module.CreatorPage }))
+)
 
 function RouteFallback() {
   return (
@@ -89,19 +103,6 @@ function ScrollToTop() {
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [pathname])
   return null
-}
-
-function LegacyParamRoute({
-  module,
-  renderer,
-  title,
-}: {
-  module: string
-  renderer: string
-  title: string
-}) {
-  const { id, name } = useParams()
-  return <LegacyView module={module} renderer={renderer} param={id ?? name} title={title} />
 }
 
 function EditorRedirect() {
@@ -158,25 +159,15 @@ export function App() {
           <Route path="/studio/:id" element={<StudiosPage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/store" element={<StorePage />} />
-          <Route path="/teams" element={<LegacyView module="teams" renderer="renderTeamsPage" title="团队协作" />} />
-          <Route
-            path="/team/:id"
-            element={<LegacyParamRoute module="teams" renderer="renderTeamsPage" title="团队协作" />}
-          />
-          <Route path="/enterprise" element={<LegacyView module="enterprise" renderer="renderEnterprise" title="企业管理" />} />
-          <Route path="/api-console" element={<LegacyView module="apiConsole" renderer="renderApiConsole" title="API 开发者" />} />
-          <Route path="/gallery" element={<LegacyView module="gallery" renderer="renderGalleryPage" title="作品广场" />} />
-          <Route
-            path="/creator/:name"
-            element={<LegacyParamRoute module="creator" renderer="renderCreatorPage" title="创作者主页" />}
-          />
+          <Route path="/teams" element={<TeamsPage />} />
+          <Route path="/team/:id" element={<TeamsPage />} />
+          <Route path="/enterprise" element={<EnterprisePage />} />
+          <Route path="/api-console" element={<ApiConsolePage />} />
+          <Route path="/gallery" element={<GalleryPage />} />
+          <Route path="/creator/:name" element={<CreatorPage />} />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route
-            path="/system-settings"
-            element={<LegacyView module="settings" renderer="renderSettingsPage" title="系统监控" />}
-          />
           <Route path="/recycle-bin" element={<RecycleBinPage />} />
           <Route path="/login" element={<LoginPage />} />
 

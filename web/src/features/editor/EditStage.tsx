@@ -6,6 +6,7 @@ import { showToast } from '../../lib/toast'
 import type { EditPlan, EditRenderResult, Project } from '../../domain/types'
 import { Icon } from '../../components/Icon'
 import { planShotBlocks, planVoiceBlocks } from './audio'
+import { pluralize } from '../../lib/format'
 
 type Props = {
   project: Project
@@ -314,7 +315,7 @@ export function EditStage({ project, onSaveState }: Props) {
                 style={{ width: '100%', maxHeight: 420, borderRadius: 'var(--radius-md)', background: '#000' }}
               />
               <div className="dr-hint">
-                {renderResult.shotCount ?? plan.shots.length} {t('个镜头', 'shots')} ·{' '}
+                {renderResult.shotCount ?? plan.shots.length} {t('个镜头', pluralize(renderResult.shotCount ?? plan.shots.length, 'shot'))} ·{' '}
                 {Number(renderResult.duration ?? plan.totalDuration).toFixed(1)}s ·{' '}
                 {renderResult.transitionApplied === 'xfade' ? 'xfade' : t('硬切', 'cuts')}
                 {renderResult.transitionFallback ? t('（已降级）', ' (fallback)') : ''} ·{' '}
