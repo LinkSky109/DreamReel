@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
@@ -14,16 +14,35 @@ import { aspectRatioOf, totalDuration } from './utils'
 import { ScriptStage } from './ScriptStage'
 import { StoryboardStage } from './StoryboardStage'
 import { GenerateStage } from './GenerateStage'
-import { DubbingStage } from './DubbingStage'
-import { EditStage } from './EditStage'
-import { ImagesStage } from './ImagesStage'
-import { CharactersStage } from './CharactersStage'
-import { ScenesStage } from './ScenesStage'
-import { AnalysisStage } from './AnalysisStage'
-import { CollaborationStage } from './CollaborationStage'
-import { VersionsStage } from './VersionsStage'
-import { SettingsStage } from './SettingsStage'
-import { AiAssistantPanel } from './AiAssistantPanel'
+
+const DubbingStage = lazy(() =>
+  import('./DubbingStage').then((module) => ({ default: module.DubbingStage }))
+)
+const EditStage = lazy(() => import('./EditStage').then((module) => ({ default: module.EditStage })))
+const ImagesStage = lazy(() =>
+  import('./ImagesStage').then((module) => ({ default: module.ImagesStage }))
+)
+const CharactersStage = lazy(() =>
+  import('./CharactersStage').then((module) => ({ default: module.CharactersStage }))
+)
+const ScenesStage = lazy(() =>
+  import('./ScenesStage').then((module) => ({ default: module.ScenesStage }))
+)
+const AnalysisStage = lazy(() =>
+  import('./AnalysisStage').then((module) => ({ default: module.AnalysisStage }))
+)
+const CollaborationStage = lazy(() =>
+  import('./CollaborationStage').then((module) => ({ default: module.CollaborationStage }))
+)
+const VersionsStage = lazy(() =>
+  import('./VersionsStage').then((module) => ({ default: module.VersionsStage }))
+)
+const SettingsStage = lazy(() =>
+  import('./SettingsStage').then((module) => ({ default: module.SettingsStage }))
+)
+const AiAssistantPanel = lazy(() =>
+  import('./AiAssistantPanel').then((module) => ({ default: module.AiAssistantPanel }))
+)
 import './editor.css'
 
 export type SaveState = 'saved' | 'saving' | 'error'
@@ -264,6 +283,13 @@ export function EditorPage() {
       </nav>
 
       <div className="ed-body">
+        <Suspense
+          fallback={
+            <div className="dr-card dr-state" style={{ padding: 32 }}>
+              {t('加载阶段…', 'Loading stage…')}
+            </div>
+          }
+        >
         {stage === 'script' ? (
           <ScriptStage
             key={project.id}
@@ -317,10 +343,12 @@ export function EditorPage() {
             onUpdated={onUpdated}
           />
         ) : null}
-
+        </Suspense>
       </div>
 
-      <AiAssistantPanel projectId={project.id} />
+      <Suspense fallback={null}>
+        <AiAssistantPanel projectId={project.id} />
+      </Suspense>
 
       <footer className="ed-statusbar">
         <span>{t('连接正常', 'Connected')}</span>

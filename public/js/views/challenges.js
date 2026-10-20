@@ -1,5 +1,5 @@
 import { api } from '../api.js'
-import { showToast } from '../app.js'
+import { showToast } from '../shared/ui.js'
 
 /**
  * R10：创作挑战与活动

@@ -1,5 +1,5 @@
 import { api } from '../api.js'
-import { showToast } from '../app.js'
+import { showToast } from '../shared/ui.js'
 
 /**
  * R14：素材商城

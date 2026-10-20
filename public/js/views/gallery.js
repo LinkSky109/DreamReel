@@ -1,5 +1,5 @@
 import { api } from '../api.js'
-import { showToast } from '../app.js'
+import { showToast } from '../shared/ui.js'
 
 /**
  * R09：作品广场（UI v2 — 横向滚动 tab + 创作者徽章 + 复刻入口）

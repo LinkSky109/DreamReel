@@ -1,5 +1,5 @@
 import { api } from '../api.js'
-import { showToast } from '../app.js'
+import { showToast } from '../shared/ui.js'
 
 export async function renderRecycleBin(container) {
   try {

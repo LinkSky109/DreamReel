@@ -10,7 +10,7 @@
  */
 
 import { api } from '../api.js'
-import { showToast } from '../app.js'
+import { showToast } from '../shared/ui.js'
 import { getCurrentUser } from './auth.js'
 
 const state = {

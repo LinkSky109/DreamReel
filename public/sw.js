@@ -5,12 +5,11 @@
  * 注意：静态资源改为「网络优先」——缓存优先会导致改完代码后页面一直用旧 JS（看不到更新）。
  * 网络优先 + 缓存回退：联网时永远拿最新，离线时回退到缓存。
  */
-const CACHE_VERSION = 'dreamreel-v2'
+const CACHE_VERSION = 'dreamreel-v3'
 const APP_SHELL = [
   '/',
   '/index.html',
   '/css/style.css',
-  '/js/app.js',
   '/js/api.js',
   '/js/i18n.js',
   '/manifest.webmanifest',

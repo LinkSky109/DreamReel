@@ -7,7 +7,7 @@
  */
 
 import { api } from '../api.js'
-import { showToast } from '../app.js'
+import { showToast } from '../shared/ui.js'
 
 function escapeHtml(str) {
   const div = document.createElement('div')

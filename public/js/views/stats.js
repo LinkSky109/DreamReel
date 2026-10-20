@@ -1,5 +1,4 @@
 import { api } from '../api.js'
-import {} from '../app.js'
 import { i18n } from '../i18n.js'
 
 const STYLE_NAMES = {

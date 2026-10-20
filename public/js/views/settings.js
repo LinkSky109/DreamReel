@@ -1,5 +1,5 @@
 import { api } from '../api.js'
-import { showToast } from '../app.js'
+import { showToast } from '../shared/ui.js'
 import { i18n } from '../i18n.js'
 import { ProviderSelector } from '../components/providerSelector.js'
 

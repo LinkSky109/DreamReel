@@ -1,18 +1,45 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { AppShell } from './AppShell'
 import { ErrorBoundary } from './ErrorBoundary'
-import { DashboardPage } from '../pages/Dashboard'
-import { ProjectsPage } from '../pages/Projects'
-import { TemplatesPage } from '../pages/Templates'
-import { MorePage } from '../pages/More'
-import { DocsPage } from '../pages/Docs'
-import { ModerationPage } from '../pages/Moderation'
 import { NotFoundPage } from '../pages/NotFound'
 import { LogoutPage } from '../pages/Logout'
 import { LegacyView } from '../features/legacy/LegacyView'
-import { EditorPage } from '../features/editor/EditorPage'
-import { SharedProjectPage } from '../pages/SharedProject'
+
+const DashboardPage = lazy(() =>
+  import('../pages/Dashboard').then((module) => ({ default: module.DashboardPage }))
+)
+const ProjectsPage = lazy(() =>
+  import('../pages/Projects').then((module) => ({ default: module.ProjectsPage }))
+)
+const TemplatesPage = lazy(() =>
+  import('../pages/Templates').then((module) => ({ default: module.TemplatesPage }))
+)
+const MorePage = lazy(() =>
+  import('../pages/More').then((module) => ({ default: module.MorePage }))
+)
+const DocsPage = lazy(() =>
+  import('../pages/Docs').then((module) => ({ default: module.DocsPage }))
+)
+const ModerationPage = lazy(() =>
+  import('../pages/Moderation').then((module) => ({ default: module.ModerationPage }))
+)
+const SharedProjectPage = lazy(() =>
+  import('../pages/SharedProject').then((module) => ({ default: module.SharedProjectPage }))
+)
+const EditorPage = lazy(() =>
+  import('../features/editor/EditorPage').then((module) => ({ default: module.EditorPage }))
+)
+
+function RouteFallback() {
+  return (
+    <div className="dr-page">
+      <div className="dr-card dr-state" style={{ padding: 48 }}>
+        加载中…
+      </div>
+    </div>
+  )
+}
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -53,6 +80,7 @@ export function App() {
     <AppShell>
       <ScrollToTop />
       <ErrorBoundary>
+        <Suspense fallback={<RouteFallback />}>
         <Routes key={routeKey}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
@@ -113,6 +141,7 @@ export function App() {
 
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </Suspense>
       </ErrorBoundary>
     </AppShell>
   )

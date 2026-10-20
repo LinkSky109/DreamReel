@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, hasToken } from '../lib/api'
@@ -6,10 +6,13 @@ import { useTheme } from '../lib/theme'
 import { useLang } from '../lib/i18n'
 import { NAV_GROUPS, labelForPath } from '../app/nav'
 import { Icon } from '../components/Icon'
-import { CommandPalette } from '../components/CommandPalette'
 import { Modal } from '../components/Modal'
 import { showToast } from '../lib/toast'
 import { relativeTime } from '../lib/format'
+
+const CommandPalette = lazy(() =>
+  import('../components/CommandPalette').then((module) => ({ default: module.CommandPalette }))
+)
 
 function isActivePath(pathname: string, path: string): boolean {
   if (path === '/') return pathname === '/'
@@ -370,7 +373,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         ))}
       </nav>
 
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <Suspense fallback={null}>
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      </Suspense>
 
       <Modal
         open={helpOpen}

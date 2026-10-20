@@ -12,7 +12,7 @@
  */
 
 import { api } from '../api.js'
-import { showToast } from '../app.js'
+import { showToast } from '../shared/ui.js'
 
 const STAGE_LABELS = {
   video: { icon: '🎬', name: '视频生成', hint: '控制每个镜头的 AI 视频生成模型' },

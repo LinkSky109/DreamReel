@@ -5,7 +5,7 @@
  */
 
 import { api } from '../api.js'
-import { showToast } from '../app.js'
+import { showToast } from '../shared/ui.js'
 
 const STAGES = ['source', 'characters', 'world', 'series', 'episodes', 'assets', 'compose']
 // 长任务（角色/世界观抽取）前端锁：避免重复点击触发多次并发抽取。
