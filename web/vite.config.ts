@@ -26,7 +26,9 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 900,
     },
     server: {
-      port: 5173,
+      // Playwright 使用 127.0.0.1 探活；显式 host 避免 localhost 只落到 IPv6。
+      host: process.env.VITE_HOST || 'localhost',
+      port: Number(process.env.VITE_PORT || 5173),
       strictPort: true,
       proxy: {
         // 仅代理 /api/ 前缀；避免 /api-console、/api-keys 等前端路由被误转发到后端

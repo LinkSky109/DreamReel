@@ -51,11 +51,28 @@ test('登录 → 新建项目 → 编辑器保存重开 → 小说详情', async
   await page.reload()
   await expect(page.locator('#script-synopsis')).toHaveValue(synopsis)
 
-  // 5) 小说剧场：列表 → 详情
+  // 5) 小说剧场：通过 API 建一部测试小说，再从列表进入详情
+  //    不依赖仓库内的种子数据，CI 空存储也能跑。
+  const novelTitle = `E2E 小说 ${suffix}`
+  const createdNovel = await request.post('/api/novels', {
+    data: { title: novelTitle, author: 'E2E' },
+  })
+  expect(createdNovel.status()).toBe(201)
+  const novelId = (await createdNovel.json()).data?.id
+  expect(novelId).toBeTruthy()
+
+  const ingest = await request.post(`/api/novels/${novelId}/ingest`, {
+    data: {
+      sourceType: 'text',
+      text: '第一章 开端\n这是第一章正文。\n第二章 继续\n这是第二章正文。',
+    },
+  })
+  expect([200, 201]).toContain(ingest.status())
+
   await page.goto('/novels')
-  await expect(page.getByText('殖装').first()).toBeVisible()
-  await page.getByText('殖装').first().click()
-  await expect(page).toHaveURL(/\/novel\//)
+  await expect(page.getByText(novelTitle).first()).toBeVisible()
+  await page.getByText(novelTitle).first().click()
+  await expect(page).toHaveURL(new RegExp(`/novel/${novelId}`))
 
   // 6) 回到项目库，新项目仍在
   await page.goto('/projects')

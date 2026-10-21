@@ -189,6 +189,21 @@ docker compose -f deploy/docker-compose.dev.yml up --build
 npm run inventory
 ```
 
+### E2E（自包含）
+
+```bash
+# 自动启动独立 API(:3301) + Vite(:5273)，使用 test-results/e2e-storage
+npm run test:e2e
+
+# 完整门禁：npm run check + E2E
+npm run check:full
+```
+
+- 每次运行重建独立存储，不写开发库；账号、项目、小说都由测试自己创建
+- 本地默认复用系统 Chrome；CI 使用 Playwright Chromium
+- 端口可用 `E2E_API_PORT` / `E2E_WEB_PORT` 覆盖
+- CI 配置见 `.github/workflows/ci.yml`（PostgreSQL service + Chromium + check + E2E + build）
+
 关键环境变量：`SERVE_STATIC`、`CORS_ORIGINS`、`TRUST_PROXY`、`DB_DRIVER`（`json|postgres|dual`）、`DATABASE_URL`、`REDIS_URL`、`AUTH_MODE`、`TENANCY_MODE`、`RATE_LIMIT_ENABLED`、`RATE_LIMIT_MAX`、`RATE_LIMIT_AUTH_MAX`、`IDEMPOTENCY_TTL_MS`。决策记录见 `docs/adr/`，API 契约见 `docs/api/v1.md`。
 
 ### 完整创作流程
