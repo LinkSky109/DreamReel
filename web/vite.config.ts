@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vitest/config'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const webRoot = fileURLToPath(new URL('.', import.meta.url))
@@ -8,38 +8,44 @@ const webRoot = fileURLToPath(new URL('.', import.meta.url))
 const outDir = process.env.WEB_OUT_DIR
   ? new URL(process.env.WEB_OUT_DIR, new URL('.', import.meta.url)).pathname
   : fileURLToPath(new URL('../public', import.meta.url))
-const apiProxy = process.env.API_PROXY || 'http://localhost:3001'
 
-export default defineConfig({
-  root: webRoot,
-  plugins: [react()],
-  base: '/',
-  build: {
-    outDir,
-    emptyOutDir: process.env.WEB_OUT_DIR ? true : false,
-    sourcemap: false,
-    chunkSizeWarningLimit: 900,
-  },
-  server: {
-    port: 5173,
-    strictPort: true,
-    proxy: {
-      // 仅代理 /api/ 前缀；避免 /api-console、/api-keys 等前端路由被误转发到后端
-      '^/api/': apiProxy,
-      '/storage': apiProxy,
-      // 过渡期兼容旧路径
-      '/js': apiProxy,
-      '/css': apiProxy,
-      '/icons': apiProxy,
-      '/manifest.webmanifest': apiProxy,
-      '/sw.js': apiProxy,
+export default defineConfig(({ mode }) => {
+  // 从仓库根 .env 读取后端端口，避免 Vite 代理硬编码与 .env.example 漂移。
+  const repoRoot = fileURLToPath(new URL('..', import.meta.url))
+  const env = loadEnv(mode, repoRoot, '')
+  const apiProxy = process.env.API_PROXY || env.API_PROXY || `http://localhost:${env.PORT || 3000}`
+
+  return {
+    root: webRoot,
+    plugins: [react()],
+    base: '/',
+    build: {
+      outDir,
+      emptyOutDir: process.env.WEB_OUT_DIR ? true : false,
+      sourcemap: false,
+      chunkSizeWarningLimit: 900,
     },
-  },
-  test: {
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
-    css: false,
-  },
+    server: {
+      port: 5173,
+      strictPort: true,
+      proxy: {
+        // 仅代理 /api/ 前缀；避免 /api-console、/api-keys 等前端路由被误转发到后端
+        '^/api/': apiProxy,
+        '/storage': apiProxy,
+        // 过渡期兼容旧路径
+        '/js': apiProxy,
+        '/css': apiProxy,
+        '/icons': apiProxy,
+        '/manifest.webmanifest': apiProxy,
+        '/sw.js': apiProxy,
+      },
+    },
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      setupFiles: ['./src/test/setup.ts'],
+      include: ['src/**/*.test.{ts,tsx}'],
+      css: false,
+    },
+  }
 })

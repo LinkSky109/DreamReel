@@ -5,6 +5,7 @@ import path from 'path'
 import { randomUUID } from 'crypto'
 import { fileURLToPath } from 'url'
 import config from './config/index.js'
+import { isPostgresEnabled } from './db/config.js'
 import logger from './utils/logger.js'
 
 import { mountApi } from './routes/index.js'
@@ -93,14 +94,15 @@ app.get('/health/live', (_req, res) => {
   res.json({ status: 'ok' })
 })
 
-// 就绪探针：存储可用；DB_DRIVER=postgres 时同时检查数据库连接
+// 就绪探针：存储可用；只要运行时依赖 PostgreSQL（DB_DRIVER 或小说域开关）就检查连接
 app.get('/health/ready', async (_req, res) => {
   try {
     fs.accessSync(STORAGE_DIR, fs.constants.R_OK | fs.constants.W_OK)
   } catch (error) {
     return res.status(503).json({ status: 'not_ready', storage: 'error', message: error.message })
   }
-  if (config.db.driver === 'postgres') {
+  const postgresRequired = isPostgresEnabled()
+  if (postgresRequired) {
     try {
       const { healthCheck } = await import('./db/client.js')
       await healthCheck()
@@ -108,7 +110,12 @@ app.get('/health/ready', async (_req, res) => {
       return res.status(503).json({ status: 'not_ready', storage: 'ok', db: 'error', message: error.message })
     }
   }
-  return res.json({ status: 'ready', storage: 'ok', db: config.db.driver })
+  return res.json({
+    status: 'ready',
+    storage: 'ok',
+    db: postgresRequired ? 'postgres' : config.db.driver,
+    novelsRepo: config.novels.repoMode,
+  })
 })
 
 // 认证解析 + 写操作审计 + 强制登录闸门（默认关闭）

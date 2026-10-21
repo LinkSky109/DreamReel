@@ -116,10 +116,29 @@ export async function resetStale({ lockTimeoutSeconds = config.outbox.lockTimeou
   return rowCount
 }
 
-export async function stats() {
+/**
+ * 队列统计。
+ * 默认返回扁平的状态计数（兼容既有调用）；group=true 时额外按 org 分组，
+ * 便于把测试租户/环境噪声和真实积压区分开。
+ */
+export async function stats({ group = false } = {}) {
   const pool = await getPool()
   const { rows } = await pool.query(
     `SELECT status, count(*)::int AS count FROM outbox_events GROUP BY status ORDER BY status`
   )
-  return Object.fromEntries(rows.map((r) => [r.status, r.count]))
+  const byStatus = Object.fromEntries(rows.map((r) => [r.status, r.count]))
+  if (!group) return byStatus
+
+  const { rows: orgRows } = await pool.query(
+    `SELECT org_id, status, count(*)::int AS count
+       FROM outbox_events
+      GROUP BY org_id, status
+      ORDER BY org_id, status`
+  )
+  const byOrg = {}
+  for (const row of orgRows) {
+    byOrg[row.org_id] ||= {}
+    byOrg[row.org_id][row.status] = row.count
+  }
+  return { byStatus, byOrg }
 }

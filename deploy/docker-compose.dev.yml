@@ -2,10 +2,34 @@
 #   docker compose -f deploy/docker-compose.dev.yml up --build
 #   docker compose -f deploy/docker-compose.dev.yml --profile infra up -d postgres redis minio
 services:
+  # Docker Desktop 在某些配置下会把宿主 bind mount 以只读（virtiofs ro）提供，
+  # 直接挂 ../storage 会让 API 无法写入并导致 /health/ready 503。
+  # 这里先用只读 seed 初始化 named volume，再让 API 挂载可写卷。
+  storage-init:
+    image: alpine:3.20
+    volumes:
+      - ../storage:/seed:ro
+      - dreamreel-storage:/data
+    command:
+      - sh
+      - -c
+      - |
+        if [ ! -f /data/.dreamreel-initialized ]; then
+          cp -a /seed/. /data/ 2>/dev/null || true
+          chown -R 1000:1000 /data
+          touch /data/.dreamreel-initialized
+        fi
+    restart: "no"
+
   api:
     build:
       context: ..
       dockerfile: Dockerfile.api
+    # 本地密钥（JWT_SECRET 等）来自仓库根 .env；不存在时保持可启动但会在
+    # production 模式下由 authService 明确报错，避免静默使用弱密钥。
+    env_file:
+      - path: ../.env
+        required: false
     environment:
       NODE_ENV: production
       SERVE_STATIC: "false"
@@ -13,10 +37,18 @@ services:
       STORAGE_PATH: /app/storage
       DB_DRIVER: ${DB_DRIVER:-json}
       DATABASE_URL: ${DATABASE_URL:-postgres://dreamreel:dreamreel@postgres:5432/dreamreel}
+      # 容器内的 localhost 不是宿主机：小说域默认走 JSON，避免 .env 的
+      # localhost DATABASE_URL 被误用。需要 PG 时显式指向 postgres 服务。
+      NOVEL_REPO_MODE: ${NOVEL_REPO_MODE:-legacy}
+      NOVEL_WRITE_MODE: ${NOVEL_WRITE_MODE:-legacy}
+      OUTBOX_ENABLED: ${OUTBOX_ENABLED:-false}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
     volumes:
-      - ../storage:/app/storage
+      - dreamreel-storage:/app/storage
+    depends_on:
+      storage-init:
+        condition: service_completed_successfully
     ports:
       - "3000:3000"
     restart: unless-stopped
@@ -66,6 +98,7 @@ services:
       - "9001:9001"
 
 volumes:
+  dreamreel-storage:
   pgdata:
   redisdata:
   miniodata:

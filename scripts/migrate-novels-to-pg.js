@@ -94,6 +94,7 @@ async function main() {
       [orgId]
     )
     const pgMap = new Map(rows.map((r) => [r.id, r]))
+    const sourceIds = new Set(novels.map((doc) => doc.id))
     const mismatches = []
     for (const doc of novels) {
       const row = pgMap.get(doc.id)
@@ -107,6 +108,12 @@ async function main() {
       const payload = row.payload || {}
       if (stableStringify(payload) !== stableStringify(toNovelPayload(doc))) {
         mismatches.push(`${doc.id}: payload mismatch`)
+      }
+    }
+    // 双向校验：PostgreSQL 多出的行同样算差异，避免测试残留被单向比对掩盖。
+    for (const row of rows) {
+      if (!sourceIds.has(row.id)) {
+        mismatches.push(`${row.id}: exists in postgres but not in source`)
       }
     }
     console.log(`verify: postgres=${rows.length} source=${novels.length} mismatches=${mismatches.length}`)
