@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dreamreel
+          POSTGRES_PASSWORD: dreamreel
+          POSTGRES_DB: dreamreel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dreamreel"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://dreamreel:dreamreel@localhost:5432/dreamreel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Prepare test secrets
+        run: echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # lint / typecheck / docs / 后端 816 / 前端 137
+      - run: npm run check
+
+      # 自包含 E2E：自动启动独立 API 与 Vite
+      - run: npm run test:e2e
+
+      - run: npm run build:web

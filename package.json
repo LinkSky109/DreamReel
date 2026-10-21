@@ -18,6 +18,7 @@
     "test:web": "vitest run --config web/vite.config.ts",
     "test:e2e": "playwright test",
     "check": "npm run lint && npm run typecheck && npm run check:docs && npm test && npm run test:web",
+    "check:full": "npm run check && npm run test:e2e",
     "lint": "eslint src/ tests/ public/js/",
     "seed:audio": "node scripts/seed_audio_pack.js",
     "seed:community": "node scripts/seed-community.js",
