@@ -1,11 +1,14 @@
-version: '3.8'
-
 services:
   dreamreel:
     build: .
     container_name: dreamreel
     ports:
       - "3000:3000"
+    # NODE_ENV=production 时 authService 要求 JWT_SECRET（至少 32 字符），
+    # 从仓库根 .env 注入；不具备该文件时请先 cp .env.example .env。
+    env_file:
+      - path: .env
+        required: false
     environment:
       - NODE_ENV=production
       - PORT=3000

@@ -16,6 +16,7 @@
     "typecheck": "tsc -p web/tsconfig.json --noEmit",
     "test": "node scripts/run-tests.js",
     "test:web": "vitest run --config web/vite.config.ts",
+    "test:e2e": "playwright test",
     "check": "npm run lint && npm run typecheck && npm run check:docs && npm test && npm run test:web",
     "lint": "eslint src/ tests/ public/js/",
     "seed:audio": "node scripts/seed_audio_pack.js",
@@ -34,7 +35,10 @@
     "db:verify:novels": "node scripts/migrate-novels-to-pg.js --verify",
     "db:migrate:novel-children": "node scripts/migrate-novel-children-to-pg.js",
     "db:verify:novel-children": "node scripts/migrate-novel-children-to-pg.js --verify",
+    "db:cleanup:test-data": "node scripts/db-cleanup-test-data.js",
+    "db:cleanup:test-data:apply": "node scripts/db-cleanup-test-data.js --apply",
     "outbox:stats": "node scripts/outbox.js --stats",
+    "outbox:stats:group": "node scripts/outbox.js --stats --group",
     "outbox:run": "node scripts/outbox.js --run-once",
     "outbox:retry-dead": "node scripts/outbox.js --retry-dead",
     "audit:verify": "node scripts/audit.js --verify"
@@ -76,6 +80,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",

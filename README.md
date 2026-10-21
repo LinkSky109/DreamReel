@@ -91,7 +91,7 @@ DreamReel 让每个人都能像做梦一样拍电影。覆盖剧本、分镜、�
 - **UI 组件**: Radix UI 无头组件 + cmdk（命令面板）+ Sonner（Toast）+ Lucide（1.75px 线性图标）
 - **前端测试**: Vitest + Testing Library；类型检查 `tsc --noEmit`
 - **视频处理**: ffmpeg（合成、拼接、配音、缩略图提取）
-- **测试**: Node.js built-in test runner（后端）+ Vitest（前端）；测试使用独立 STORAGE_PATH，不污染开发库
+- **测试**: Node.js built-in test runner（后端）+ Vitest（前端）；测试使用独立 STORAGE_PATH 与独立 PostgreSQL 测试库（`<库名>_test`，每次重建），不污染开发库
 - **代码规范**: ESLint + Prettier（前端另有 TypeScript 严格模式）
 - **提交规范**: Conventional Commits
 - **认证**: JWT (HMAC-SHA256, 零依赖)
@@ -114,10 +114,10 @@ npm run build
 # 启动服务器（默认 mock 模式，无需 API Key）
 npm start
 
-# 打开浏览器访问
+# 打开浏览器访问（端口以 .env 的 PORT 为准；.env.example 为 3000）
 open http://localhost:3000
 
-# 前端开发（Vite 热更新，:5173，/api 代理到 :3000）
+# 前端开发（Vite 热更新，:5173，/api 自动代理到 .env 的 PORT）
 npm run dev:web
 
 # 校验
@@ -139,18 +139,29 @@ npm run seed:audio
 ### Docker 部署
 
 ```bash
+# 先准备 .env（NODE_ENV=production 时 JWT_SECRET 至少 32 字符）
+cp .env.example .env
+
 # 构建并启动
-docker-compose up -d
+docker compose up -d
 
 # 访问
 open http://localhost:3000
 
 # 查看日志
-docker-compose logs -f
+docker compose logs -f
 
 # 停止
-docker-compose down
+docker compose down
 ```
+
+> **存储卷（macOS / Docker Desktop）**：根 compose 与 `deploy/docker-compose.dev.yml` 默认使用 named volume。首次启动时 `storage-init` 会把宿主 `storage/` 以只读方式复制进卷并修正权限，因此不依赖 File Sharing 的写权限，也不会出现 `/health/ready` 的 `EROFS`/`EACCES`。容器内新生成的文件保存在卷中；需要回写宿主时执行：
+>
+> ```bash
+> docker compose -f deploy/docker-compose.dev.yml cp api:/app/storage/. ./storage/
+> ```
+>
+> 如果改用 bind mount，请确保 Docker Desktop 的 File sharing 对该目录为读写。
 
 ### 前后端分离部署
 
@@ -166,8 +177,13 @@ SERVE_STATIC=false PORT=3000 CORS_ORIGINS=https://app.example.com npm run start:
 # 3) 用 Nginx 托管 web/dist，并把 /api、/storage 反代到 API
 #    配置示例见 deploy/nginx.conf
 
-# 一键本地验证（web + api）
+# 一键本地验证（web + api，默认 web:8080 / api:3000）
+# JWT_SECRET 从仓库根 .env 注入；api 容器内小说域默认 legacy，
+# 需要 PostgreSQL 时显式把 DATABASE_URL 指向 postgres 服务。
 docker compose -f deploy/docker-compose.dev.yml up --build
+
+# 端口被占用时用 override 换端口，例如 web:8180 / api:3102
+# （compose 的 ports 会追加，需在 override 中显式替换）
 
 # 架构清单（路由、鉴权分布、存储规模）
 npm run inventory
