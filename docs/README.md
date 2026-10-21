@@ -170,6 +170,8 @@ db.json → seriesEpisodes[id] → { episodeNo, chapterTitle, title, targetSecon
 | `docs/architecture/database.md` | 数据库结构 |
 | `docs/architecture/route-inventory.md` | 路由清单（`npm run inventory` 生成） |
 | `docs/architecture/storage-inventory.md` | 存储清单（`npm run inventory` 生成） |
+| `docs/runbooks/` | 运行手册、切换/回滚步骤与演练清单 |
+| `docs/delivery/` | 交付总结与验证记录 |
 
 ## 8. AI 工作流 `ai/`
 
