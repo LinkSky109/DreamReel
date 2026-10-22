@@ -92,6 +92,13 @@ describe('PUT /api/projects/:id 输入校验', () => {
     }
   })
 
+  it('小说写接口非法 body 返回 422', async () => {
+    for (const body of [{ title: 123 }, { title: 'ok', sourceType: 'bogus' }]) {
+      const res = await request(app).post('/api/novels').set(authed()).send(body)
+      assert.equal(res.status, 422, `${JSON.stringify(body)} -> ${res.status}`)
+    }
+  })
+
   it('跨用户仍需 403（校验不绕过归属）', async () => {
     const other = authService.register({
       username: `validateother${Date.now()}`,

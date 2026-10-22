@@ -88,3 +88,32 @@ export const seasonAssetsBulkSchema = z.object({
   limit: z.coerce.number().int().min(1).max(12).optional(),
   concurrency: z.coerce.number().int().min(1).max(4).optional(),
 })
+
+/** 创建小说项目：POST /api/novels */
+export const novelCreateSchema = z.object({
+  title: z.string().trim().min(1, 'title 不能为空').max(200),
+  author: z.string().trim().max(100).optional(),
+  category: z.string().trim().max(64).optional(),
+  sourceType: z.enum(['text', 'qishuxia-txt', 'qishuxia-chapters']).optional(),
+  sourceRef: z.string().max(2048).optional(),
+  style: z
+    .object({
+      scope: z.string().max(32).optional(),
+      name: z.string().max(100).optional(),
+      description: z.string().max(2000).optional(),
+    })
+    .optional(),
+})
+
+/** 设置全书风格：PUT /api/novels/:id/style */
+export const novelStyleSchema = z.object({
+  style: z
+    .object({
+      scope: z.string().max(32).optional(),
+      name: z.string().max(100).optional(),
+      description: z.string().max(2000).optional(),
+    })
+    .optional(),
+  name: z.string().trim().max(100).optional(),
+  description: z.string().max(2000).optional(),
+})

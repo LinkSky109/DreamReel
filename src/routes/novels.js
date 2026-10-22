@@ -52,6 +52,7 @@ import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as ge
 import { createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, assetStatsFromRows, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
 import { beginRun, cancelRun, isCancelled, finishRun, getRunStatus } from '../services/bulkControl.js'
 import { validateBody, validateQuery } from '../middleware/validate.js'
+import { novelCreateSchema, novelStyleSchema } from '../contracts/novels.js'
 import { bulkGenerateAssetsSchema } from '../contracts/assets.js'
 import {
   seriesPlanSchema,
@@ -95,11 +96,9 @@ function queryOf(req) {
 }
 
 // 创建小说项目
-router.post('/', async (req, res) => {
+router.post('/', validateBody(novelCreateSchema), async (req, res) => {
   try {
-    const body = req.body || {}
-    if (!body.title) return res.status(400).json({ success: false, error: 'title is required' })
-    const project = await createNovelProject(body)
+    const project = await createNovelProject(req.validated.body)
     res.status(201).json({ success: true, data: project })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -314,9 +313,10 @@ router.post('/:id/storyboard/import', async (req, res) => {
 })
 
 // 设置全书风格（MVP：全书统一）
-router.put('/:id/style', async (req, res) => {
+router.put('/:id/style', validateBody(novelStyleSchema), async (req, res) => {
   try {
-    const style = req.body && req.body.style ? req.body.style : req.body
+    const body = req.validated.body
+    const style = body.style ? body.style : body
     const project = await updateNovelProject(req.params.id, {
       style: { scope: 'book', name: style.name || '', description: style.description || '' },
     })
