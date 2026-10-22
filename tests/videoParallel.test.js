@@ -41,7 +41,7 @@ test('videoService: generateShotsParallel should handle errors gracefully', asyn
 })
 
 test('videoService: generateShotsParallel should respect concurrency limit', async () => {
-  const project = await projectService.createProject({ name: '并发控制测试', userId: 'default' })
+  const project = await projectService.createProject({ name: '并发控制测试', userId: 'concurrency-user' })
   const shots = []
   for (let i = 0; i < 4; i++) {
     shots.push({ id: `shot${i}`, description: `镜头${i}`, duration: 1, characterIds: [], sceneId: null })

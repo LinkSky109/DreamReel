@@ -183,10 +183,13 @@ class StorageService {
       this.data.usage[userId] = {}
     }
     if (!this.data.usage[userId][today]) {
-      this.data.usage[userId][today] = { videoGenerations: 0, imageGenerations: 0 }
+      this.data.usage[userId][today] = { videoGenerations: 0, imageGenerations: 0, llmCalls: 0 }
     }
     if (this.data.usage[userId][today].imageGenerations === undefined) {
       this.data.usage[userId][today].imageGenerations = 0
+    }
+    if (this.data.usage[userId][today].llmCalls === undefined) {
+      this.data.usage[userId][today].llmCalls = 0
     }
     if (!this.data.usage[userId][month]) {
       this.data.usage[userId][month] = { dubbingSeconds: 0 }
@@ -205,6 +208,8 @@ class StorageService {
       usage.daily.videoGenerations += amount
     } else if (type === 'image') {
       usage.daily.imageGenerations += amount
+    } else if (type === 'llm') {
+      usage.daily.llmCalls += amount
     } else if (type === 'dubbing') {
       usage.monthly.dubbingSeconds += amount
     }

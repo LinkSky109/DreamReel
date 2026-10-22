@@ -83,6 +83,36 @@ export class QuotaService {
   /**
    * 消耗视频生成额度
    */
+  /**
+   * 检查用户今日 LLM 调用额度（角色抽取等付费端点）
+   */
+  checkLlmQuota(userId) {
+    const quota = this._getUserQuota(userId)
+    const usage = storageService.getUsage(userId)
+    const used = usage.daily.llmCalls || 0
+    const limit = quota.llmCallsPerDay ?? this.freeQuota.llmCallsPerDay ?? 20
+    return {
+      allowed: used < limit,
+      used,
+      limit,
+      remaining: Math.max(0, limit - used),
+      reason: used >= limit ? `今日 AI 调用额度已用完（${used}/${limit}）` : null,
+    }
+  }
+
+  /**
+   * 消耗一次 LLM 调用额度
+   */
+  consumeLlmQuota(userId) {
+    const check = this.checkLlmQuota(userId)
+    if (!check.allowed) {
+      throw new Error(check.reason)
+    }
+    storageService.incrementUsage(userId, 'llm', 1)
+    logger.info(`LLM quota consumed for user ${userId}: ${check.used + 1}/${check.limit}`)
+    return { remaining: check.remaining - 1, limit: check.limit }
+  }
+
   consumeVideoQuota(userId) {
     const check = this.checkVideoQuota(userId)
     if (!check.allowed) {

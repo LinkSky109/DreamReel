@@ -53,6 +53,7 @@ import { createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAsset
 import { beginRun, cancelRun, isCancelled, finishRun, getRunStatus } from '../services/bulkControl.js'
 import { validateBody, validateQuery } from '../middleware/validate.js'
 import { novelCreateSchema, novelStyleSchema } from '../contracts/novels.js'
+import { requireLlmQuota } from '../middleware/quotaGuard.js'
 import { bulkGenerateAssetsSchema } from '../contracts/assets.js'
 import {
   seriesPlanSchema,
@@ -367,7 +368,7 @@ router.get('/:id/chunks/:chunkId', async (req, res) => {
 })
 
 // 角色抽取
-router.post('/:id/extract', async (req, res) => {
+router.post('/:id/extract', requireLlmQuota, async (req, res) => {
   const lockKey = `extract:characters:${req.params.id}`
   const got = tryAcquire(lockKey)
   if (!got.ok) {
@@ -404,7 +405,7 @@ router.get('/:id/extract/status', async (req, res) => {
 })
 
 // 角色 + 世界观「一次抽取」（同一分片一次调用，保证命名一致）
-router.post('/:id/extract-all', async (req, res) => {
+router.post('/:id/extract-all', requireLlmQuota, async (req, res) => {
   const lockKey = `extract:both:${req.params.id}`
   const got = tryAcquire(lockKey)
   if (!got.ok) {

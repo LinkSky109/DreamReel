@@ -2,6 +2,7 @@ import config from '../config/index.js'
 import { authService } from '../services/authService.js'
 import { projectService } from '../services/projectService.js'
 import logger from '../utils/logger.js'
+import { ANONYMOUS_USER_ID } from '../middleware/identity.js'
 
 /**
  * Provider 解析器
@@ -86,6 +87,17 @@ export function isProviderConfigured(stage, providerName) {
  * @returns {{provider: string, model: string|null, config: object, source: string}}
  */
 export function resolveProviderConfig(stage, projectId = null, userId = null) {
+  // 匿名用户强制 mock：真实 provider 仅登录用户可用（R3-T3.4）
+  if (userId === ANONYMOUS_USER_ID) {
+    logger.info(`Anonymous user resolved to mock for stage=${stage}`)
+    return {
+      provider: 'mock',
+      model: null,
+      config: {},
+      source: 'anonymous-mock',
+    }
+  }
+
   // 1. 项目级配置
   if (projectId) {
     try {
