@@ -10,6 +10,14 @@ const router = Router()
 
 router.use(openApiAuth)
 
+function ensureProjectOwned(req, res, project) {
+  if (project.userId !== req.apiKey.userId) {
+    res.status(403).json({ error: { code: 'forbidden', message: '无权访问该项目' } })
+    return false
+  }
+  return true
+}
+
 // 创建项目
 router.post('/projects', requireScope('project:write'), async (req, res) => {
   try {
@@ -30,6 +38,7 @@ router.post('/projects', requireScope('project:write'), async (req, res) => {
 router.get('/projects/:projectId', requireScope('project:read'), async (req, res) => {
   try {
     const p = await projectService.getProject(req.params.projectId)
+    if (!ensureProjectOwned(req, res, p)) return
     res.json({
       id: p.id,
       name: p.name,
@@ -50,6 +59,8 @@ router.post('/videos/generate', requireScope('video:generate'), async (req, res)
   try {
     const { projectId, shotIds } = req.body
     if (!projectId) return res.status(400).json({ error: { code: 'missing_project', message: 'projectId 必填' } })
+    const project = await projectService.getProject(projectId)
+    if (!ensureProjectOwned(req, res, project)) return
     const result = await videoService.generateProjectVideos(projectId, shotIds)
     res.status(202).json({
       projectId,

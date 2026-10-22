@@ -51,8 +51,8 @@ export function SharedProjectPage() {
   })
 
   const projectQuery = useQuery({
-    queryKey: ['shared', 'project', sharedQuery.data?.projectId],
-    queryFn: () => api.getProject(sharedQuery.data!.projectId),
+    queryKey: ['shared', 'project', token],
+    queryFn: () => api.getSharedProjectDetail(token),
     enabled: Boolean(sharedQuery.data?.projectId),
     retry: false,
   })

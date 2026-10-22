@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { videoService } from '../services/videoService.js'
 import { projectService } from '../services/projectService.js'
+import { requireProjectAccess, requireProjectOwnership } from '../middleware/projectAccess.js'
 import { quotaService } from '../services/quotaService.js'
 import { styleService } from '../services/styleService.js'
 import { versionService } from '../services/versionService.js'
@@ -67,7 +68,9 @@ router.post('/generate', async (req, res) => {
       })
     }
 
-    const project = await projectService.getProject(projectId)
+    const guard = await requireProjectAccess(req, res, projectId)
+    if (!guard) return
+    const project = guard.project
     const targetShotId = shotId || `temp_${Date.now()}`
 
     // 应用风格修饰（优先使用传入的 styleId，其次用项目默认风格）
@@ -127,7 +130,9 @@ router.post('/generate-all/:projectId', async (req, res) => {
   try {
     const { styleId } = req.body
     const uid = req.user?.id || 'default'
-    const project = await projectService.getProject(req.params.projectId)
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
+    const project = guard.project
 
     if (!project.shots || project.shots.length === 0) {
       return res.status(400).json({ error: 'No shots to generate. Please create a script first.' })
@@ -270,8 +275,10 @@ router.post('/generate-all/:projectId', async (req, res) => {
 /**
  * 获取项目的视频生成历史
  */
-router.get('/history/:projectId', (req, res) => {
+router.get('/history/:projectId', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const { limit, offset, status, provider } = req.query
     const result = generationHistoryService.getProjectHistory(req.params.projectId, {
       limit: limit ? parseInt(limit, 10) : 50,
@@ -301,8 +308,10 @@ router.get('/history/shot/:shotId', (req, res) => {
 /**
  * 获取项目的生成统计
  */
-router.get('/history/:projectId/stats', (req, res) => {
+router.get('/history/:projectId/stats', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const stats = generationHistoryService.getStats(req.params.projectId)
     res.json(stats)
   } catch (error) {
@@ -313,8 +322,10 @@ router.get('/history/:projectId/stats', (req, res) => {
 /**
  * 清除项目的生成历史
  */
-router.delete('/history/:projectId', (req, res) => {
+router.delete('/history/:projectId', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const result = generationHistoryService.clearProjectHistory(req.params.projectId)
     res.json(result)
   } catch (error) {
@@ -337,8 +348,10 @@ router.get('/queue', (req, res) => {
 /**
  * 获取项目的活跃生成任务
  */
-router.get('/queue/project/:projectId', (req, res) => {
+router.get('/queue/project/:projectId', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const tasks = videoService.getProjectActiveTasks(req.params.projectId)
     res.json({ tasks, count: tasks.length })
   } catch (error) {
@@ -363,6 +376,8 @@ router.post('/queue/cancel/:taskId', async (req, res) => {
  */
 router.post('/queue/cancel-project/:projectId', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const result = await videoService.cancelProjectTasks(req.params.projectId)
     res.json(result)
   } catch (error) {
@@ -373,9 +388,13 @@ router.post('/queue/cancel-project/:projectId', async (req, res) => {
 /**
  * 获取任务历史
  */
-router.get('/queue/history', (req, res) => {
+router.get('/queue/history', async (req, res) => {
   try {
     const { projectId, shotId, status, limit } = req.query
+    if (projectId) {
+      const guard = await requireProjectAccess(req, res, projectId)
+      if (!guard) return
+    }
     const history = videoService.getTaskHistory({
       projectId,
       shotId,
@@ -400,7 +419,9 @@ router.post('/regenerate', async (req, res) => {
       return res.status(400).json({ error: 'projectId and shotId are required' })
     }
 
-    const project = await projectService.getProject(projectId)
+    const guard = await requireProjectAccess(req, res, projectId)
+    if (!guard) return
+    const project = guard.project
     const shot = project.shots.find((s) => s.id === shotId)
     if (!shot) {
       return res.status(404).json({ error: 'Shot not found' })
@@ -465,7 +486,9 @@ router.post('/candidates', async (req, res) => {
       return res.status(400).json({ error: 'projectId and shotId are required' })
     }
 
-    const project = await projectService.getProject(projectId)
+    const guard = await requireProjectAccess(req, res, projectId)
+    if (!guard) return
+    const project = guard.project
     const shot = project.shots.find((s) => s.id === shotId)
     if (!shot) {
       return res.status(404).json({ error: 'Shot not found' })
@@ -520,7 +543,9 @@ router.put('/shots/:shotId/lock', async (req, res) => {
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' })
     }
-    const project = await projectService.getProject(projectId)
+    const guard = await requireProjectAccess(req, res, projectId)
+    if (!guard) return
+    const project = guard.project
     const shot = project.shots.find((s) => s.id === req.params.shotId)
     if (!shot) {
       return res.status(404).json({ error: 'Shot not found' })
@@ -543,7 +568,9 @@ router.put('/shots/:shotId', async (req, res) => {
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' })
     }
-    const project = await projectService.getProject(projectId)
+    const guard = await requireProjectAccess(req, res, projectId)
+    if (!guard) return
+    const project = guard.project
     const shot = project.shots.find((s) => s.id === req.params.shotId)
     if (!shot) {
       return res.status(404).json({ error: 'Shot not found' })
@@ -574,7 +601,9 @@ router.post('/shots/:shotId/version/:versionIndex', async (req, res) => {
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' })
     }
-    const project = await projectService.getProject(projectId)
+    const guard = await requireProjectAccess(req, res, projectId)
+    if (!guard) return
+    const project = guard.project
     const shot = project.shots.find((s) => s.id === req.params.shotId)
     if (!shot) {
       return res.status(404).json({ error: 'Shot not found' })
@@ -597,7 +626,9 @@ router.get('/continuity/check', async (req, res) => {
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' })
     }
-    const project = await projectService.getProject(projectId)
+    const guard = await requireProjectAccess(req, res, projectId)
+    if (!guard) return
+    const project = guard.project
     const warnings = videoService.checkSceneContinuity(project)
     res.json({ success: true, warnings, total: warnings.length })
   } catch (error) {

@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { filmAnalysisService } from '../services/filmAnalysisService.js'
 import { projectService } from '../services/projectService.js'
+import { requireProjectOwnership } from '../middleware/projectAccess.js'
 import logger from '../utils/logger.js'
 
 const router = Router()
@@ -8,7 +9,9 @@ const router = Router()
 // 分析项目（异步触发，立即返回）
 router.post('/project/:projectId', async (req, res) => {
   try {
-    const project = await projectService.getProject(req.params.projectId)
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
+    const project = guard.project
 
     if (!project.shots || project.shots.length === 0) {
       return res.status(400).json({ error: '项目还没有镜头，请先生成剧本' })
@@ -42,7 +45,9 @@ router.post('/project/:projectId', async (req, res) => {
 // 同步分析（等待结果返回，适合小项目）
 router.post('/project/:projectId/sync', async (req, res) => {
   try {
-    const project = await projectService.getProject(req.params.projectId)
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
+    const project = guard.project
 
     if (!project.shots || project.shots.length === 0) {
       return res.status(400).json({ error: '项目还没有镜头，请先生成剧本' })
@@ -66,7 +71,9 @@ router.post('/project/:projectId/sync', async (req, res) => {
 // 获取最近一次分析结果
 router.get('/project/:projectId', async (req, res) => {
   try {
-    const project = await projectService.getProject(req.params.projectId)
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
+    const project = guard.project
     if (!project.lastAnalysis) {
       return res.status(404).json({ error: '还没有分析结果，请先触发分析' })
     }
