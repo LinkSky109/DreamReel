@@ -46,10 +46,14 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      # lint / typecheck / docs / 后端 816 / 前端 137
+      # 入库的 public/ 必须与源码一致：先静态校验，再验证两个构建目标都能产出。
+      - run: npm run check:web-build
+      - run: npm run build
+      - run: npm run build:web
+
+      # lint / typecheck / docs / 后端 / 前端
       - run: npm run check
 
       # 自包含 E2E：自动启动独立 API 与 Vite
       - run: npm run test:e2e
 
-      - run: npm run build:web
