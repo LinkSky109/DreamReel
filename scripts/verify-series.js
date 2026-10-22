@@ -8,8 +8,8 @@
  * --strict：不达标（命中率 < 99% 或存在大段未覆盖）时退出码 1。
  */
 import 'dotenv/config'
-import { storageService } from '../src/services/storageService.js'
-import { getNovelProject, readCleanedText } from '../src/services/novelProjectService.js'
+import { readCleanedText } from '../src/services/novelProjectService.js'
+import { getNovelProjectAsync, listChunksAsync } from '../src/services/novelAsyncReadService.js'
 import { listEpisodes, listSeasons, getEpisodeText, isPgWriteMode } from '../src/services/novelEpisodeStore.js'
 import { getNovelWriteRepositories } from '../src/repositories/unitOfWork.js'
 import config from '../src/config/index.js'
@@ -28,8 +28,9 @@ if (!novelId) {
 }
 
 const cps = Number(value('chars-per-second', 4.5)) || 4.5
-const project = getNovelProject(novelId)
+const project = await getNovelProjectAsync(novelId)
 const cleaned = readCleanedText(novelId)
+const chunks = await listChunksAsync(novelId)
 const episodes = (await listEpisodes(novelId)).sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
 const seasons = (await listSeasons(novelId)).sort((a, b) => (a.seasonNo ?? 0) - (b.seasonNo ?? 0))
 const pgSource = isPgWriteMode()
@@ -46,7 +47,7 @@ const offsetMismatch = []
 const gaps = []
 let lastEnd = 0
 
-const chapterEnds = new Set(storageService.listNovelChunks(novelId).map((c) => c.endOffset))
+const chapterEnds = new Set(chunks.map((c) => c.endOffset))
 const intervals = []
 for (const ep of episodes) {
   const text =
@@ -102,7 +103,7 @@ const shortSeasons = seasons.filter((s, i) => i < seasons.length - 1 && (s.episo
 
 const hitRate = buckets.inRange / Math.max(1, episodes.length)
 const report = {
-  novel: { id: novelId, title: project.title, chapters: storageService.listNovelChunks(novelId).length },
+  novel: { id: novelId, title: project.title, chapters: chunks.length },
   seasons: seasons.length,
   episodes: episodes.length,
   duration: {

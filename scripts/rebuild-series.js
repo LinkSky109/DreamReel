@@ -36,8 +36,10 @@ import {
   readCleanedText,
 } from '../src/services/novelProjectService.js'
 import { planSeries } from '../src/services/seriesPlannerService.js'
+import { getNovelProjectAsync, listChunksAsync } from '../src/services/novelAsyncReadService.js'
 import { novelChildMirror } from '../src/services/novelChildWriteSync.js'
 import { deleteChildStates } from '../src/services/novelChildStore.js'
+import { listEpisodes, listSeasons } from '../src/services/novelEpisodeStore.js'
 
 const args = process.argv.slice(2)
 const flag = (n) => args.includes(`--${n}`)
@@ -119,11 +121,11 @@ async function main() {
         '否则服务内存中的旧数据会在稍后覆盖 db.json，导致 JSON 与 PostgreSQL 不一致。'
     )
   }
-  const project = getNovelProject(novelId)
+  const project = await getNovelProjectAsync(novelId)
   const cleaned = readCleanedText(novelId)
-  const chapters = storageService.listNovelChunks(novelId).length
-  const oldEpisodes = storageService.listEpisodes(novelId).length
-  const oldSeasons = storageService.listSeasons(novelId).length
+  const chapters = (await listChunksAsync(novelId)).length
+  const oldEpisodes = (await listEpisodes(novelId)).length
+  const oldSeasons = (await listSeasons(novelId)).length
   console.log(`作品：${project.title || ''}（${novelId}）`)
   console.log(`现状：章节 ${chapters}｜季 ${oldSeasons}｜集 ${oldEpisodes}｜cleaned ${cleaned.length} 字｜stage ${project.stage}`)
 

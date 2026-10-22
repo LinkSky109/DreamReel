@@ -12,9 +12,8 @@
  *   node scripts/backfill-character-states.js <novelId> --dry
  */
 import 'dotenv/config'
-import { storageService } from '../src/services/storageService.js'
-import { getNovelProject } from '../src/services/novelProjectService.js'
-import { generateEpisodeStates, listStates } from '../src/services/characterGrowthService.js'
+import { generateEpisodeStates } from '../src/services/characterGrowthService.js'
+import { getNovelProjectAsync, listStatesAsync } from '../src/services/novelAsyncReadService.js'
 import { listEpisodes } from '../src/services/novelEpisodeStore.js'
 
 const args = process.argv.slice(2)
@@ -31,17 +30,14 @@ if (!novelId) {
   process.exit(1)
 }
 
-getNovelProject(novelId)
+await getNovelProjectAsync(novelId)
 
 const all = (await listEpisodes(novelId)).sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
 
 // --retry-fallback：只重跑含「回退状态」的集，把它们升级为 LLM 结果
-const fallbackEps = new Set(
-  storageService
-    .listNovelCharacterStates(novelId)
-    .filter((s) => s.source !== 'llm')
-    .map((s) => Number(s.episodeNo))
-)
+const initialStates = await listStatesAsync(novelId)
+const fallbackEps = new Set(initialStates.filter((s) => s.source !== 'llm').map((s) => Number(s.episodeNo)))
+const stateEps = new Set(initialStates.map((s) => Number(s.episodeNo)))
 
 let candidates = includeAll ? all : all.filter((e) => e.screenplay && (e.screenplay.shots || []).length)
 if (retryFallback) candidates = candidates.filter((e) => fallbackEps.has(Number(e.episodeNo ?? (e.chapterIndex ?? 0) + 1)))
@@ -50,8 +46,6 @@ console.log(
   `作品 ${novelId}：候选 ${target.length} 集（共 ${all.length} 集）${retryFallback ? `｜重跑回退集 ${fallbackEps.size} 集` : ''}${dryRun ? '（dry-run）' : ''}`
 )
 
-const hasState = (episodeNo) =>
-  storageService.listNovelCharacterStates(novelId).some((s) => Number(s.episodeNo) === Number(episodeNo))
 
 let done = 0
 let skipped = 0
@@ -61,7 +55,7 @@ const t0 = Date.now()
 
 for (const ep of target) {
   const episodeNo = Number(ep.episodeNo ?? (ep.chapterIndex ?? 0) + 1)
-  if (!retryFallback && hasState(episodeNo)) {
+  if (!retryFallback && stateEps.has(episodeNo)) {
     skipped += 1
     continue
   }
@@ -72,6 +66,7 @@ for (const ep of target) {
   }
   try {
     const saved = await generateEpisodeStates(novelId, ep.id, {})
+    for (const st of saved) stateEps.add(Number(st.episodeNo))
     created += saved.length
     done += 1
     if (done % 10 === 0 || done === target.length) {
@@ -84,9 +79,6 @@ for (const ep of target) {
   }
 }
 
-// 确保落盘
-storageService._flush()
 console.log(`完成：处理 ${done} 集，跳过 ${skipped}，失败 ${failed}，写入状态 ${created} 条`)
-const tl = storageService.listNovelCharacterStates(novelId).length
+const tl = (await listStatesAsync(novelId)).length
 console.log(`当前累计状态记录：${tl}`)
-void listStates

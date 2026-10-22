@@ -13,8 +13,8 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { storageService } from '../src/services/storageService.js'
 import { deleteNovelProject, novelDir } from '../src/services/novelProjectService.js'
+import { novelReadService } from '../src/services/novelReadService.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '..')
@@ -23,8 +23,8 @@ const force = process.argv.includes('--force')
 
 const TEST_TITLE = /^夸克(首次|增量|分片|覆盖|跳过|预习|无cookie|鉴权)$/
 
-const targets = storageService
-  .listNovelProjects()
+const projects = await novelReadService.list()
+const targets = projects
   .filter((p) => TEST_TITLE.test(String(p.title || '').trim()))
   .filter((p) => force || !fs.existsSync(novelDir(p.id)))
 
