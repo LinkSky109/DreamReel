@@ -6,6 +6,8 @@ import { QuarkAuth, saveCookie, loadCookie } from '../services/quarkAuth.js'
 import { QuarkClient } from '../services/quarkClient.js'
 import { encodeQr } from '../utils/qrcode.js'
 import { toSVG } from '../utils/qrImage.js'
+import { requirePermission } from '../middleware/authorize.js'
+import { PERMISSIONS } from '../security/roles.js'
 
 /**
  * 网盘登录 / 状态路由，挂载 /api/cloud-drive
@@ -18,6 +20,10 @@ import { toSVG } from '../utils/qrImage.js'
  */
 
 const router = Router()
+
+// 服务端共享网盘 cookie 属管理操作：强制要求企业级管理权限。
+// REQUIRE_AUTH=false（开发/测试）时由 requirePermission 放行，保持本地演示可用。
+router.use(requirePermission(PERMISSIONS.ENTERPRISE_MANAGE))
 
 const SESSION_TTL_MS = 10 * 60 * 1000
 const sessions = new Map() // token -> { token, requestId, qrUrl, createdAt }

@@ -3,13 +3,18 @@ import { teamService } from '../services/teamService.js'
 
 const router = Router()
 
+/** 身份只来自认证上下文，禁止 body/query 指定。 */
+function currentUserId(req) {
+  return req.user?.id || req.auth?.userId || null
+}
+
 // 创建团队
 router.post('/', async (req, res) => {
   try {
     const team = await teamService.createTeam({
       name: req.body.name,
       description: req.body.description,
-      ownerId: req.body.ownerId || req.user?.id || 'default',
+      ownerId: currentUserId(req) || 'default',
     })
     res.status(201).json(team)
   } catch (e) {
@@ -19,7 +24,9 @@ router.post('/', async (req, res) => {
 
 // 团队列表
 router.get('/', async (req, res) => {
-  const result = await teamService.listTeams({ userId: req.query.userId })
+  // 已登录时只返回本人可见团队；无登录态（开发/测试）保留旧的 query 过滤能力
+  const userId = currentUserId(req) || req.query.userId
+  const result = await teamService.listTeams({ userId })
   res.json(result)
 })
 
