@@ -5,8 +5,11 @@ import path from 'path'
 import config from '../config/index.js'
 import { fileURLToPath } from 'url'
 import { performanceMonitor } from '../services/performanceMonitor.js'
+import { requirePermission } from '../middleware/authorize.js'
+import { PERMISSIONS } from '../security/roles.js'
 
 const router = Router()
+const adminOnly = requirePermission(PERMISSIONS.ENTERPRISE_MANAGE)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const STORAGE_DIR = path.resolve(__dirname, '..', '..', config.storage.path)
@@ -15,7 +18,7 @@ const startTime = Date.now()
 /**
  * 获取系统信息
  */
-router.get('/info', (req, res) => {
+router.get('/info', adminOnly, (req, res) => {
   try {
     // 计算存储使用情况
     let storageUsed = 0
@@ -109,7 +112,7 @@ function getAllFiles(dirPath, arrayOfFiles = []) {
 /**
  * 获取性能监控报告
  */
-router.get('/performance', (req, res) => {
+router.get('/performance', adminOnly, (req, res) => {
   try {
     const report = performanceMonitor.getFullReport()
     res.json(report)
@@ -121,7 +124,7 @@ router.get('/performance', (req, res) => {
 /**
  * 获取系统资源使用
  */
-router.get('/performance/resources', (req, res) => {
+router.get('/performance/resources', adminOnly, (req, res) => {
   try {
     const resources = performanceMonitor.getSystemResources()
     res.json(resources)
@@ -133,7 +136,7 @@ router.get('/performance/resources', (req, res) => {
 /**
  * 获取请求统计
  */
-router.get('/performance/requests', (req, res) => {
+router.get('/performance/requests', adminOnly, (req, res) => {
   try {
     const stats = performanceMonitor.getRequestStats()
     res.json(stats)
@@ -145,7 +148,7 @@ router.get('/performance/requests', (req, res) => {
 /**
  * 获取历史趋势
  */
-router.get('/performance/history', (req, res) => {
+router.get('/performance/history', adminOnly, (req, res) => {
   try {
     const history = performanceMonitor.getHistory()
     res.json(history)
@@ -157,7 +160,7 @@ router.get('/performance/history', (req, res) => {
 /**
  * 重置性能统计
  */
-router.post('/performance/reset', (req, res) => {
+router.post('/performance/reset', adminOnly, (req, res) => {
   try {
     performanceMonitor.reset()
     res.json({ success: true })

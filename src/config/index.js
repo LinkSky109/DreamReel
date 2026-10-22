@@ -1,5 +1,6 @@
 import path from 'path'
 import dotenv from 'dotenv'
+import { resolveAuthEnforce } from './authEnforce.js'
 
 dotenv.config()
 
@@ -34,8 +35,8 @@ const config = {
   // legacy | session
   authMode: process.env.AUTH_MODE || 'legacy',
   auth: {
-    // 强制登录；默认关闭，避免打断现有匿名页面
-    enforce: process.env.REQUIRE_AUTH === 'true',
+    // 强制登录：生产默认开启，开发/测试默认关闭；REQUIRE_AUTH 显式覆盖
+    enforce: resolveAuthEnforce(),
   },
   // single | organization
   tenancyMode: process.env.TENANCY_MODE || 'single',

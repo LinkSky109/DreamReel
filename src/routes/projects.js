@@ -314,42 +314,51 @@ router.post('/:projectId/thumbnail', async (req, res) => {
 // 上传自定义封面（base64）
 router.post('/:projectId/cover', async (req, res) => {
   try {
-    const { image } = req.body
-    if (!image || !image.startsWith('data:image/')) {
+    // 1) 先校验项目归属，避免越权写入他人项目
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
+
+    // 2) 项目 ID 白名单：只允许常见安全字符，杜绝路径分隔符/穿越片段
+    const projectId = String(req.params.projectId)
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(projectId)) {
+      return res.status(400).json({ error: '非法的项目 ID' })
+    }
+
+    const { image } = req.body || {}
+    if (!image || typeof image !== 'string' || !image.startsWith('data:image/')) {
       return res.status(400).json({ error: '请提供有效的 base64 图片数据' })
     }
 
-    // 解析 base64 图片
-    const matches = image.match(/^data:image\/(\w+);base64,(.+)$/)
+    // 3) 扩展名白名单（不允许 svg/gif 等）
+    const matches = image.match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=\s]+)$/)
     if (!matches) {
       return res.status(400).json({ error: '图片格式不支持' })
     }
 
-    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1]
-    const base64Data = matches[2]
-    const buffer = Buffer.from(base64Data, 'base64')
+    const extMap = { jpeg: 'jpg', jpg: 'jpg', png: 'png', webp: 'webp' }
+    const ext = extMap[matches[1]]
+    const buffer = Buffer.from(matches[2], 'base64')
 
     // 限制文件大小（5MB）
     if (buffer.length > 5 * 1024 * 1024) {
       return res.status(400).json({ error: '图片大小不能超过 5MB' })
     }
 
-    // 保存到 thumbnails 目录
-    const fs = await import('fs')
-    const path = await import('path')
-    const thumbnailsDir = path.resolve(process.cwd(), 'storage', 'thumbnails')
-    if (!fs.existsSync(thumbnailsDir)) {
-      fs.mkdirSync(thumbnailsDir, { recursive: true })
-    }
+    // 4) 保存到 thumbnails 目录，并再次校验最终路径没有逃出目录
+    const thumbnailsDir = path.resolve(STORAGE_DIR, 'thumbnails')
+    fs.mkdirSync(thumbnailsDir, { recursive: true })
 
-    const filename = `cover_${req.params.projectId}_${Date.now()}.${ext}`
-    const filepath = path.join(thumbnailsDir, filename)
+    const filename = `cover_${projectId}_${Date.now()}.${ext}`
+    const filepath = path.resolve(thumbnailsDir, filename)
+    if (!filepath.startsWith(path.resolve(thumbnailsDir) + path.sep)) {
+      return res.status(400).json({ error: '非法的文件路径' })
+    }
     fs.writeFileSync(filepath, buffer)
 
     const coverUrl = `/storage/thumbnails/${filename}`
-    await projectService.updateProject(req.params.projectId, { coverUrl })
+    await projectService.updateProject(projectId, { coverUrl })
 
-    logger.info(`Custom cover uploaded: ${filename} for project ${req.params.projectId}`)
+    logger.info(`Custom cover uploaded: ${filename} for project ${projectId}`)
     res.json({ success: true, coverUrl })
   } catch (error) {
     res.status(400).json({ error: error.message })
