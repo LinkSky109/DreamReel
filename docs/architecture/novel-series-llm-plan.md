@@ -1,7 +1,7 @@
 # 小说分季分集（LLM 大事件 + 故事完整 + 85–95s）实施计划
 
-> 状态：已确认需求，待另外两个会话（前后端分离 / 数据库 / 前端优化）收口后实施。
-> 本文只描述设计与落地步骤，不含代码改动。
+> 状态：**已实施并完成当前项目重建（2026-10-21）**。实施结果见 §0.1。
+> 本文保留设计与落地细节，便于后续维护与复现。
 
 ## 0. 需求确认（用户答复）
 
@@ -13,6 +13,57 @@
 | 存储冗余 | **去掉** `novelChunks.text` 与 `episodes/*.txt` 的重复，改为**偏移量**切分 |
 | 当前项目 | **重建** 8378 集 |
 | 兼容性 | 现有功能必须继续可用（API 形状、旧数据、测试） |
+
+## 0.1 实施结果（2026-10-21）
+
+已在真实项目《殖装》（`47dd19996161517b`）完成重建并同步 PostgreSQL：
+
+| 指标 | 结果 |
+|---|---|
+| 季 / 集 | **33 季 / 8496 集**，每季 204–489 集（全部 ≥200） |
+| 每集时长（85–95s） | **8470 / 8496 = 99.69%**；<85s 11 集，>95s 15 集 |
+| 正文覆盖 | **99.98%**（3,489,829 / 3,490,654 字），无 >200 字空洞 |
+| 句中结尾 | **0** |
+| 以章节标题结尾 | 12 集（源文本重复标题行导致，非句中切分；可后续清理源文本消除） |
+| 偏移不一致 | **0** |
+| LLM 规划 | 1206 条章摘要 + 110 个剧情弧，provider `litellm:deepseek-flash` |
+| 存储 | `novel_chunks.content` 为空，正文按 `startOffset/endOffset` 从 `cleaned.txt` 切片；旧 `episodes/*.txt` 已归档 |
+| 兼容性 | 后端 803 测试、前端 138 测试、lint、typecheck 全部通过 |
+| 前端展示 | 分季卡片展示 LLM 弧线/季目标/季末钩子/命中率；单集展示实际内容时长（85–95 达标标识）与跨章范围，支持懒加载大纲；`public/` 已重建 |
+
+常用命令：
+
+```bash
+# 重要：重建前必须停止 Web 服务。
+# 运行中的服务会把内存里的旧数据写回 db.json，导致 JSON 与 PG 的集 ID 不一致。
+# 重建脚本检测到 PORT 被占用时会拒绝执行（确需跳过用 --force，但不推荐）。
+
+# 重建（破坏性：自动备份 db.json、归档旧 episodes/assets/handoff/sync）
+npm run series:rebuild -- --novel <novelId> --sync-pg --advance
+
+# 只校验
+npm run series:verify -- <novelId> [--strict]
+```
+
+### 故障排查：`episode not found`
+
+前端列表读 PostgreSQL，剧本/分镜/资产/合成等写操作按 JSON `seriesEpisodes` 查找。
+若两者集 ID 不一致，会出现「列表能看到某集，但点操作报 `episode not found`」。
+
+处理：
+
+```bash
+# 1) 停止 Web 服务
+# 2) 用缓存重建并同步 PG（不会重新调用 LLM）
+npm run series:rebuild -- --novel <novelId> --sync-pg --advance
+# 3) 重启服务
+```
+
+本次已修复并验证：JSON 与 PG 均为 **33 季 / 8496 集**，集 ID 集合完全一致；
+单集剧本、分镜、资产查询、一致性校验接口均返回正常。
+
+> 重建会清空该小说的 `novelCharacterStates`；如需角色形象时间线，随后运行
+> `node scripts/backfill-character-states.js <novelId> [--all]`。
 
 ## 1. 现状核对
 

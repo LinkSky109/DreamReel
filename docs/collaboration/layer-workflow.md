@@ -116,7 +116,6 @@ npm run outbox:stats
 
 | 开关 | 安全值 | 用途 |
 |---|---|---|
-| `NOVEL_REPO_MODE` | `legacy` | 读路径回退 JSON |
 | `NOVEL_WRITE_MODE` | `legacy` | 关闭 PG 镜像 |
 | `OUTBOX_ENABLED` | `false` | 关闭事件投递 |
 | `REQUIRE_AUTH` | `false` | 关闭强制登录 |

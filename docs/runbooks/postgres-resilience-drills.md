@@ -39,7 +39,6 @@ for port in 3211 3212 3213; do
   PORT=$port \
   STORAGE_PATH=/tmp/dreamreel-drill-$port \
   DATABASE_URL=postgres://dreamreel:dreamreel@localhost:5432/dreamreel_drill \
-  NOVEL_REPO_MODE=postgres \
   NOVEL_WRITE_MODE=dual \
   OUTBOX_ENABLED=true \
   node src/server.js > /tmp/drill-$port.log 2>&1 &
@@ -114,7 +113,7 @@ recovery_target_action = 'promote'
 psql "$RESTORE_URL" -c "select count(*) from novels"
 psql "$RESTORE_URL" -c "select version from schema_migrations order by version"
 npm run db:verify:novels
-PORT=3299 DATABASE_URL="$RESTORE_URL" NOVEL_REPO_MODE=postgres \
+PORT=3299 DATABASE_URL="$RESTORE_URL" NOVEL_WRITE_MODE=postgres \
   OUTBOX_ENABLED=false node src/server.js
 curl -s http://localhost:3299/health/ready
 ```

@@ -14,7 +14,7 @@
 3. 迁移只增不改；已应用迁移由 checksum 保护。
 4. 新接口默认鉴权；公开接口显式加入 `src/middleware/authGate.js` 白名单。
 5. 交付必须带验证证据；`npm run check` 通过才算完成。
-6. 回滚优先改开关：`NOVEL_REPO_MODE`、`NOVEL_WRITE_MODE`、`OUTBOX_ENABLED`、`REQUIRE_AUTH`。
+6. 回滚优先改开关：`NOVEL_WRITE_MODE`、`OUTBOX_ENABLED`、`REQUIRE_AUTH`（`NOVEL_REPO_MODE` 已移除，小说读固定 PG）。
 7. 不提交 `.env`、密钥、构建缓存。
 
 ## 常用命令

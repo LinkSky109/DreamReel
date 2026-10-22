@@ -1,5 +1,10 @@
 # Runbook：novels 读切 PostgreSQL（开发环境）
 
+> 2026-10-22 Phase 3b/3c-1：`NOVEL_WRITE_MODE=postgres`；小说主表与全部子集合 PG 优先写入。
+> 小说集合不再写回 `db.json`，启动时从 PG 水合到内存投影；旧 JSON 自动归档到
+> `storage/archive/novels-from-db-*.json`。灾难恢复见 `docs/runbooks/novel-pg-restore.md`；
+> 正式备份以 `pg_dump`/PITR 为准。
+
 - 状态：已执行（2026-10-20）
 - 影响范围：小说剧场的列表、详情、章节、角色、世界观、季/集、设定图、形象状态读取
 - 写入：JSON 仍为事实源，全部镜像到 PostgreSQL
@@ -10,7 +15,6 @@
 
 ```bash
 DATABASE_URL=postgres://dreamreel:dreamreel@localhost:5432/dreamreel
-NOVEL_REPO_MODE=postgres
 NOVEL_WRITE_MODE=dual
 ```
 
@@ -56,7 +60,6 @@ grep "novel-child-write" /tmp/dreamreel-dev.log
 
 ```bash
 # .env
-NOVEL_REPO_MODE=legacy
 NOVEL_WRITE_MODE=legacy
 ```
 

@@ -1,3 +1,5 @@
+> 2026-10-22：`NOVEL_REPO_MODE` 已移除，小说读固定 PostgreSQL；本文历史切换细节仅作背景。
+
 # 数据库与 Repository（Phase 3）
 
 ## 连接与开关
@@ -87,9 +89,7 @@ npm run db:verify:novels                 # 逐条核对 title/counts
 运行时开关（默认 `legacy`，不改变现有行为）：
 
 ```bash
-NOVEL_REPO_MODE=legacy     # 全部走 JSON
-NOVEL_REPO_MODE=shadow     # 返回 JSON，同时读 PG 比对并告警
-NOVEL_REPO_MODE=postgres   # 列表/详情走 PG（写仍走 JSON）
+# NOVEL_REPO_MODE 已移除；小说读固定 PG。
 ```
 
 覆盖范围：`GET /api/novels`、`GET /api/novels/:id`。

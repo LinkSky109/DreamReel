@@ -170,6 +170,9 @@ db.json → seriesEpisodes[id] → { episodeNo, chapterTitle, title, targetSecon
 | `docs/architecture/database.md` | 数据库结构 |
 | `docs/architecture/route-inventory.md` | 路由清单（`npm run inventory` 生成） |
 | `docs/architecture/storage-inventory.md` | 存储清单（`npm run inventory` 生成） |
+| `docs/architecture/novel-series-llm-plan.md` | 小说 LLM 分季分集（大事件 + 85–95s）设计与实施结果 |
+| `docs/architecture/postgres-single-source-design.md` | PostgreSQL 单一事实源：结构化数据全量落库设计 |
+| `docs/runbooks/novel-pg-restore.md` | 小说 PG 数据灾难恢复（从 JSON 重建） |
 | `docs/runbooks/` | 运行手册、切换/回滚步骤与演练清单 |
 | `docs/delivery/` | 交付总结与验证记录 |
 
@@ -192,6 +195,10 @@ db.json → seriesEpisodes[id] → { episodeNo, chapterTitle, title, targetSecon
 | `scripts/novel.js` | 小说流水线 CLI（`npm run novel`） |
 | `scripts/inventory.js` | 生成存储/路由清单 |
 | `scripts/db-migrate.js` | 数据库迁移 |
+| `scripts/rebuild-series.js` | 重建小说分季分集（`npm run series:rebuild`） |
+| `scripts/verify-series.js` | 校验分集时长/覆盖/边界（`npm run series:verify`） |
+| `scripts/backfill-novel-write-model.js` | 回填小说 PG 写模型（`npm run db:backfill:novel-write`） |
+| `scripts/restore-novel-from-json.js` | 从 JSON 恢复小说 PG 数据（`npm run db:restore:novel`） |
 | `scripts/verify-*.js` | Provider / 媒体 / 指标校验 |
 
 ## 10. 部署 `deploy/`
