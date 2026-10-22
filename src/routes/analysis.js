@@ -1,20 +1,24 @@
 import { Router } from 'express'
 import { filmAnalysisService } from '../services/filmAnalysisService.js'
-import { projectService } from '../services/projectService.js'
 import { requireProjectOwnership } from '../middleware/projectAccess.js'
+import { AppError } from '../utils/appError.js'
 import logger from '../utils/logger.js'
 
 const router = Router()
 
+function notFound(error) {
+  return new AppError(404, 'NOT_FOUND', error.message, { cause: error })
+}
+
 // 分析项目（异步触发，立即返回）
-router.post('/project/:projectId', async (req, res) => {
+router.post('/project/:projectId', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
     const project = guard.project
 
     if (!project.shots || project.shots.length === 0) {
-      return res.status(400).json({ error: '项目还没有镜头，请先生成剧本' })
+      throw AppError.badRequest('项目还没有镜头，请先生成剧本')
     }
 
     // 立即返回，后台执行分析
@@ -38,19 +42,19 @@ router.post('/project/:projectId', async (req, res) => {
         logger.error(`Film analysis failed for project ${project.id}:`, error.message)
       })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(error.message?.startsWith('Project not found') ? notFound(error) : error)
   }
 })
 
 // 同步分析（等待结果返回，适合小项目）
-router.post('/project/:projectId/sync', async (req, res) => {
+router.post('/project/:projectId/sync', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
     const project = guard.project
 
     if (!project.shots || project.shots.length === 0) {
-      return res.status(400).json({ error: '项目还没有镜头，请先生成剧本' })
+      throw AppError.badRequest('项目还没有镜头，请先生成剧本')
     }
 
     const analysis = await filmAnalysisService.analyzeProject(project)
@@ -63,23 +67,24 @@ router.post('/project/:projectId/sync', async (req, res) => {
     logger.info(`Film analysis completed for project ${project.id}, score: ${analysis.overallScore}`)
     res.json(analysis)
   } catch (error) {
-    logger.error('Film analysis failed:', error.message)
-    res.status(400).json({ error: error.message })
+    if (error instanceof AppError) return next(error)
+    next(new AppError(400, 'BAD_REQUEST', error.message, { cause: error }))
   }
 })
 
 // 获取最近一次分析结果
-router.get('/project/:projectId', async (req, res) => {
+router.get('/project/:projectId', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
     const project = guard.project
     if (!project.lastAnalysis) {
-      return res.status(404).json({ error: '还没有分析结果，请先触发分析' })
+      throw AppError.notFound('还没有分析结果，请先触发分析')
     }
     res.json(project.lastAnalysis)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    if (error instanceof AppError) return next(error)
+    next(notFound(error))
   }
 })
 
