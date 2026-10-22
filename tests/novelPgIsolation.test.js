@@ -99,12 +99,8 @@ describe('小说域 · 测试库隔离与 PG-only 读', () => {
     assert.equal(doc.title, '直接入 PG')
   })
 
-  it('小说写入不产生 outbox 事件（PG 已是事实源）', async () => {
-    const { rows } = await getPool().query(
-      `SELECT count(*)::int AS n FROM outbox_events
-       WHERE payload->>'id' = $1 OR payload->>'novelId' = $1`,
-      [project.id]
-    )
-    assert.equal(rows[0].n, 0)
+  it('outbox_events 已随小说 outbox 清理移除', async () => {
+    const { rows } = await getPool().query("SELECT to_regclass('public.outbox_events') AS name")
+    assert.equal(rows[0].name, null)
   })
 })

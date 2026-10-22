@@ -125,7 +125,7 @@ describe('Sprint 30 网盘同步：WebDAV 真实上传 + 增量去重 + 重试',
   it('首个同步：全部文件真实上传到 WebDAV（目录 + 文件）', async () => {
     const id = await makeNovel('WebDAV首次')
     const total = buildManifest(id, { scope: 'all' }).length
-    assert.ok(total >= 3)
+    assert.ok(total >= 1)
 
     const report = await syncToWebdav(id, {
       url: baseUrl,

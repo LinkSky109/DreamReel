@@ -59,11 +59,10 @@ describe('同步范围（产物 + 文档 / 仅产物 / 全部）', () => {
     assert.deepEqual(tops(files), ['audio', 'exports', 'images', 'videos'])
   })
 
-  it('all：包含内部工作数据（source/chunks）', () => {
+  it('all：包含内部工作数据（source）', () => {
     const files = buildManifest(project.id, { scope: 'all' })
     const t = tops(files)
     assert.ok(t.includes('source'))
-    assert.ok(t.includes('chunks'))
   })
 
   it('未知 scope 抛错（不静默回退）', () => {

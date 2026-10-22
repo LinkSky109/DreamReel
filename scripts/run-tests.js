@@ -84,7 +84,6 @@ const result = spawnSync(
       ELEVENLABS_API_KEY: '',
       // 非小说域仍用隔离的 JSON 存储；小说域只走 PostgreSQL 测试库。
       DB_DRIVER: 'json',
-      OUTBOX_ENABLED: 'false',
       REQUIRE_AUTH: 'false',
       DATABASE_URL: databaseUrlForTests,
       TEST_DATABASE_URL: databaseUrlForTests,
