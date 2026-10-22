@@ -8,6 +8,8 @@ import config from '../config/index.js'
 import logger from '../utils/logger.js'
 
 import { requireProjectOwnership, requireRecycleBinOwnership } from '../middleware/projectAccess.js'
+import { validateBody } from '../middleware/validate.js'
+import { projectUpdateSchema } from '../contracts/projects.js'
 import { requirePermission } from '../middleware/authorize.js'
 import { PERMISSIONS } from '../security/roles.js'
 const STORAGE_DIR = path.resolve(config.storage.path)
@@ -298,11 +300,11 @@ router.get('/:projectId', async (req, res) => {
 })
 
 // 更新项目
-router.put('/:projectId', async (req, res) => {
+router.put('/:projectId', validateBody(projectUpdateSchema), async (req, res) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
-    const project = await projectService.updateProject(req.params.projectId, req.body)
+    const project = await projectService.updateProject(req.params.projectId, req.validated.body)
     res.json(project.toJSON())
   } catch (error) {
     res.status(400).json({ error: error.message })

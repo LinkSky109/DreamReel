@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import { teamService } from '../services/teamService.js'
 import { PERMISSIONS } from '../security/roles.js'
+import { validateBody } from '../middleware/validate.js'
+import { teamCreateSchema, teamUpdateSchema, teamMemberAddSchema, teamMemberRoleSchema } from '../contracts/teams.js'
 
 const router = Router()
 
@@ -18,11 +20,11 @@ function canReadTeam(req, team) {
 }
 
 // 创建团队
-router.post('/', async (req, res) => {
+router.post('/', validateBody(teamCreateSchema), async (req, res) => {
   try {
     const team = await teamService.createTeam({
-      name: req.body.name,
-      description: req.body.description,
+      name: req.validated.body.name,
+      description: req.validated.body.description,
       ownerId: req.userId,
     })
     res.status(201).json(team)
@@ -51,9 +53,9 @@ router.get('/:teamId', async (req, res) => {
 })
 
 // 更新团队
-router.put('/:teamId', async (req, res) => {
+router.put('/:teamId', validateBody(teamUpdateSchema), async (req, res) => {
   try {
-    const team = await teamService.updateTeam(req.params.teamId, req.body, req.userId)
+    const team = await teamService.updateTeam(req.params.teamId, req.validated.body, req.userId)
     res.json(team)
   } catch (e) {
     res.status(400).json({ error: e.message })
@@ -61,11 +63,11 @@ router.put('/:teamId', async (req, res) => {
 })
 
 // 添加成员
-router.post('/:teamId/members', async (req, res) => {
+router.post('/:teamId/members', validateBody(teamMemberAddSchema), async (req, res) => {
   try {
     const team = await teamService.addMember(
       req.params.teamId,
-      { userId: req.body.userId, name: req.body.name, role: req.body.role },
+      req.validated.body,
       req.userId
     )
     res.json(team)
@@ -75,10 +77,10 @@ router.post('/:teamId/members', async (req, res) => {
 })
 
 // 修改成员角色
-router.put('/:teamId/members/:userId', async (req, res) => {
+router.put('/:teamId/members/:userId', validateBody(teamMemberRoleSchema), async (req, res) => {
   try {
     const team = await teamService.updateMemberRole(
-      req.params.teamId, req.params.userId, req.body.role, req.userId
+      req.params.teamId, req.params.userId, req.validated.body.role, req.userId
     )
     res.json(team)
   } catch (e) {
