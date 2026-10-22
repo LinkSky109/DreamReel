@@ -17,7 +17,6 @@ export function isPostgresEnabled() {
   return (
     config.db.driver === 'postgres' ||
     config.db.driver === 'dual' ||
-    config.novels.repoMode === 'postgres' ||
     config.novels.writeMode !== 'legacy'
   )
 }

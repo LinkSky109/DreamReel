@@ -9,13 +9,21 @@ const SPECS = {
   chunks: {
     table: 'novel_chunks',
     order: ['idx', 'asc'],
-    toDoc: (row) => ({
-      ...(row.payload || {}),
-      id: row.id,
-      novelId: row.novel_id,
-      index: row.idx,
-      text: row.content,
-    }),
+    toDoc: (row) => {
+      const payload = row.payload || {}
+      return {
+        ...payload,
+        id: row.id,
+        novelId: row.novel_id,
+        index: row.idx,
+        chapterTitle: row.chapter_title || payload.chapterTitle || '',
+        startOffset: payload.startOffset ?? row.start_offset ?? null,
+        endOffset: payload.endOffset ?? row.end_offset ?? null,
+        wordCount: payload.wordCount ?? row.word_count ?? 0,
+        cleanedHash: payload.cleanedHash ?? row.cleaned_hash ?? '',
+        text: row.content,
+      }
+    },
     fromDoc: (doc) => ({
       id: doc.id,
       novelId: doc.novelId,
@@ -54,26 +62,54 @@ const SPECS = {
   seasons: {
     table: 'seasons',
     order: ['sort_order', 'asc'],
-    toDoc: (row) => ({
-      ...(row.payload || {}),
-      id: row.id,
-      novelId: row.novel_id,
-      seasonNo: row.season_no,
-      title: row.title,
-    }),
+    toDoc: (row) => {
+      const payload = row.payload || {}
+      return {
+        ...payload,
+        id: row.id,
+        novelId: row.novel_id,
+        seasonNo: row.season_no,
+        title: row.title,
+        arcName: row.arc_name || payload.arcName || '',
+        goal: row.goal || payload.goal || '',
+        acts: row.acts ?? payload.acts ?? null,
+        endingHook: row.ending_hook || payload.endingHook || '',
+        estimatedEpisodes: payload.estimatedEpisodes ?? row.estimated_episodes ?? null,
+        planProvider: row.plan_provider || payload.planProvider || '',
+        chapterStart: payload.chapterStart ?? row.chapter_start ?? null,
+        chapterEnd: payload.chapterEnd ?? row.chapter_end ?? null,
+      }
+    },
     fromDoc: (doc) => ({ id: doc.id, novelId: doc.novelId, seasonNo: doc.seasonNo ?? 1, title: doc.title || '' }),
   },
   episodes: {
     table: 'episodes',
     order: ['sort_order', 'asc'],
-    toDoc: (row) => ({
-      ...(row.payload || {}),
-      id: row.id,
-      novelId: row.novel_id,
-      seasonId: row.season_id,
-      episodeNo: row.episode_no,
-      title: row.title,
-    }),
+    toDoc: (row) => {
+      const payload = row.payload || {}
+      return {
+        ...payload,
+        id: row.id,
+        novelId: row.novel_id,
+        seasonId: row.season_id,
+        episodeNo: row.episode_no,
+        title: row.title,
+        chapterStart: payload.chapterStart ?? row.chapter_start ?? null,
+        chapterEnd: payload.chapterEnd ?? row.chapter_end ?? null,
+        startOffset: payload.startOffset ?? row.start_offset ?? null,
+        endOffset: payload.endOffset ?? row.end_offset ?? null,
+        estimatedSeconds:
+          payload.estimatedSeconds ??
+          (row.estimated_seconds !== null && row.estimated_seconds !== undefined ? Number(row.estimated_seconds) : null),
+        shortSource: payload.shortSource ?? row.short_source ?? false,
+        cleanedHash: payload.cleanedHash ?? row.cleaned_hash ?? '',
+        outline: row.outline ?? payload.outline ?? null,
+        screenplay: row.screenplay ?? payload.screenplay ?? null,
+        targetSeconds: payload.targetSeconds ?? row.target_seconds ?? 90,
+        status: payload.status ?? row.status ?? 'planned',
+        logicalKey: row.logical_key || payload.logicalKey || '',
+      }
+    },
     fromDoc: (doc) => ({
       id: doc.id,
       novelId: doc.novelId,

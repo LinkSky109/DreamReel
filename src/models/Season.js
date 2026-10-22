@@ -14,6 +14,13 @@ export class Season {
     this.episodeCount = data.episodeCount ?? 0
     this.chapterStart = data.chapterStart ?? null
     this.chapterEnd = data.chapterEnd ?? null
+    // LLM 大事件（弧）信息
+    this.arcName = data.arcName || ''
+    this.goal = data.goal || ''
+    this.acts = data.acts || null // { setup, confrontation, resolution }
+    this.endingHook = data.endingHook || ''
+    this.estimatedEpisodes = data.estimatedEpisodes ?? null
+    this.planProvider = data.planProvider || ''
     this.createdAt = data.createdAt || new Date().toISOString()
   }
 
