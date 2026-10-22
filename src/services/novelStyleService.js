@@ -1,8 +1,9 @@
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import { getLLMProvider } from '../providers/llmProviderFactory.js'
-import { getNovelProject, updateNovelProject } from './novelProjectService.js'
-import { listChunks } from './novelChunkService.js'
+import { getNovelProjectAsync, listChunksAsync } from './novelAsyncReadService.js'
+import { updateNovelProject } from './novelProjectService.js'
+
 
 /**
  * 风格确定（Sprint 20 / S20-2）：全书统一。
@@ -28,8 +29,8 @@ ${sample}`,
 }
 
 export async function generateStyle(novelId) {
-  getNovelProject(novelId)
-  const chunks = listChunks(novelId)
+  await getNovelProjectAsync(novelId)
+  const chunks = await listChunksAsync(novelId)
   if (!chunks.length) throw new Error('尚未摄取正文，请先 ingest')
 
   const sample = chunks

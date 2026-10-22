@@ -42,7 +42,11 @@
     "outbox:stats:group": "node scripts/outbox.js --stats --group",
     "outbox:run": "node scripts/outbox.js --run-once",
     "outbox:retry-dead": "node scripts/outbox.js --retry-dead",
-    "audit:verify": "node scripts/audit.js --verify"
+    "audit:verify": "node scripts/audit.js --verify",
+    "series:rebuild": "node scripts/rebuild-series.js",
+    "series:verify": "node scripts/verify-series.js",
+    "db:backfill:novel-write": "node scripts/backfill-novel-write-model.js",
+    "db:restore:novel": "node scripts/restore-novel-from-json.js"
   },
   "keywords": [
     "ai-video",

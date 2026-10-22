@@ -45,7 +45,7 @@ if (fs.existsSync(dbPath)) {
 }
 
 for (const p of targets) {
-  const r = deleteNovelProject(p.id)
+  const r = await deleteNovelProject(p.id)
   console.log(`已删除 ${p.id} ${p.title}（目录 ${r.removedDirs.length} 个，记录 ${JSON.stringify(r.removedRecords)}）`)
 }
 

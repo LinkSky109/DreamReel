@@ -1,4 +1,5 @@
-import { storageService } from './storageService.js'
+import { writeChild } from './novelChildStore.js'
+import { listCharactersAsync } from './novelAsyncReadService.js'
 import { CARD_FIELDS, CHARACTER_FIELDS } from '../models/NovelCharacter.js'
 
 /**
@@ -8,21 +9,21 @@ import { CARD_FIELDS, CHARACTER_FIELDS } from '../models/NovelCharacter.js'
  * - reviewStats：修订率 = 被修订字段数 ÷ 字段总数
  */
 
-export function ensureCards(novelId) {
-  const characters = storageService.listNovelCharacters(novelId)
+export async function ensureCards(novelId) {
+  const characters = await listCharactersAsync(novelId)
   for (const c of characters) {
     if (!c.card) c.card = {}
     for (const field of CARD_FIELDS) {
       if (c.card[field] === undefined || c.card[field] === null) c.card[field] = ''
     }
     if (!Array.isArray(c.aliases)) c.aliases = []
-    storageService.updateNovelCharacter(c)
+    await writeChild('characters', c)
   }
   return characters
 }
 
-export function applyEdits(novelId, characterId, patch = {}, { approve = false } = {}) {
-  const c = storageService.getNovelCharacter(characterId)
+export async function applyEdits(novelId, characterId, patch = {}, { approve = false } = {}) {
+  const c = (await listCharactersAsync(novelId)).find((x) => x.id === characterId)
   if (!c || c.novelId !== novelId) throw new Error(`character not found: ${characterId}`)
   const now = new Date().toISOString()
   if (!Array.isArray(c.reviewEdits)) c.reviewEdits = []
@@ -51,12 +52,12 @@ export function applyEdits(novelId, characterId, patch = {}, { approve = false }
   }
   if (approve) c.status = 'approved'
   c.updatedAt = now
-  storageService.updateNovelCharacter(c)
+  await writeChild('characters', c)
   return c
 }
 
-export function reviewStats(novelId) {
-  const characters = storageService.listNovelCharacters(novelId)
+export async function reviewStats(novelId) {
+  const characters = await listCharactersAsync(novelId)
   const totalFields = characters.length * CHARACTER_FIELDS.length
   const edited = new Set()
   for (const c of characters) {

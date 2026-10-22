@@ -2,11 +2,12 @@ import logger from '../utils/logger.js'
 import { generateId } from '../utils/idGenerator.js'
 import { getLLMProviderByPref } from '../providers/llmProviderFactory.js'
 import { storageService } from './storageService.js'
+import { writeChild, writeChildren } from './novelChildStore.js'
 import { WorldEntity, WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES, WORLD_CORE_TYPES, attributeKeysFor } from '../models/WorldEntity.js'
 import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
-import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
-import { listChunks } from './novelChunkService.js'
+import { updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
+import { getNovelProjectAsync, listChunksAsync } from './novelAsyncReadService.js'
 import { runGroups } from './extractionStatus.js'
 import { generateJSONWithRetry } from '../utils/llmRetry.js'
 
@@ -126,9 +127,9 @@ export function mergeEntities(all) {
 }
 
 export async function extractWorld(novelId, opts = {}) {
-  const project = getNovelProject(novelId)
+  const project = await getNovelProjectAsync(novelId)
   assertEditable(project, 'world')
-  const chunks = listChunks(novelId)
+  const chunks = await listChunksAsync(novelId)
   if (!chunks.length) throw new Error('尚未摄取正文，请先 ingest')
 
   const maxChapters = clampInt(opts.maxChapters, chunks.length, 1, 100000)
@@ -185,44 +186,46 @@ export async function extractWorld(novelId, opts = {}) {
 
   // 不删除历史实体：集合按 id 引用稳定记录；删除会让旧集合全部悬空（选中即显示空）。
 
-  const saved = merged.map((e) =>
-    storageService.createWorldEntity(
-      new WorldEntity({
-        novelId,
-        type: e.type,
-        name: e.name,
-        aliases: e.aliases,
-        description: e.description,
-        attributes: e.attributes,
-        relations: e.relations,
-        mentions: e.mentions,
-        provider,
-      })
+  const saved = await writeChildren(
+    'entities',
+    merged.map(
+      (e) =>
+        new WorldEntity({
+          novelId,
+          type: e.type,
+          name: e.name,
+          aliases: e.aliases,
+          description: e.description,
+          attributes: e.attributes,
+          relations: e.relations,
+          mentions: e.mentions,
+          provider,
+        })
     )
   )
 
   writeNovelFile(novelId, 'worldbuilding/entities.json', JSON.stringify(saved, null, 2))
 
   // 备选集合：每次抽取生成一个候选集合，默认选中最新
-  const set = storageService.createWorldSet({
+  const set = await writeChild('worldSets', {
     id: generateId(),
     novelId,
     provider,
     createdAt: new Date().toISOString(),
     entityIds: saved.map((e) => e.id),
   })
-  updateNovelProject(novelId, {
+  await updateNovelProject(novelId, {
     worldSets: [...(project.worldSets || []), set.id],
     selectedWorldSet: set.id,
   })
 
   const summary = summarize(novelId)
-  return { project: getNovelProject(novelId), provider, entities: saved.length, summary, set }
+  return { project: await getNovelProjectAsync(novelId), provider, entities: saved.length, summary, set }
 }
 
 /** 选定某个世界观集合为当前生效 */
-export function selectWorldSet(novelId, setId) {
-  const project = getNovelProject(novelId)
+export async function selectWorldSet(novelId, setId) {
+  const project = await getNovelProjectAsync(novelId)
   assertEditable(project, 'world')
   const set = storageService.getWorldSet(setId)
   if (!set || set.novelId !== novelId) throw new Error(`world set not found: ${setId}`)

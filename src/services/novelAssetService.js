@@ -3,15 +3,16 @@ import path from 'path'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import { storageService } from './storageService.js'
+import { writeChild, writeChildren, deleteChild } from './novelChildStore.js'
 import { getImageProviderForProject } from '../providers/imageProviderFactory.js'
 import { NovelAssetImage, ASSET_CATEGORIES, ASSET_CATEGORY_LABELS } from '../models/NovelAssetImage.js'
-import { getNovelProject, writeNovelFile } from './novelProjectService.js'
-import { listCharacters } from './characterExtractionService.js'
-import { listEntities } from './worldbuildingService.js'
+import { writeNovelFile } from './novelProjectService.js'
+import { getNovelProjectAsync, listAssetsAsync } from './novelAsyncReadService.js'
+import { listCharactersAsync, listEntitiesAsync } from './novelAsyncReadService.js'
 import { clampInt } from '../utils/coerce.js'
 import { runPool } from '../utils/pool.js'
 import { isGenericName } from '../utils/nameFilters.js'
-import { deriveCharacterStages } from './characterGrowthService.js'
+import { deriveCharacterStagesAsync } from './characterGrowthService.js'
 
 /**
  * 设定图集（Sprint 28）
@@ -45,7 +46,13 @@ const CATEGORY_HINT = {
 }
 
 function assertNovel(novelId) {
-  return getNovelProject(novelId)
+  const project = storageService.getNovelProject(novelId)
+  if (!project) throw new Error(`Novel project not found: ${novelId}`)
+  return project
+}
+
+function assertNovelAsync(novelId) {
+  return getNovelProjectAsync(novelId)
 }
 
 function assetPrompt(project, { category, name, prompt }) {
@@ -79,6 +86,15 @@ export function assetStats(novelId) {
   return assetStatsFromRows(storageService.listNovelAssetImages(novelId))
 }
 
+export async function assetStatsAsync(novelId) {
+  return assetStatsFromRows(await listAssetsAsync(novelId))
+}
+
+export async function getAssetAsync(novelId, assetId) {
+  const assets = await listAssetsAsync(novelId)
+  return assets.find((a) => a.id === assetId) || null
+}
+
 function persistIndex(novelId) {
   try {
     writeNovelFile(novelId, 'art/assets.json', JSON.stringify(listAssets(novelId), null, 2))
@@ -87,8 +103,8 @@ function persistIndex(novelId) {
   }
 }
 
-export function createAsset(novelId, data = {}) {
-  assertNovel(novelId)
+export async function createAsset(novelId, data = {}) {
+  await assertNovelAsync(novelId)
   const asset = new NovelAssetImage({
     novelId,
     category: data.category,
@@ -98,31 +114,31 @@ export function createAsset(novelId, data = {}) {
     sourceId: data.sourceId,
   })
   if (!asset.name) throw new Error('name is required')
-  const saved = storageService.createNovelAssetImage(asset)
+  const saved = await writeChild('assets', asset)
   persistIndex(novelId)
   return saved
 }
 
-export function updateAsset(novelId, assetId, patch = {}) {
-  const asset = storageService.getNovelAssetImage(assetId)
+export async function updateAsset(novelId, assetId, patch = {}) {
+  const asset = await getAssetAsync(novelId, assetId)
   if (!asset || asset.novelId !== novelId) throw new Error(`asset not found: ${assetId}`)
   for (const key of ['category', 'name', 'prompt']) {
     if (patch[key] !== undefined) asset[key] = patch[key]
   }
   if (patch.category !== undefined && !ASSET_CATEGORIES.includes(patch.category)) asset.category = 'other'
   asset.updatedAt = new Date().toISOString()
-  const saved = storageService.updateNovelAssetImage(asset)
+  const saved = await writeChild('assets', asset)
   persistIndex(novelId)
   return saved
 }
 
-export function deleteAsset(novelId, assetId) {
-  const asset = storageService.getNovelAssetImage(assetId)
+export async function deleteAsset(novelId, assetId) {
+  const asset = await getAssetAsync(novelId, assetId)
   if (!asset || asset.novelId !== novelId) throw new Error(`asset not found: ${assetId}`)
   if (asset.filePath && fs.existsSync(asset.filePath)) {
     try { fs.rmSync(asset.filePath, { force: true }) } catch { /* ignore */ }
   }
-  storageService.deleteNovelAssetImage(assetId)
+  await deleteChild('assets', assetId)
   persistIndex(novelId)
   return { id: assetId, deleted: true }
 }
@@ -131,8 +147,8 @@ export function deleteAsset(novelId, assetId) {
  * 生成设定图（调用图片 provider）。opts: { userId, aspectRatio, provider }
  */
 export async function generateAssetImage(novelId, assetId, opts = {}) {
-  const project = assertNovel(novelId)
-  const asset = storageService.getNovelAssetImage(assetId)
+  const project = await assertNovelAsync(novelId)
+  const asset = await getAssetAsync(novelId, assetId)
   if (!asset || asset.novelId !== novelId) throw new Error(`asset not found: ${assetId}`)
 
   const outDir = path.join(IMAGES_ROOT, novelId, 'assets')
@@ -158,7 +174,7 @@ export async function generateAssetImage(novelId, assetId, opts = {}) {
     logger.warn(`设定图生成失败（${asset.name}）：${asset.error}`)
   }
   asset.updatedAt = new Date().toISOString()
-  const saved = storageService.updateNovelAssetImage(asset)
+  const saved = await writeChild('assets', asset)
   persistIndex(novelId)
   return saved
 }
@@ -173,12 +189,12 @@ export async function generateAssetImage(novelId, assetId, opts = {}) {
  * opts: { limit?, concurrency?, categories?, userId? }
  */
 export async function bulkGenerateImages(novelId, opts = {}) {
-  assertNovel(novelId)
+  await assertNovelAsync(novelId)
   const limit = clampInt(opts.limit, 4, 1, 24)
   const concurrency = clampInt(opts.concurrency, 2, 1, 6)
   const cats = Array.isArray(opts.categories) && opts.categories.length ? new Set(opts.categories) : null
   const pick = (a) => !a.imageUrl && a.status !== 'generated' && (!cats || cats.has(a.category))
-  const todo = storageService.listNovelAssetImages(novelId).filter(pick).slice(0, limit)
+  const todo = (await listAssetsAsync(novelId)).filter(pick).slice(0, limit)
   let ok = 0
   let failed = 0
   let stopped = false
@@ -202,7 +218,7 @@ export async function bulkGenerateImages(novelId, opts = {}) {
     concurrency
   )
   storageService._flush() // 批量操作后立即落盘（save 为 debounce，避免调用方退出丢数据）
-  const all = storageService.listNovelAssetImages(novelId)
+  const all = await listAssetsAsync(novelId)
   return {
     processed: todo.length,
     ok,
@@ -219,12 +235,12 @@ export async function bulkGenerateImages(novelId, opts = {}) {
  * 归一化设定图：把 sourceId 按名称重绑到当前角色/实体；泛名或重名加「类别·」前缀使其更具体。
  * 解决：重抽后 sourceId 全部失效、以及"人类/绝望"这类泛名导致误关联。
  */
-export function normalizeAssets(novelId) {
+export async function normalizeAssets(novelId) {
   const byName = new Map()
-  for (const c of listCharacters(novelId)) if (c.name) byName.set(c.name, { id: c.id, source: 'character' })
-  for (const e of listEntities(novelId)) if (e.name) byName.set(e.name, { id: e.id, source: 'entity' })
+  for (const c of await listCharactersAsync(novelId)) if (c.name) byName.set(c.name, { id: c.id, source: 'character' })
+  for (const e of await listEntitiesAsync(novelId)) if (e.name) byName.set(e.name, { id: e.id, source: 'entity' })
 
-  const assets = storageService.listNovelAssetImages(novelId)
+  const assets = await listAssetsAsync(novelId)
   const nameCount = {}
   for (const a of assets) nameCount[a.name] = (nameCount[a.name] || 0) + 1
 
@@ -246,16 +262,16 @@ export function normalizeAssets(novelId) {
       }
     }
     a.updatedAt = new Date().toISOString()
-    storageService.updateNovelAssetImage(a)
+    await writeChild('assets', a)
   }
   persistIndex(novelId)
   return { total: assets.length, relinked, renamed }
 }
 
-export function suggestAssets(novelId, opts = {}) {
-  assertNovel(novelId)
+export async function suggestAssets(novelId, opts = {}) {
+  await assertNovelAsync(novelId)
   const categoryFilter = Array.isArray(opts.categories) && opts.categories.length ? new Set(opts.categories) : null
-  const existing = new Set(storageService.listNovelAssetImages(novelId).map((a) => a.sourceId).filter(Boolean))
+  const existing = new Set((await listAssetsAsync(novelId)).map((a) => a.sourceId).filter(Boolean))
   const drafts = []
   const push = (category, name, prompt, source, sourceId, meta = {}) => {
     if (!name || existing.has(sourceId)) return
@@ -266,8 +282,8 @@ export function suggestAssets(novelId, opts = {}) {
   // 角色：优先按「形象时间线」拆成多个阶段（少年期 / 荒漠期 / 终局形态…），
   // 避免整个作品只有一张终态设定图。没有时间线时回退为静态角色卡。
   const withStages = opts.stages !== false
-  for (const c of listCharacters(novelId)) {
-    const stages = withStages ? deriveCharacterStages(novelId, c.id, { maxStages: opts.maxStages || 8 }) : []
+  for (const c of await listCharactersAsync(novelId)) {
+    const stages = withStages ? await deriveCharacterStagesAsync(novelId, c.id, { maxStages: opts.maxStages || 8 }) : []
     if (stages.length) {
       for (const st of stages) {
         const desc = [
@@ -290,7 +306,7 @@ export function suggestAssets(novelId, opts = {}) {
     const desc = [card.appearance, card.personality, card.combatStyle, card.abilities].filter(Boolean).join('；')
     push('character', c.name, desc, 'character', c.id, { characterId: c.id })
   }
-  for (const e of listEntities(novelId)) {
+  for (const e of await listEntitiesAsync(novelId)) {
     const category = ENTITY_CATEGORY[e.type]
     if (!category) continue
     const attrs = Object.values(e.attributes || {}).filter((v) => typeof v === 'string').slice(0, 4).join('；')
@@ -298,7 +314,7 @@ export function suggestAssets(novelId, opts = {}) {
     push(category, e.name, desc, 'entity', e.id)
   }
 
-  const saved = drafts.map((d) => storageService.createNovelAssetImage(new NovelAssetImage({ novelId, ...d })))
+  const saved = await writeChildren('assets', drafts.map((d) => new NovelAssetImage({ novelId, ...d })))
   persistIndex(novelId)
   return saved
 }

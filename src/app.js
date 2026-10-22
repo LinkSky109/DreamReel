@@ -114,7 +114,7 @@ app.get('/health/ready', async (_req, res) => {
     status: 'ready',
     storage: 'ok',
     db: postgresRequired ? 'postgres' : config.db.driver,
-    novelsRepo: config.novels.repoMode,
+    novelsRepo: config.novels.writeMode === 'postgres' ? 'postgres' : 'json',
   })
 })
 

@@ -90,9 +90,9 @@ describe('novelWriteSync', () => {
     assert.equal(pool.calls[0].params[0], doc.id)
   })
 
-  it('postgres 写模式未开放：等同 legacy', async () => {
+  it('postgres：过渡期项目/其他域仍镜像 PG', async () => {
     const sync = createNovelWriteSync({ mode: 'postgres', getPool: () => { throw new Error('no') } })
-    assert.equal(sync.enabled, false)
+    assert.equal(sync.enabled, true)
   })
 })
 

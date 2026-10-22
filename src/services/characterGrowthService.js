@@ -1,10 +1,12 @@
 import logger from '../utils/logger.js'
 import { getLLMProvider } from '../providers/llmProviderFactory.js'
 import { storageService } from './storageService.js'
+import { writeChild, deleteChildStates } from './novelChildStore.js'
 import { NovelCharacterState } from '../models/NovelCharacterState.js'
-import { getNovelProject, readNovelFile } from './novelProjectService.js'
+import { getEpisode, getEpisodeText } from './novelEpisodeStore.js'
 import { listCharacters } from './characterExtractionService.js'
 import { isGenericName } from '../utils/nameFilters.js'
+import { getNovelProjectAsync, listCharactersAsync, listStatesAsync } from './novelAsyncReadService.js'
 
 /**
  * 角色成长状态服务（Sprint 20 / S20-3；S32 升级为「按集形象时间线」）
@@ -16,13 +18,13 @@ import { isGenericName } from '../utils/nameFilters.js'
  *  - 剧本/出图/出片提示词按「当集状态」组装，替换原静态终态描述。
  */
 
-export function addState(novelId, characterId, data = {}) {
-  const character = storageService.getNovelCharacter(characterId)
-  if (!character || character.novelId !== novelId) {
+export async function addState(novelId, characterId, data = {}) {
+  const character = (await listCharactersAsync(novelId)).find((c) => c.id === characterId)
+  if (!character) {
     throw new Error(`character not found: ${characterId}`)
   }
   const state = new NovelCharacterState({ ...data, novelId, characterId })
-  return storageService.createNovelCharacterState(state)
+  return writeChild('states', state)
 }
 
 export function listStates(novelId, characterId) {
@@ -38,26 +40,49 @@ export function getCharacterStateAt(novelId, characterId, episodeNo) {
 }
 
 /** 新增或更新某角色某集的状态（按 novelId+characterId+episodeNo 唯一） */
-export function upsertState(novelId, characterId, episodeNo, patch = {}, { source = 'manual' } = {}) {
-  const character = storageService.getNovelCharacter(characterId)
-  if (!character || character.novelId !== novelId) throw new Error(`character not found: ${characterId}`)
-  const existing = listStates(novelId, characterId).find((s) => Number(s.episodeNo) === Number(episodeNo))
+export async function upsertState(novelId, characterId, episodeNo, patch = {}, { source = 'manual' } = {}) {
+  const [chars, states] = await Promise.all([listCharactersAsync(novelId), listStatesAsync(novelId, characterId)])
+  const character = chars.find((c) => c.id === characterId)
+  if (!character) throw new Error(`character not found: ${characterId}`)
+  const existing = states.find((s) => Number(s.episodeNo) === Number(episodeNo))
   if (existing) {
     Object.assign(existing, patch, { source, updatedAt: new Date().toISOString() })
-    return storageService.updateNovelCharacterState(existing)
+    return writeChild('states', existing)
   }
   const state = new NovelCharacterState({ novelId, characterId, episodeNo, source, ...patch })
-  return storageService.createNovelCharacterState(state)
+  return writeChild('states', state)
 }
 
-export function deleteStatesForEpisode(novelId, episodeNo) {
-  return storageService.deleteNovelCharacterStates(novelId, null, episodeNo)
+export async function deleteStatesForEpisode(novelId, episodeNo) {
+  return deleteChildStates(novelId, null, episodeNo)
 }
 
 /**
  * 组装「形象指令」文本，供剧本/出图/出片提示词使用。
  * 对每个具名角色取「≤该集」的最近状态；没有状态则跳过。
  */
+export async function buildAppearanceDirectiveAsync(novelId, episodeNo, names = null) {
+  const chars = (await listCharactersAsync(novelId)).filter((c) => c.name && !isGenericName(c.name))
+  const wanted = names && names.length ? new Set(names) : null
+  const states = await listStatesAsync(novelId)
+  const lines = []
+  for (const c of chars) {
+    if (wanted && !wanted.has(c.name)) continue
+    const applicable = states
+      .filter((s) => s.characterId === c.id && Number(s.episodeNo) <= Number(episodeNo))
+      .sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
+    const st = applicable[applicable.length - 1]
+    if (!st) continue
+    const bits = []
+    if (st.appearance) bits.push(`外观：${st.appearance}`)
+    if (st.equipment) bits.push(`装备：${st.equipment}`)
+    if (st.injuries) bits.push(`伤势：${st.injuries}`)
+    if (st.abilities) bits.push(`能力：${st.abilities}`)
+    if (bits.length) lines.push(`- ${c.name}（第${episodeNo}集）：${bits.join('；')}`)
+  }
+  return lines.join('\n')
+}
+
 export function buildAppearanceDirective(novelId, episodeNo, names = null) {
   const chars = listCharacters(novelId).filter((c) => c.name && !isGenericName(c.name))
   const wanted = names && names.length ? new Set(names) : null
@@ -138,10 +163,16 @@ function chunk(arr, size) {
 }
 
 /** 取一组角色在上一集的状态（用于增量） */
-function prevStatesFor(novelId, chars, episodeNo) {
+async function prevStatesFor(novelId, chars, episodeNo) {
+  const allStates = await listStatesAsync(novelId)
+  const at = (characterId, ep) =>
+    allStates
+      .filter((s) => s.characterId === characterId && Number(s.episodeNo) <= ep)
+      .sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
+      .pop() || null
   return chars
     .map((c) => {
-      const st = getCharacterStateAt(novelId, c.id, episodeNo - 1) || getCharacterStateAt(novelId, c.id, episodeNo)
+      const st = at(c.id, episodeNo - 1) || at(c.id, episodeNo)
       return st
         ? { name: c.name, episodeNo: st.episodeNo, appearance: st.appearance, equipment: st.equipment, injuries: st.injuries, abilities: st.abilities }
         : null
@@ -166,7 +197,7 @@ function normalizeProduced(arr) {
  * 分片后单次输出量很小，配合预算升级可显著降低「推理吃满 token → 空输出」概率。
  */
 async function callStateLLM(llm, ep, text, chars, episodeNo, novelId) {
-  const prev = prevStatesFor(novelId, chars, episodeNo)
+  const prev = await prevStatesFor(novelId, chars, episodeNo)
   const names = chars.map((c) => c.name)
   const budgets = [4000, 8000]
   let lastError = null
@@ -191,13 +222,13 @@ async function callStateLLM(llm, ep, text, chars, episodeNo, novelId) {
  * opts: { names?: string[], provider?: 'heuristic' }
  */
 export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
-  getNovelProject(novelId)
-  const ep = storageService.getEpisode(episodeId)
+  await getNovelProjectAsync(novelId)
+  const ep = await getEpisode(novelId, episodeId)
   if (!ep || ep.novelId !== novelId) throw new Error(`episode not found: ${episodeId}`)
   const episodeNo = Number(ep.episodeNo ?? (ep.chapterIndex ?? 0) + 1)
-  const text = readNovelFile(novelId, ep.sourceFile)?.toString('utf-8') || ''
+  const text = await getEpisodeText(novelId, ep)
 
-  const allChars = listCharacters(novelId).filter((c) => c.name && !isGenericName(c.name))
+  const allChars = (await listCharactersAsync(novelId)).filter((c) => c.name && !isGenericName(c.name))
   // 出场角色判定优先级：显式 names > 本集剧本分镜里出现 > 原文出现 > 主要角色兜底
   const scriptText = (ep.screenplay?.shots || []).map((s) => `${s.description || ''} ${s.dialogue || ''}`).join(' ')
   let present
@@ -223,13 +254,13 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
     return present.find((c) => nm.includes(c.name) || c.name.includes(nm)) || null
   }
 
-  const persist = (list, source) => {
+  const persist = async (list, source) => {
     const out = []
     for (const item of list) {
       const c = matchChar(item.name)
       if (!c) continue
       out.push(
-        upsertState(
+        await upsertState(
           novelId,
           c.id,
           episodeNo,
@@ -258,7 +289,7 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
       try {
         const arr = await callStateLLM(llm, ep, text, group, episodeNo, novelId)
         const matched = new Set()
-        const groupSaved = persist(arr, 'llm')
+        const groupSaved = await persist(arr, 'llm')
         for (const item of arr) {
           const c = matchChar(item.name)
           if (c) matched.add(c.id)
@@ -268,7 +299,7 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
         for (const c of group.filter((x) => !matched.has(x.id))) {
           try {
             const arr = await callStateLLM(llm, ep, text, [c], episodeNo, novelId)
-            if (arr.length) saved.push(...persist(arr, 'llm'))
+            if (arr.length) saved.push(...(await persist(arr, 'llm')))
             else degraded.push(c)
           } catch {
             degraded.push(c)
@@ -280,7 +311,7 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
         for (const c of group) {
           try {
             const arr = await callStateLLM(llm, ep, text, [c], episodeNo, novelId)
-            saved.push(...persist(arr, 'llm'))
+            saved.push(...(await persist(arr, 'llm')))
             if (!arr.length) degraded.push(c)
           } catch {
             degraded.push(c)
@@ -298,7 +329,7 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
       const prev = getCharacterStateAt(novelId, c.id, episodeNo - 1)
       const card = c.card || {}
       saved.push(
-        ...persist(
+        ...(await persist(
           [
             {
               name: c.name,
@@ -309,7 +340,7 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
             },
           ],
           'base'
-        )
+        ))
       )
     }
   }
@@ -381,8 +412,7 @@ function similarity(a, b) {
  * 从形象时间线里提炼「有意义的阶段」：外观/装备/能力发生实质变化时才切一个阶段。
  * 返回按集号升序的阶段状态（最多 maxStages 个，均匀抽样保留首尾）。
  */
-export function deriveCharacterStages(novelId, characterId, { maxStages = 8 } = {}) {
-  const states = listStates(novelId, characterId)
+function deriveStagesFromStates(states, { maxStages = 8 } = {}) {
   if (!states.length) return []
   const changed = (a, b) =>
     similarity(a.appearance, b.appearance) < 0.62 ||
@@ -401,6 +431,14 @@ export function deriveCharacterStages(novelId, characterId, { maxStages = 8 } = 
     picked.push(stages[Math.round((i * (stages.length - 1)) / (maxStages - 1))])
   }
   return picked.filter((s, i) => picked.findIndex((x) => x.id === s.id) === i)
+}
+
+export function deriveCharacterStages(novelId, characterId, opts = {}) {
+  return deriveStagesFromStates(listStates(novelId, characterId), opts)
+}
+
+export async function deriveCharacterStagesAsync(novelId, characterId, opts = {}) {
+  return deriveStagesFromStates(await listStatesAsync(novelId, characterId), opts)
 }
 
 /** 校验某集是否已具备出场角色的形象状态；返回缺失角色名 */

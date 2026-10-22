@@ -109,15 +109,15 @@ describe('Sprint 30 网盘同步：WebDAV 真实上传 + 增量去重 + 重试',
     await dav.close()
   })
 
-  function makeNovel(title) {
-    const project = createNovelProject({ title })
+  async function makeNovel(title) {
+    const project = await createNovelProject({ title })
     created.push(project.id)
-    ingestNovel(project.id, { sourceType: 'text', text: SAMPLE })
+    await ingestNovel(project.id, { sourceType: 'text', text: SAMPLE })
     return project.id
   }
 
   it('首个同步：全部文件真实上传到 WebDAV（目录 + 文件）', async () => {
-    const id = makeNovel('WebDAV首次')
+    const id = await makeNovel('WebDAV首次')
     const total = buildManifest(id, { scope: 'all' }).length
     assert.ok(total >= 3)
 
@@ -140,7 +140,7 @@ describe('Sprint 30 网盘同步：WebDAV 真实上传 + 增量去重 + 重试',
   })
 
   it('二次同步：内容未变则全部跳过（增量去重）', async () => {
-    const id = makeNovel('WebDAV增量')
+    const id = await makeNovel('WebDAV增量')
     const total = buildManifest(id, { scope: 'all' }).length
     const opts = { url: baseUrl, username: 'user', password: 'secret', remoteDir: `inc/${id}`, scope: 'all' }
 
@@ -155,7 +155,7 @@ describe('Sprint 30 网盘同步：WebDAV 真实上传 + 增量去重 + 重试',
   })
 
   it('内容变化后只重传该文件', async () => {
-    const id = makeNovel('WebDAV变更')
+    const id = await makeNovel('WebDAV变更')
     const opts = { url: baseUrl, username: 'user', password: 'secret', remoteDir: `delta/${id}`, scope: 'all' }
     await syncToWebdav(id, opts)
 
@@ -168,7 +168,7 @@ describe('Sprint 30 网盘同步：WebDAV 真实上传 + 增量去重 + 重试',
   })
 
   it('dry-run 只返回计划、不产生 PUT', async () => {
-    const id = makeNovel('WebDAV预习')
+    const id = await makeNovel('WebDAV预习')
     const putsBefore = dav.state.puts
     const report = await syncToWebdav(id, {
       url: baseUrl,
@@ -184,7 +184,7 @@ describe('Sprint 30 网盘同步：WebDAV 真实上传 + 增量去重 + 重试',
   })
 
   it('onConflict=skip：远端已存在则跳过（HEAD 探测）', async () => {
-    const id = makeNovel('WebDAV跳过')
+    const id = await makeNovel('WebDAV跳过')
     const opts = { url: baseUrl, username: 'user', password: 'secret', remoteDir: `skip/${id}`, scope: 'all' }
     await syncToWebdav(id, opts)
 
@@ -201,7 +201,7 @@ describe('Sprint 30 网盘同步：WebDAV 真实上传 + 增量去重 + 重试',
   })
 
   it('瞬态 500 自动重试后成功', async () => {
-    const id = makeNovel('WebDAV重试')
+    const id = await makeNovel('WebDAV重试')
     dav.state.putFailures = 1
     const report = await syncToWebdav(id, {
       url: baseUrl,
@@ -216,7 +216,7 @@ describe('Sprint 30 网盘同步：WebDAV 真实上传 + 增量去重 + 重试',
   })
 
   it('鉴权失败：逐文件失败上报（不抛异常、不阻塞）', async () => {
-    const id = makeNovel('WebDAV鉴权')
+    const id = await makeNovel('WebDAV鉴权')
     const total = buildManifest(id, { scope: 'all' }).length
     const report = await syncToWebdav(id, {
       url: baseUrl,
@@ -257,7 +257,7 @@ describe('Sprint 30 网盘同步：WebDAV 真实上传 + 增量去重 + 重试',
   })
 
   it('清单排除系统垃圾文件与 sync/ 自身', async () => {
-    const id = makeNovel('WebDAV过滤')
+    const id = await makeNovel('WebDAV过滤')
     fs.writeFileSync(path.join(novelDir(id), '.DS_Store'), 'junk')
     fs.writeFileSync(path.join(novelDir(id), 'source', 'raw.txt~'), 'backup')
     const manifest = buildManifest(id, { scope: 'all' })
@@ -267,7 +267,7 @@ describe('Sprint 30 网盘同步：WebDAV 真实上传 + 增量去重 + 重试',
   })
 
   it('未配置 WebDAV 时如实报错', async () => {
-    const id = makeNovel('WebDAV未配置')
+    const id = await makeNovel('WebDAV未配置')
     await assert.rejects(
       () => syncToWebdav(id, { url: '', username: '', password: '', root: 'X', remoteDir: 'y' }),
       /WebDAV 未配置/

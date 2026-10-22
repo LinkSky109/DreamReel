@@ -4,11 +4,12 @@
  * 前端循环调用直到 remaining=0，从而既有进度、又可中断续跑。
  */
 import { storageService } from './storageService.js'
+import { listEpisodes } from './novelEpisodeStore.js'
 import { clampInt } from '../utils/coerce.js'
 import { runPool } from '../utils/pool.js'
 import { generateEpisodeScript } from './episodeScriptService.js'
 import { generateEpisodeAssets } from './episodeAssetService.js'
-import { getNovelProject } from './novelProjectService.js'
+import { getNovelProjectAsync } from './novelAsyncReadService.js'
 
 const hasScript = (e) => !!(e.screenplay && (e.screenplay.shots || []).length)
 const hasAssets = (e) => !!(e.assets && e.assets.image && e.assets.image.url)
@@ -18,8 +19,8 @@ export async function bulkGenerate(novelId, seasonId, opts = {}) {
   const limit = clampInt(opts.limit, 8, 1, 50)
   const concurrency = clampInt(opts.concurrency, 4, 1, 8)
   const onlyMissing = opts.onlyMissing !== false
-  const project = getNovelProject(novelId)
-  const all = storageService.listEpisodes(novelId, seasonId).sort((a, b) => a.episodeNo - b.episodeNo)
+  const project = await getNovelProjectAsync(novelId)
+  const all = (await listEpisodes(novelId, seasonId)).sort((a, b) => a.episodeNo - b.episodeNo)
   const isDone = task === 'assets' ? hasAssets : hasScript
 
   const todo = (onlyMissing ? all.filter((e) => !isDone(e)) : all).slice(0, limit)
@@ -40,7 +41,7 @@ export async function bulkGenerate(novelId, seasonId, opts = {}) {
   )
 
   storageService._flush() // 批量操作后立即落盘（save 为 debounce，避免调用方退出丢数据）
-  const nowAll = storageService.listEpisodes(novelId, seasonId)
+  const nowAll = await listEpisodes(novelId, seasonId)
   const doneCount = nowAll.filter(isDone).length
   return {
     task,

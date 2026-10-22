@@ -15,6 +15,7 @@ import 'dotenv/config'
 import { storageService } from '../src/services/storageService.js'
 import { getNovelProject } from '../src/services/novelProjectService.js'
 import { generateEpisodeStates, listStates } from '../src/services/characterGrowthService.js'
+import { listEpisodes } from '../src/services/novelEpisodeStore.js'
 
 const args = process.argv.slice(2)
 const novelId = args.find((a) => !a.startsWith('--'))
@@ -32,7 +33,7 @@ if (!novelId) {
 
 getNovelProject(novelId)
 
-const all = storageService.listEpisodes(novelId).sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
+const all = (await listEpisodes(novelId)).sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
 
 // --retry-fallback：只重跑含「回退状态」的集，把它们升级为 LLM 结果
 const fallbackEps = new Set(

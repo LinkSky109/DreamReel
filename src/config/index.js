@@ -61,10 +61,8 @@ const config = {
     maxAttempts: parseInt(process.env.OUTBOX_MAX_ATTEMPTS, 10) || 8,
     lockTimeoutSeconds: parseInt(process.env.OUTBOX_LOCK_TIMEOUT_SECONDS, 10) || 120,
   },
-  // novels 读写切换：legacy(默认) | shadow(影子读) | postgres
+  // novels 写模式：legacy(测试) | dual(回滚) | postgres(生产)
   novels: {
-    repoMode: process.env.NOVEL_REPO_MODE || 'legacy',
-    // legacy | dual（JSON 为准，写后镜像 PG）；postgres 写模式尚未开放
     writeMode: process.env.NOVEL_WRITE_MODE || 'legacy',
     orgId: process.env.DEFAULT_ORG_ID || 'default',
   },

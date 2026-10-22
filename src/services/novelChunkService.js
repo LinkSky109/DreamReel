@@ -1,9 +1,20 @@
 import fs from 'fs'
 import path from 'path'
+import config from '../config/index.js'
 import { storageService } from './storageService.js'
 import { NovelChunk } from '../models/NovelChunk.js'
-import { getNovelProject, updateNovelProject, writeNovelFile, novelDir, assertEditable } from './novelProjectService.js'
+import {
+  updateNovelProject,
+  writeNovelFile,
+  novelDir,
+  assertEditable,
+  getChunkText,
+  invalidateCleanedCache,
+} from './novelProjectService.js'
+import { getNovelProjectAsync } from './novelAsyncReadService.js'
 import { fetchQishuxiaTxt } from './novelSourceService.js'
+import { hashText, locateChapters } from '../utils/textOffsets.js'
+import { withNovelTransaction } from '../repositories/unitOfWork.js'
 
 /** 章节标题（第X章 / 第X节 / 第X回） */
 const HEADING_RE = /^第[0-9零一二三四五六七八九十百千万两]+[章节回][^\n]{0,50}$/
@@ -81,7 +92,7 @@ export function splitChapters(raw) {
  * @param {object} opts { sourceType, text?, url?, maxChapters?, force? }
  */
 export async function ingestNovel(novelId, { sourceType = 'text', text, url, maxChapters, force = false } = {}) {
-  const project = getNovelProject(novelId)
+  const project = await getNovelProjectAsync(novelId)
   assertEditable(project, 'source')
   const cleanedAbs = path.join(novelDir(novelId), 'source', 'cleaned.txt')
   let cleaned
@@ -108,34 +119,85 @@ export async function ingestNovel(novelId, { sourceType = 'text', text, url, max
     writeNovelFile(novelId, 'source/cleaned.txt', cleaned) // 以清理后文本为准
   }
 
-  let chapters = splitChapters(cleaned)
+  invalidateCleanedCache(novelId)
+  const cleanedHash = hashText(cleaned)
+  let chapters = locateChapters(cleaned, splitChapters(cleaned))
   if (maxChapters && maxChapters > 0) chapters = chapters.slice(0, maxChapters)
   if (!chapters.length) throw new Error('未能识别到章节（TXT 格式可能不符）')
 
-  // 清理旧切片
+  // 新数据只落偏移；正文由 listChunks/getChunkText 从 cleaned.txt 水合
+  const chunks = chapters.map((c) => new NovelChunk({
+    novelId,
+    index: c.index,
+    chapterTitle: c.chapterTitle,
+    startOffset: c.startOffset,
+    endOffset: c.endOffset,
+    wordCount: (c.text || '').length,
+    cleanedHash,
+  }))
+
+  // PG 优先：先提交正文/切片事务，成功后再更新本地 JSON 读缓存。
+  if (config.novels.writeMode === 'postgres') {
+    await withNovelTransaction(
+      novelId,
+      async (repos) => {
+        await repos.sources.upsert(
+          novelId,
+          {
+            sourceType,
+            sourceRef: url || project.sourceRef || '',
+            cleanedText: cleaned,
+            cleanedHash,
+            encoding: 'utf-8',
+            wordCount: cleaned.length,
+          },
+          { orgId: config.novels.orgId }
+        )
+        await repos.chunks.replaceAll(
+          novelId,
+          chunks.map((c, i) => ({
+            id: c.id,
+            index: c.index,
+            chapterTitle: c.chapterTitle,
+            startOffset: c.startOffset,
+            endOffset: c.endOffset,
+            wordCount: c.wordCount,
+            cleanedHash: c.cleanedHash,
+            sortOrder: i,
+          })),
+          { orgId: config.novels.orgId }
+        )
+      },
+      { orgId: config.novels.orgId }
+    )
+  }
+
+  // 清理旧缓存切片
   if (storageService.data.novelChunks) {
     for (const c of storageService.listNovelChunks(novelId)) {
       delete storageService.data.novelChunks[c.id]
     }
   }
-
-  const chunks = chapters.map((c) =>
-    storageService.createNovelChunk(
-      new NovelChunk({ novelId, index: c.index, chapterTitle: c.chapterTitle, text: c.text })
-    )
-  )
+  for (const c of chunks) storageService.createNovelChunk(c)
 
   writeNovelFile(
     novelId,
     'chunks/chunks.json',
     JSON.stringify(
-      chunks.map((c) => ({ index: c.index, chapterTitle: c.chapterTitle, wordCount: c.wordCount })),
+      chunks.map((c) => ({
+        index: c.index,
+        chapterTitle: c.chapterTitle,
+        wordCount: c.wordCount,
+        startOffset: c.startOffset,
+        endOffset: c.endOffset,
+        cleanedHash: c.cleanedHash,
+      })),
       null,
       2
     )
   )
 
-  const updated = updateNovelProject(novelId, {
+  const updated = await updateNovelProject(novelId, {
     sourceType,
     sourceRef: url || project.sourceRef,
     ...meta,
@@ -146,6 +208,17 @@ export async function ingestNovel(novelId, { sourceType = 'text', text, url, max
   return { project: updated, chapterCount: chunks.length, downloaded }
 }
 
+/**
+ * 章节列表。返回带 text 的对象（新数据从 cleaned.txt 按偏移水合），
+ * 以保持抽取/世界观/统计等既有调用方无需改动。
+ */
 export function listChunks(novelId) {
-  return storageService.listNovelChunks(novelId).sort((a, b) => a.index - b.index)
+  return storageService
+    .listNovelChunks(novelId)
+    .sort((a, b) => a.index - b.index)
+    .map((chunk) => {
+      if (typeof chunk.text === 'string' && chunk.text.length) return chunk
+      const text = getChunkText(novelId, chunk)
+      return text ? { ...chunk, text } : chunk
+    })
 }

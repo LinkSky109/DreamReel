@@ -99,7 +99,7 @@ describe('Sprint 19 小说 → 角色流水线', () => {
   })
 
   it('ingest → 切片入库', async () => {
-    const p = createNovelProject({ title: '单元测试小说' })
+    const p = await createNovelProject({ title: '单元测试小说' })
     created.push(p.id)
     const r = await ingestNovel(p.id, { sourceType: 'text', text: SAMPLE })
     assert.equal(r.chapterCount, 2)

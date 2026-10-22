@@ -1,17 +1,13 @@
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
-import { storageService } from './storageService.js'
 import { getNovelRepository } from '../repositories/novelRepository.js'
-import { stableStringify } from '../utils/stableJson.js'
+import { storageService } from './storageService.js'
 
 /**
- * 小说只读服务：legacy / shadow / postgres 三档切换。
+ * 小说只读服务（Phase 3c-2）。
  *
- * - legacy：完全走现有 JSON 存储（默认，行为不变）
- * - shadow：仍返回 JSON 结果，同时读 PostgreSQL 做差异比对并记录
- * - postgres：返回 PostgreSQL 结果（需先执行 novels 数据迁移）
- *
- * 只覆盖列表与详情两个读路径；写入与其它 service 仍走旧实现。
+ * PostgreSQL 是唯一读源；不再有 legacy/shadow 回退。
+ * 内存投影只服务于尚未异步化的内部同步读，不参与这里。
  */
 
 const INTERNAL_FIELDS = ['orgId', 'version', 'deletedAt']
@@ -22,88 +18,36 @@ function toApiShape(doc) {
   return out
 }
 
-function shapeOf(doc) {
-  return stableStringify({
-    title: doc.title ?? '',
-    status: doc.status ?? '',
-    updatedAt: doc.updatedAt ?? '',
-    counts: doc.counts ?? null,
-    stage: doc.stage ?? null,
-  })
-}
-
-export function createNovelReadService({
-  legacy,
-  getRepo,
-  mode = 'legacy',
-  orgId = 'default',
-  log = logger,
-} = {}) {
+export function createNovelReadService({ legacy, getRepo, mode = 'postgres', orgId = 'default', log = logger } = {}) {
   async function repoList() {
     const repo = await getRepo()
     const rows = await repo.list({ orgId, limit: 1000 })
     return rows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
   }
 
-  function compareList(legacyRows, pgRows, requestId) {
-    const legacyMap = new Map(legacyRows.map((d) => [d.id, d]))
-    const pgMap = new Map(pgRows.map((d) => [d.id, d]))
-    const missing = [...legacyMap.keys()].filter((id) => !pgMap.has(id))
-    const extra = [...pgMap.keys()].filter((id) => !legacyMap.has(id))
-    const changed = [...legacyMap.keys()]
-      .filter((id) => pgMap.has(id) && shapeOf(legacyMap.get(id)) !== shapeOf(pgMap.get(id)))
-      .slice(0, 10)
-    if (missing.length || extra.length || changed.length) {
-      log.warn('[novel-shadow] list mismatch', { requestId, missing, extra, changed })
-    }
-  }
-
   return {
-    mode,
-
     async list({ requestId } = {}) {
-      const legacyRows = legacy.list()
-      if (mode === 'legacy') return legacyRows
-      let pgRows
+      if (mode === 'legacy') return legacy.list()
       try {
-        pgRows = await repoList()
+        const rows = await repoList()
+        return rows.map(toApiShape)
       } catch (error) {
-        log.warn('[novel-read] postgres 读取失败，回退 legacy', { requestId, message: error.message })
-        return legacyRows
+        log.warn('[novel-read] postgres 读取失败', { requestId, message: error.message })
+        throw error
       }
-      if (mode === 'shadow') {
-        compareList(legacyRows, pgRows, requestId)
-        return legacyRows
-      }
-      return pgRows.map(toApiShape)
     },
 
     async get(id, { requestId } = {}) {
-      const legacyDoc = legacy.get(id)
-      if (mode === 'legacy') return legacyDoc
-      let pgDoc
+      if (mode === 'legacy') return legacy.get(id)
       try {
         const repo = await getRepo()
-        pgDoc = await repo.findById(id, { orgId })
+        const doc = await repo.findById(id, { orgId })
+        if (!doc) throw new Error(`Novel project not found: ${id}`)
+        return toApiShape(doc)
       } catch (error) {
-        log.warn('[novel-read] postgres 读取失败，回退 legacy', { requestId, message: error.message })
-        return legacyDoc
+        log.warn('[novel-read] postgres 读取失败', { requestId, id, message: error.message })
+        throw error
       }
-      if (mode === 'shadow') {
-        if (!pgDoc) {
-          log.warn('[novel-shadow] detail missing in postgres', { requestId, id })
-        } else if (shapeOf(legacyDoc) !== shapeOf(pgDoc)) {
-          log.warn('[novel-shadow] detail mismatch', {
-            requestId,
-            id,
-            legacy: shapeOf(legacyDoc),
-            postgres: shapeOf(pgDoc),
-          })
-        }
-        return legacyDoc
-      }
-      if (!pgDoc) throw new Error(`Novel project not found: ${id}`)
-      return toApiShape(pgDoc)
     },
   }
 }
@@ -121,10 +65,7 @@ function getRepoLazy() {
 
 export const novelReadService = createNovelReadService({
   legacy: {
-    list: () =>
-      storageService
-        .listNovelProjects()
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+    list: () => storageService.listNovelProjects().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
     get: (id) => {
       const project = storageService.getNovelProject(id)
       if (!project) throw new Error(`Novel project not found: ${id}`)
@@ -132,6 +73,7 @@ export const novelReadService = createNovelReadService({
     },
   },
   getRepo: getRepoLazy,
-  mode: config.novels.repoMode,
+  // legacy 仅用于测试/回滚；生产写模式为 postgres 时读强制 PG。
+  mode: config.novels.writeMode === 'legacy' ? 'legacy' : 'postgres',
   orgId: config.novels.orgId,
 })

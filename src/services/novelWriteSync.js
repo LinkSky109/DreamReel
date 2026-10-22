@@ -51,7 +51,7 @@ export async function applyNovelDelete(pool, id, orgId) {
 }
 
 export function createNovelWriteSync({ mode = 'legacy', getPool, log = logger, orgId = 'default' } = {}) {
-  const enabled = mode === 'dual'
+  const enabled = mode === 'dual' || mode === 'postgres'
 
   async function upsert(doc) {
     if (!enabled) return { skipped: true }

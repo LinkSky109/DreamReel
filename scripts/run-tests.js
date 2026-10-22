@@ -157,7 +157,6 @@ const result = spawnSync(
       ELEVENLABS_API_KEY: '',
       // 测试固定走 JSON 存储；PostgreSQL 契约测试使用独立测试库，绝不连开发库
       DB_DRIVER: 'json',
-      NOVEL_REPO_MODE: 'legacy',
       NOVEL_WRITE_MODE: 'legacy',
       OUTBOX_ENABLED: 'false',
       REQUIRE_AUTH: 'false',

@@ -106,7 +106,7 @@ export function createNovelChildWriteSync({
   orgId = 'default',
   flushDelayMs = 120,
 } = {}) {
-  const enabled = mode === 'dual'
+  const enabled = mode === 'dual' || mode === 'postgres'
   const queue = new Map() // key -> { op:'upsert', kind, doc } | { op:'delete', kind, id }
   let timer = null
   let flushing = false
@@ -324,8 +324,11 @@ async function defaultGetPool() {
   return getPool()
 }
 
+// Phase 3b：postgres 模式下子集合由 novelChildStore 直接写 PG，
+// 这里关闭旧的镜像/outbox 路径，避免同一条记录写两次。
+const mirrorMode = config.novels.writeMode === 'postgres' ? 'off' : config.novels.writeMode
 export const novelChildMirror = createNovelChildWriteSync({
-  mode: config.novels.writeMode,
+  mode: mirrorMode,
   getPool: defaultGetPool,
   orgId: config.novels.orgId,
 })

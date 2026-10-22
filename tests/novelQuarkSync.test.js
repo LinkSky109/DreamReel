@@ -174,15 +174,15 @@ describe('Sprint 31 夸克网盘同步：真实上传协议 + 增量 + 冲突 + 
     await fake.close()
   })
 
-  function makeNovel(title) {
-    const project = createNovelProject({ title })
+  async function makeNovel(title) {
+    const project = await createNovelProject({ title })
     created.push(project.id)
-    ingestNovel(project.id, { sourceType: 'text', text: SAMPLE })
+    await ingestNovel(project.id, { sourceType: 'text', text: SAMPLE })
     return project.id
   }
 
   it('首个同步：真实调用 pre/auth/PUT/finish 并落盘（单分片）', async () => {
-    const id = makeNovel('夸克首次')
+    const id = await makeNovel('夸克首次')
     const total = buildManifest(id, { scope: 'all' }).length
     const report = await syncToQuark(id, { client, root: 'DreamReel', scope: 'all' })
 
@@ -197,7 +197,7 @@ describe('Sprint 31 夸克网盘同步：真实上传协议 + 增量 + 冲突 + 
   })
 
   it('二次同步：内容未变全部跳过（增量去重）', async () => {
-    const id = makeNovel('夸克增量')
+    const id = await makeNovel('夸克增量')
     const total = buildManifest(id, { scope: 'all' }).length
     await syncToQuark(id, { client, scope: 'all' })
     const preBefore = fake.state.pre
@@ -208,7 +208,7 @@ describe('Sprint 31 夸克网盘同步：真实上传协议 + 增量 + 冲突 + 
   })
 
   it('大文件走多分片（按 partSize 切分）', async () => {
-    const id = makeNovel('夸克分片')
+    const id = await makeNovel('夸克分片')
     const bigPath = path.join(novelDir(id), 'assets', 'big.bin')
     fs.writeFileSync(bigPath, crypto.randomBytes(3000))
     const small = new QuarkClient({ cookie: COOKIE, apiBase: endpoints.apiBase, ossUrl: endpoints.ossUrl, partSize: 1024 })
@@ -236,7 +236,7 @@ describe('Sprint 31 夸克网盘同步：真实上传协议 + 增量 + 冲突 + 
   })
 
   it('onConflict=overwrite：远端同名先删除再上传（不产生副本）', async () => {
-    const id = makeNovel('夸克覆盖')
+    const id = await makeNovel('夸克覆盖')
     await syncToQuark(id, { client, scope: 'all' })
     fs.rmSync(path.join(novelDir(id), 'sync'), { recursive: true, force: true }) // 模拟换机器
 
@@ -248,7 +248,7 @@ describe('Sprint 31 夸克网盘同步：真实上传协议 + 增量 + 冲突 + 
   })
 
   it('onConflict=skip：远端已存在则跳过', async () => {
-    const id = makeNovel('夸克跳过')
+    const id = await makeNovel('夸克跳过')
     await syncToQuark(id, { client, scope: 'all' })
     fs.rmSync(path.join(novelDir(id), 'sync'), { recursive: true, force: true })
 
@@ -261,7 +261,7 @@ describe('Sprint 31 夸克网盘同步：真实上传协议 + 增量 + 冲突 + 
   })
 
   it('dry-run 只返回计划、不触发任何上传', async () => {
-    const id = makeNovel('夸克预习')
+    const id = await makeNovel('夸克预习')
     const preBefore = fake.state.pre
     const report = await syncToQuark(id, { client, dryRun: true, scope: 'all' })
     assert.equal(report.dryRun, true)
@@ -270,12 +270,12 @@ describe('Sprint 31 夸克网盘同步：真实上传协议 + 增量 + 冲突 + 
   })
 
   it('未提供 cookie → 如实报错', async () => {
-    const id = makeNovel('夸克无cookie')
+    const id = await makeNovel('夸克无cookie')
     await assert.rejects(() => syncToQuark(id, { cookie: '', scope: 'all' }), /QUARK_COOKIE/)
   })
 
   it('cookie 失效（401）→ 逐文件失败上报，不阻塞', async () => {
-    const id = makeNovel('夸克鉴权')
+    const id = await makeNovel('夸克鉴权')
     const total = buildManifest(id, { scope: 'all' }).length
     const bad = new QuarkClient({ cookie: 'wrong', apiBase: endpoints.apiBase, ossUrl: endpoints.ossUrl })
     const report = await syncToQuark(id, { client: bad, retries: 0, scope: 'all' })

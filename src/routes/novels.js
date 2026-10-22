@@ -2,14 +2,15 @@ import express, { Router } from 'express'
 import { storageService } from '../services/storageService.js'
 import { novelReadService } from '../services/novelReadService.js'
 import { novelChildReadService } from '../services/novelChildReadService.js'
+import { getNovelProjectAsync, listChunksAsync, listCharactersAsync, listEntitiesAsync, listAssetsAsync } from '../services/novelAsyncReadService.js'
+import { writeChild, deleteChildStates } from '../services/novelChildStore.js'
 import {
   createNovelProject,
-  getNovelProject,
   updateNovelProject,
   deleteNovelProject,
 } from '../services/novelProjectService.js'
-import { ingestNovel, listChunks } from '../services/novelChunkService.js'
-import { extractCharacters, listCharacters } from '../services/characterExtractionService.js'
+import { ingestNovel } from '../services/novelChunkService.js'
+import { extractCharacters } from '../services/characterExtractionService.js'
 import { selectCharacterSet } from '../services/characterExtractionService.js'
 import { advanceStage } from '../services/novelProjectService.js'
 import { ensureCards, applyEdits, reviewStats } from '../services/characterCardService.js'
@@ -24,15 +25,17 @@ import {
 } from '../services/characterGrowthService.js'
 import {
   planSeries,
-  checkConsistency,
-  seriesEstimate,
+  checkConsistencyOrAsync,
+  seriesEstimateOrAsync,
 } from '../services/seriesPlannerService.js'
 import { generateEpisodeScript, getEpisodeScript } from '../services/episodeScriptService.js'
+import { getOrGenerateOutline } from '../services/episodeOutlineService.js'
+import { getEpisode } from '../services/novelEpisodeStore.js'
 import { generateEpisodeAssets, getEpisodeAssets } from '../services/episodeAssetService.js'
 import { composeEpisode } from '../services/episodeComposeService.js'
 import { buildManifest, syncToQuark, syncToWebdav, syncNovel, getLedger, getSyncState, resolveScope, SYNC_SCOPES } from '../services/novelSyncService.js'
 import { exportHandoff, importHandoffResult, listHandoff } from '../services/episodeHandoffService.js'
-import { extractWorld, listEntities, listRelations, summarize } from '../services/worldbuildingService.js'
+import { extractWorld, listRelations, summarize } from '../services/worldbuildingService.js'
 import { selectWorldSet } from '../services/worldbuildingService.js'
 import { CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
@@ -49,7 +52,7 @@ import { makeSpeakerId, registerVoiceAsset, deleteVoiceAsset, listVoiceAssets, r
 import { cloneVoice, designVoice } from '../services/volcVoiceApi.js'
 import { getTTSProvider } from '../providers/ttsProviderFactory.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
-import { listAssets, createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, assetStatsFromRows, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
+import { createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStatsAsync, assetStatsFromRows, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
 import { beginRun, cancelRun, isCancelled, finishRun, getRunStatus } from '../services/bulkControl.js'
 import { validateBody } from '../middleware/validate.js'
 import { bulkGenerateAssetsSchema } from '../contracts/assets.js'
@@ -71,11 +74,11 @@ function statusFor(error) {
 }
 
 // 创建小说项目
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const body = req.body || {}
     if (!body.title) return res.status(400).json({ success: false, error: 'title is required' })
-    const project = createNovelProject(body)
+    const project = await createNovelProject(body)
     res.status(201).json({ success: true, data: project })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -84,11 +87,13 @@ router.post('/', (req, res) => {
 
 // 项目列表（附带列表页需要的字数/审校/进度统计）
 const LIST_STAGES = ['source', 'characters', 'world', 'series', 'episodes', 'assets', 'compose']
-function withListStats(project) {
-  const chunks = listChunks(project.id)
-  const characters = listCharacters(project.id)
-  const entities = listEntities(project.id)
-  const review = reviewStats(project.id)
+async function withListStats(project) {
+  const [chunks, characters, entities] = await Promise.all([
+    listChunksAsync(project.id),
+    listCharactersAsync(project.id),
+    listEntitiesAsync(project.id),
+  ])
+  const review = await reviewStats(project.id)
   const stageIndex = Math.max(0, LIST_STAGES.indexOf(project.stage))
   const progress = Math.round(((stageIndex + 1) / LIST_STAGES.length) * 100)
   const status =
@@ -115,16 +120,16 @@ function withListStats(project) {
 router.get('/', async (req, res) => {
   try {
     const projects = await novelReadService.list({ requestId: req.id })
-    res.json({ success: true, data: projects.map(withListStats) })
+    res.json({ success: true, data: await Promise.all(projects.map(withListStats)) })
   } catch (error) {
     res.status(400).json({ success: false, error: error.message })
   }
 })
 
 // 删除项目（db 关联记录 + 所有落盘目录，不可恢复）
-router.delete('/:id', requirePermission(PERMISSIONS.NOVEL_DELETE), (req, res) => {
+router.delete('/:id', requirePermission(PERMISSIONS.NOVEL_DELETE), async (req, res) => {
   try {
-    const data = deleteNovelProject(req.params.id)
+    const data = await deleteNovelProject(req.params.id)
     res.json({ success: true, data })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -135,26 +140,26 @@ router.delete('/:id', requirePermission(PERMISSIONS.NOVEL_DELETE), (req, res) =>
 router.get('/:id', async (req, res) => {
   try {
     const project = await novelReadService.get(req.params.id, { requestId: req.id })
-    res.json({ success: true, data: { ...project, reviewStats: reviewStats(project.id) } })
+    res.json({ success: true, data: { ...project, reviewStats: await reviewStats(project.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
 // 章节段落标记：切换某段是否作为分镜素材
-router.post('/:id/marks/toggle', (req, res) => {
+router.post('/:id/marks/toggle', async (req, res) => {
   try {
     const { chapter, para } = req.body || {}
     if (!Number.isInteger(chapter) || !Number.isInteger(para)) {
       return res.status(400).json({ success: false, error: 'chapter/para 必须是整数' })
     }
-    const project = getNovelProject(req.params.id)
+    const project = await getNovelProjectAsync(req.params.id)
     const marks = Array.isArray(project.marks) ? project.marks : []
     const index = marks.findIndex((mark) => mark.chapter === chapter && mark.para === para)
     const next = index >= 0
       ? marks.filter((_, i) => i !== index)
       : [...marks, { chapter, para, at: new Date().toISOString() }]
-    const updated = updateNovelProject(req.params.id, { marks: next })
+    const updated = await updateNovelProject(req.params.id, { marks: next })
     res.json({ success: true, data: { marks: updated.marks, marked: index < 0 } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -162,21 +167,21 @@ router.post('/:id/marks/toggle', (req, res) => {
 })
 
 // 改编分镜板：由标记段落生成草稿
-router.get('/:id/storyboard', (req, res) => {
+router.get('/:id/storyboard', async (req, res) => {
   try {
-    const project = getNovelProject(req.params.id)
+    const project = await getNovelProjectAsync(req.params.id)
     res.json({ success: true, data: project.storyboard || [] })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
-router.post('/:id/storyboard/from-marks', (req, res) => {
+router.post('/:id/storyboard/from-marks', async (req, res) => {
   try {
-    const project = getNovelProject(req.params.id)
+    const project = await getNovelProjectAsync(req.params.id)
     const marks = Array.isArray(project.marks) ? project.marks : []
     if (!marks.length) return res.status(400).json({ success: false, error: '还没有段落标记，请先在章节里标记分镜素材' })
-    const chunks = new Map(listChunks(req.params.id).map((chunk) => [chunk.index, chunk]))
+    const chunks = new Map((await listChunksAsync(req.params.id)).map((chunk) => [chunk.index, chunk]))
     const existing = new Set((project.storyboard || []).map((shot) => `${shot.chapter}:${shot.para}`))
     const drafts = [...(project.storyboard || [])]
     let created = 0
@@ -201,16 +206,16 @@ router.post('/:id/storyboard/from-marks', (req, res) => {
       })
       created++
     }
-    const updated = updateNovelProject(req.params.id, { storyboard: drafts })
+    const updated = await updateNovelProject(req.params.id, { storyboard: drafts })
     res.json({ success: true, data: { shots: updated.storyboard, created } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
-router.patch('/:id/storyboard/:sid', (req, res) => {
+router.patch('/:id/storyboard/:sid', async (req, res) => {
   try {
-    const project = getNovelProject(req.params.id)
+    const project = await getNovelProjectAsync(req.params.id)
     const shot = (project.storyboard || []).find((item) => item.id === req.params.sid)
     if (!shot) throw new Error('storyboard shot not found')
     const { text, duration, shotType, camera } = req.body || {}
@@ -218,19 +223,19 @@ router.patch('/:id/storyboard/:sid', (req, res) => {
     if (duration !== undefined) shot.duration = Math.max(1, Math.min(60, Number(duration) || 5))
     if (shotType !== undefined) shot.shotType = String(shotType).slice(0, 40)
     if (camera !== undefined) shot.camera = String(camera).slice(0, 40)
-    updateNovelProject(req.params.id, { storyboard: project.storyboard })
+    await updateNovelProject(req.params.id, { storyboard: project.storyboard })
     res.json({ success: true, data: shot })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
-router.delete('/:id/storyboard/:sid', (req, res) => {
+router.delete('/:id/storyboard/:sid', async (req, res) => {
   try {
-    const project = getNovelProject(req.params.id)
+    const project = await getNovelProjectAsync(req.params.id)
     const next = (project.storyboard || []).filter((item) => item.id !== req.params.sid)
     if (next.length === project.storyboard.length) throw new Error('storyboard shot not found')
-    updateNovelProject(req.params.id, { storyboard: next })
+    await updateNovelProject(req.params.id, { storyboard: next })
     res.json({ success: true, data: { removed: 1 } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -240,7 +245,7 @@ router.delete('/:id/storyboard/:sid', (req, res) => {
 // 把分镜草稿送入项目（不传 projectId 则新建项目）
 router.post('/:id/storyboard/import', async (req, res) => {
   try {
-    const novel = getNovelProject(req.params.id)
+    const novel = await getNovelProjectAsync(req.params.id)
     const drafts = novel.storyboard || []
     if (!drafts.length) return res.status(400).json({ success: false, error: '分镜板为空，先标记章节并生成草稿' })
     const { projectId, name } = req.body || {}
@@ -288,10 +293,10 @@ router.post('/:id/storyboard/import', async (req, res) => {
 })
 
 // 设置全书风格（MVP：全书统一）
-router.put('/:id/style', (req, res) => {
+router.put('/:id/style', async (req, res) => {
   try {
     const style = req.body && req.body.style ? req.body.style : req.body
-    const project = updateNovelProject(req.params.id, {
+    const project = await updateNovelProject(req.params.id, {
       style: { scope: 'book', name: style.name || '', description: style.description || '' },
     })
     res.json({ success: true, data: project })
@@ -314,7 +319,7 @@ router.post('/:id/ingest', async (req, res) => {
 // 切片列表（?meta=1 只返回目录信息，避免真本书一次传 10MB 正文）
 router.get('/:id/chunks', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const chunks = await novelChildReadService.list('chunks', req.params.id, { requestId: req.id })
     if (req.query.meta === '1') {
       return res.json({
@@ -329,9 +334,9 @@ router.get('/:id/chunks', async (req, res) => {
 })
 
 // 单章正文（阅读器按需加载）
-router.get('/:id/chunks/:chunkId', (req, res) => {
+router.get('/:id/chunks/:chunkId', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const chunk = storageService.getNovelChunk(req.params.chunkId)
     if (!chunk || chunk.novelId !== req.params.id) throw new Error('chunk not found')
     res.json({ success: true, data: chunk })
@@ -358,8 +363,8 @@ router.post('/:id/extract', async (req, res) => {
       concurrency: optionalClampInt(body.concurrency, 1, 128),
       userId: req.user?.id,
     })
-    ensureCards(req.params.id)
-    res.json({ success: true, data: { provider: result.provider, degraded: /fallback/.test(result.provider), characters: listCharacters(req.params.id) } })
+    await ensureCards(req.params.id)
+    res.json({ success: true, data: { provider: result.provider, degraded: /fallback/.test(result.provider), characters: await listCharactersAsync(req.params.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   } finally {
@@ -368,9 +373,9 @@ router.post('/:id/extract', async (req, res) => {
 })
 
 // 抽取进度（角色/世界观/合并）— 前端轮询展示每个分片状态
-router.get('/:id/extract/status', (req, res) => {
+router.get('/:id/extract/status', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     res.json({ success: true, data: getJobs(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -395,14 +400,14 @@ router.post('/:id/extract-all', async (req, res) => {
       concurrency: optionalClampInt(body.concurrency, 1, 128),
       userId: req.user?.id,
     })
-    ensureCards(req.params.id)
+    await ensureCards(req.params.id)
     res.json({
       success: true,
       data: {
         provider: result.provider,
         degraded: /fallback/.test(result.provider),
-        characters: listCharacters(req.params.id),
-        entities: listEntities(req.params.id),
+        characters: await listCharactersAsync(req.params.id),
+        entities: await listEntitiesAsync(req.params.id),
         summary: summarize(req.params.id),
       },
     })
@@ -416,7 +421,7 @@ router.post('/:id/extract-all', async (req, res) => {
 // 角色列表
 router.get('/:id/characters', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const rows = await novelChildReadService.list('characters', req.params.id, { requestId: req.id })
     res.json({ success: true, data: rows })
   } catch (error) {
@@ -425,10 +430,10 @@ router.get('/:id/characters', async (req, res) => {
 })
 
 // 修订角色（记录 reviewEdits）
-router.patch('/:id/characters/:cid', (req, res) => {
+router.patch('/:id/characters/:cid', async (req, res) => {
   try {
     const { approve, ...patch } = req.body || {}
-    const character = applyEdits(req.params.id, req.params.cid, patch, { approve })
+    const character = await applyEdits(req.params.id, req.params.cid, patch, { approve })
     res.json({ success: true, data: character })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -436,9 +441,9 @@ router.patch('/:id/characters/:cid', (req, res) => {
 })
 
 // 通过角色
-router.post('/:id/characters/:cid/approve', (req, res) => {
+router.post('/:id/characters/:cid/approve', async (req, res) => {
   try {
-    const character = applyEdits(req.params.id, req.params.cid, {}, { approve: true })
+    const character = await applyEdits(req.params.id, req.params.cid, {}, { approve: true })
     res.json({ success: true, data: character })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -446,7 +451,7 @@ router.post('/:id/characters/:cid/approve', (req, res) => {
 })
 
 // 审校状态 + 备注（角色）
-router.patch('/:id/characters/:cid/review', (req, res) => {
+router.patch('/:id/characters/:cid/review', async (req, res) => {
   try {
     const { status, note } = req.body || {}
     if (status && !['pending', 'approved', 'revision'].includes(status)) {
@@ -457,7 +462,7 @@ router.patch('/:id/characters/:cid/review', (req, res) => {
     if (status) character.status = status
     if (note !== undefined) character.note = String(note).slice(0, 2000)
     character.updatedAt = new Date().toISOString()
-    storageService.updateNovelCharacter(character)
+    await writeChild('characters', character)
     res.json({ success: true, data: character })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -465,19 +470,19 @@ router.patch('/:id/characters/:cid/review', (req, res) => {
 })
 
 // 一键确认全部角色与世界观
-router.post('/:id/review/confirm-all', (req, res) => {
+router.post('/:id/review/confirm-all', async (req, res) => {
   try {
     const now = new Date().toISOString()
-    const characters = listCharacters(req.params.id)
+    const characters = await listCharactersAsync(req.params.id)
     for (const character of characters) {
       character.status = 'approved'
       character.updatedAt = now
-      storageService.updateNovelCharacter(character)
+      await writeChild('characters', character)
     }
-    const entities = listEntities(req.params.id)
+    const entities = await listEntitiesAsync(req.params.id)
     for (const entity of entities) {
       entity.status = 'confirmed'
-      storageService.updateWorldEntity(entity)
+      await writeChild('entities', entity)
     }
     res.json({ success: true, data: { characters: characters.length, entities: entities.length } })
   } catch (error) {
@@ -486,7 +491,7 @@ router.post('/:id/review/confirm-all', (req, res) => {
 })
 
 // 批量审校（角色 / 世界观）
-router.post('/:id/review/bulk', (req, res) => {
+router.post('/:id/review/bulk', async (req, res) => {
   try {
     const { kind = 'characters', ids, status, note } = req.body || {}
     if (!Array.isArray(ids) || !ids.length) {
@@ -505,9 +510,9 @@ router.post('/:id/review/bulk', (req, res) => {
       if (note !== undefined) item.note = String(note).slice(0, 2000)
       if (isCharacter) {
         item.updatedAt = new Date().toISOString()
-        storageService.updateNovelCharacter(item)
+        await writeChild('characters', item)
       } else {
-        storageService.updateWorldEntity(item)
+        await writeChild('entities', item)
       }
       updated++
     }
@@ -518,10 +523,10 @@ router.post('/:id/review/bulk', (req, res) => {
 })
 
 // 审核统计（修订率）
-router.get('/:id/review-stats', (req, res) => {
+router.get('/:id/review-stats', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
-    res.json({ success: true, data: reviewStats(req.params.id) })
+    await getNovelProjectAsync(req.params.id)
+    res.json({ success: true, data: await reviewStats(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -540,7 +545,7 @@ router.post('/:id/style/generate', async (req, res) => {
 // 角色成长状态：列表
 router.get('/:id/characters/:cid/states', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const rows = await novelChildReadService.list('states', req.params.id, {
       requestId: req.id,
       characterId: req.params.cid,
@@ -552,9 +557,9 @@ router.get('/:id/characters/:cid/states', async (req, res) => {
 })
 
 // 角色成长状态：追加
-router.post('/:id/characters/:cid/states', (req, res) => {
+router.post('/:id/characters/:cid/states', async (req, res) => {
   try {
-    const state = addState(req.params.id, req.params.cid, req.body || {})
+    const state = await addState(req.params.id, req.params.cid, req.body || {})
     res.status(201).json({ success: true, data: state })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -564,7 +569,7 @@ router.post('/:id/characters/:cid/states', (req, res) => {
 // 形象时间线（全书，按角色分组）
 router.get('/:id/timeline', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const [chars, states] = await Promise.all([
       novelChildReadService.list('characters', req.params.id, { requestId: req.id }),
       novelChildReadService.list('states', req.params.id, { requestId: req.id }),
@@ -576,9 +581,9 @@ router.get('/:id/timeline', async (req, res) => {
 })
 
 // 手动新增/更新某角色某集形象（episodeNo 为锚点）
-router.put('/:id/characters/:cid/states/:episodeNo', (req, res) => {
+router.put('/:id/characters/:cid/states/:episodeNo', async (req, res) => {
   try {
-    const state = upsertState(req.params.id, req.params.cid, Number(req.params.episodeNo), req.body || {}, { source: 'manual' })
+    const state = await upsertState(req.params.id, req.params.cid, Number(req.params.episodeNo), req.body || {}, { source: 'manual' })
     res.json({ success: true, data: state })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -586,9 +591,9 @@ router.put('/:id/characters/:cid/states/:episodeNo', (req, res) => {
 })
 
 // 删除某角色某集形象
-router.delete('/:id/characters/:cid/states/:episodeNo', (req, res) => {
+router.delete('/:id/characters/:cid/states/:episodeNo', async (req, res) => {
   try {
-    const n = storageService.deleteNovelCharacterStates(req.params.id, req.params.cid, Number(req.params.episodeNo))
+    const n = await deleteChildStates(req.params.id, req.params.cid, Number(req.params.episodeNo))
     res.json({ success: true, data: { removed: n } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -607,13 +612,13 @@ router.post('/:id/episodes/:eid/states', async (req, res) => {
 })
 
 // 查看某一集各角色形象（含回退：取 ≤ 该集的最近状态）
-router.get('/:id/episodes/:eid/states', (req, res) => {
+router.get('/:id/episodes/:eid/states', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
-    const ep = storageService.getEpisode(req.params.eid)
+    await getNovelProjectAsync(req.params.id)
+    const ep = await getEpisode(req.params.id, req.params.eid)
     if (!ep || ep.novelId !== req.params.id) throw new Error(`episode not found: ${req.params.eid}`)
     const episodeNo = Number(ep.episodeNo ?? (ep.chapterIndex ?? 0) + 1)
-    const chars = listCharacters(req.params.id).filter((c) => c.name)
+    const chars = (await listCharactersAsync(req.params.id)).filter((c) => c.name)
     const items = chars
       .map((c) => {
         const exact = listStates(req.params.id, c.id).find((s) => Number(s.episodeNo) === episodeNo)
@@ -631,25 +636,25 @@ router.get('/:id/episodes/:eid/states', (req, res) => {
 
 // 规划：章节 → 集 → 季
 // 角色音色映射（可自定义；支持任意音色 ID，如声音复刻的 S_xxx）
-router.get('/:id/voices', (req, res) => {
+router.get('/:id/voices', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
-    res.json({ success: true, data: listVoiceAssignments(req.params.id) })
+    await getNovelProjectAsync(req.params.id)
+    res.json({ success: true, data: await listVoiceAssignments(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
-router.put('/:id/voices', (req, res) => {
+router.put('/:id/voices', async (req, res) => {
   try {
     const { speaker, voice } = req.body || {}
-    res.json({ success: true, data: setVoice(req.params.id, speaker, voice) })
+    res.json({ success: true, data: await setVoice(req.params.id, speaker, voice) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
-router.post('/:id/voices/reset', (req, res) => {
+router.post('/:id/voices/reset', async (req, res) => {
   try {
-    res.json({ success: true, data: resetVoices(req.params.id) })
+    res.json({ success: true, data: await resetVoices(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -659,9 +664,9 @@ router.post('/:id/voices/reset', (req, res) => {
 const jsonLarge = express.json({ limit: '20mb' }) // 音频样本 base64 可能 >10MB
 
 // 列出该作品可用的自建音色
-router.get('/:id/voices/library', (req, res) => {
+router.get('/:id/voices/library', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     res.json({ success: true, data: { voices: listVoiceAssets(req.params.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -671,7 +676,7 @@ router.get('/:id/voices/library', (req, res) => {
 // 声音复刻：上传音频样本 → 注册自定义音色（可选直接指派给某角色）
 router.post('/:id/voices/clone', jsonLarge, async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const { name, audioBase64, format = 'mp3', text = '', language = 0, demoText = '', speakerId, assignTo, gender = '' } = req.body || {}
     if (!name) return res.status(400).json({ success: false, error: '音色名称 name 必填' })
     if (!audioBase64) return res.status(400).json({ success: false, error: '音频样本 audioBase64 必填' })
@@ -688,7 +693,7 @@ router.post('/:id/voices/clone', jsonLarge, async (req, res) => {
       demoAudioUrl: r.demoAudio || '',
       note: text ? `参考文本：${String(text).slice(0, 40)}` : '',
     })
-    const map = assignTo ? setVoice(req.params.id, assignTo, r.speakerId) : undefined
+    const map = assignTo ? await setVoice(req.params.id, assignTo, r.speakerId) : undefined
     res.status(201).json({ success: true, data: { voice: asset, map } })
   } catch (error) {
     res.status(400).json({ success: false, error: error.message })
@@ -698,7 +703,7 @@ router.post('/:id/voices/clone', jsonLarge, async (req, res) => {
 // 音色设计：文本/图片提示 → 生成音色试听（需已购买 speaker_id）
 router.post('/:id/voices/design', jsonLarge, async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const { name, speakerId, textPrompt, text, imageBase64, language = 0, assignTo, gender = '' } = req.body || {}
     if (!name) return res.status(400).json({ success: false, error: '音色名称 name 必填' })
     const r = await designVoice({ speakerId, text: text || '这是一段音色试听文本。', textPrompt, imageBase64, language })
@@ -713,7 +718,7 @@ router.post('/:id/voices/design', jsonLarge, async (req, res) => {
       demoAudioUrl: r.demoAudio || '',
       note: textPrompt ? `设计描述：${String(textPrompt).slice(0, 60)}` : '',
     })
-    const map = assignTo ? setVoice(req.params.id, assignTo, r.speakerId) : undefined
+    const map = assignTo ? await setVoice(req.params.id, assignTo, r.speakerId) : undefined
     res.status(201).json({ success: true, data: { voice: asset, map } })
   } catch (error) {
     res.status(400).json({ success: false, error: error.message })
@@ -723,7 +728,7 @@ router.post('/:id/voices/design', jsonLarge, async (req, res) => {
 // 试听：用指定音色合成一小段（预设或自建音色均可）
 router.post('/:id/voices/preview', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const { voice, text } = req.body || {}
     if (!voice) return res.status(400).json({ success: false, error: 'voice 必填' })
     const provider = getTTSProvider()
@@ -740,7 +745,7 @@ router.post('/:id/voices/preview', async (req, res) => {
 })
 
 // 删除自建音色
-router.delete('/:id/voices/:voiceId', (req, res) => {
+router.delete('/:id/voices/:voiceId', async (req, res) => {
   try {
     const asset = deleteVoiceAsset(req.params.voiceId)
     res.json({ success: true, data: { removed: asset } })
@@ -750,19 +755,28 @@ router.delete('/:id/voices/:voiceId', (req, res) => {
 })
 
 // 分季分集时长估算（正文可支撑 vs 已规划）
-router.get('/:id/series/estimate', (req, res) => {
+router.get('/:id/series/estimate', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
-    res.json({ success: true, data: seriesEstimate(req.params.id) })
+    await getNovelProjectAsync(req.params.id)
+    res.json({ success: true, data: await seriesEstimateOrAsync(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
-router.post('/:id/series/plan', (req, res) => {
+router.post('/:id/series/plan', async (req, res) => {
   try {
-    const { episodeSeconds, episodesPerSeason, charsPerSecond, maxChapters } = req.body || {}
-    const result = planSeries(req.params.id, { episodeSeconds, episodesPerSeason, charsPerSecond, maxChapters })
+    const body = req.body || {}
+    const result = await planSeries(req.params.id, {
+      episodeSeconds: body.episodeSeconds,
+      episodesPerSeason: body.episodesPerSeason,
+      charsPerSecond: body.charsPerSecond,
+      maxChapters: body.maxChapters,
+      tolerance: body.tolerance,
+      useLLM: body.useLLM,
+      provider: body.provider,
+      force: body.force,
+    })
     res.json({ success: true, data: result })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -772,7 +786,7 @@ router.post('/:id/series/plan', (req, res) => {
 // 季列表
 router.get('/:id/seasons', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const rows = await novelChildReadService.list('seasons', req.params.id, { requestId: req.id })
     res.json({ success: true, data: rows })
   } catch (error) {
@@ -781,9 +795,9 @@ router.get('/:id/seasons', async (req, res) => {
 })
 
 // 本季「设定图子集」：一季真正用得到的设定图（分镜已引用 + 本季正文出现的角色/实体）
-router.get('/:id/seasons/:sid/assets', (req, res) => {
+router.get('/:id/seasons/:sid/assets', async (req, res) => {
   try {
-    res.json({ success: true, data: seasonAssetSubset(req.params.id, req.params.sid) })
+    res.json({ success: true, data: await seasonAssetSubset(req.params.id, req.params.sid) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -824,7 +838,7 @@ router.post('/:id/seasons/:sid/bulk', async (req, res) => {
 // 集列表（可按 seasonId 过滤）
 router.get('/:id/episodes', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const rows = await novelChildReadService.list('episodes', req.params.id, {
       requestId: req.id,
       seasonId: req.query.seasonId,
@@ -846,9 +860,9 @@ router.post('/:id/episodes/:eid/script', async (req, res) => {
 })
 
 // 读取单集剧本
-router.get('/:id/episodes/:eid/script', (req, res) => {
+router.get('/:id/episodes/:eid/script', async (req, res) => {
   try {
-    const screenplay = getEpisodeScript(req.params.id, req.params.eid)
+    const screenplay = await getEpisodeScript(req.params.id, req.params.eid)
     if (!screenplay) return res.status(404).json({ success: false, error: 'script not generated' })
     res.json({ success: true, data: screenplay })
   } catch (error) {
@@ -856,11 +870,23 @@ router.get('/:id/episodes/:eid/script', (req, res) => {
   }
 })
 
-// 一致性校验
-router.get('/:id/consistency', (req, res) => {
+// 分集大纲（懒生成：首次请求时生成并缓存）
+router.get('/:id/episodes/:eid/outline', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
-    res.json({ success: true, data: checkConsistency(req.params.id) })
+    const outline = await getOrGenerateOutline(req.params.id, req.params.eid, {
+      force: req.query.force === '1' || req.query.force === 'true',
+    })
+    res.json({ success: true, data: outline })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+})
+
+// 一致性校验
+router.get('/:id/consistency', async (req, res) => {
+  try {
+    await getNovelProjectAsync(req.params.id)
+    res.json({ success: true, data: await checkConsistencyOrAsync(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -879,9 +905,9 @@ router.post('/:id/episodes/:eid/assets', async (req, res) => {
 })
 
 // 读取单集资产
-router.get('/:id/episodes/:eid/assets', (req, res) => {
+router.get('/:id/episodes/:eid/assets', async (req, res) => {
   try {
-    const assets = getEpisodeAssets(req.params.id, req.params.eid)
+    const assets = await getEpisodeAssets(req.params.id, req.params.eid)
     if (!assets) return res.status(404).json({ success: false, error: 'assets not generated' })
     res.json({ success: true, data: assets })
   } catch (error) {
@@ -902,7 +928,7 @@ router.post('/:id/episodes/:eid/compose', async (req, res) => {
 })
 
 // 剧集包清单（?scope=deliverables|media|all）
-router.get('/:id/manifest', (req, res) => {
+router.get('/:id/manifest', async (req, res) => {
   try {
     const scope = resolveScope(req.query.scope)
     const files = buildManifest(req.params.id, { scope: scope.key }).map((f) => ({ rel: f.rel, size: f.size }))
@@ -968,9 +994,9 @@ router.get('/:id/sync/scopes', (_req, res) => {
 })
 
 // 同步历史 + 增量状态（供 UI 展示上次同步）
-router.get('/:id/sync/ledger', (req, res) => {
+router.get('/:id/sync/ledger', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     res.json({ success: true, data: { entries: getLedger(req.params.id).entries, ...getSyncState(req.params.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -990,10 +1016,10 @@ router.post('/:id/episodes/:eid/handoff', async (req, res) => {
 })
 
 // 回传外部产物（mp4）到项目视频目录
-router.post('/:id/episodes/:eid/handoff/import', (req, res) => {
+router.post('/:id/episodes/:eid/handoff/import', async (req, res) => {
   try {
     const { filePath } = req.body || {}
-    const data = importHandoffResult(req.params.id, req.params.eid, filePath)
+    const data = await importHandoffResult(req.params.id, req.params.eid, filePath)
     res.json({ success: true, data })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -1001,9 +1027,9 @@ router.post('/:id/episodes/:eid/handoff/import', (req, res) => {
 })
 
 // 交接列表
-router.get('/:id/handoff', (req, res) => {
+router.get('/:id/handoff', async (req, res) => {
   try {
-    res.json({ success: true, data: listHandoff(req.params.id) })
+    res.json({ success: true, data: await listHandoff(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1012,28 +1038,28 @@ router.get('/:id/handoff', (req, res) => {
 // ===== 分镜级外部生成交接（Sprint 29，契约见 ai/docs/external-video-handoff-spec.md） =====
 
 // 分镜列表（含参考图/是否已回传）
-router.get('/:id/episodes/:eid/shots', (req, res) => {
+router.get('/:id/episodes/:eid/shots', async (req, res) => {
   try {
-    res.json({ success: true, data: listShots(req.params.id, req.params.eid) })
+    res.json({ success: true, data: await listShots(req.params.id, req.params.eid) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
 // 按分镜文本自动匹配设定图
-router.post('/:id/episodes/:eid/shots/auto-refs', (req, res) => {
+router.post('/:id/episodes/:eid/shots/auto-refs', async (req, res) => {
   try {
-    res.json({ success: true, data: autoAttachReferences(req.params.id, req.params.eid, req.body || {}) })
+    res.json({ success: true, data: await autoAttachReferences(req.params.id, req.params.eid, req.body || {}) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
 // 手动设置某分镜参考图
-router.put('/:id/episodes/:eid/shots/:index/refs', (req, res) => {
+router.put('/:id/episodes/:eid/shots/:index/refs', async (req, res) => {
   try {
     const { referenceImages } = req.body || {}
-    res.json({ success: true, data: setShotReferences(req.params.id, req.params.eid, req.params.index, referenceImages) })
+    res.json({ success: true, data: await setShotReferences(req.params.id, req.params.eid, req.params.index, referenceImages) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1050,10 +1076,10 @@ router.post('/:id/episodes/:eid/handoff/shots', async (req, res) => {
 })
 
 // 导入回传视频（扫描回传目录 → 写回 shot.videoUrl）
-router.post('/:id/episodes/:eid/shots/import', (req, res) => {
+router.post('/:id/episodes/:eid/shots/import', async (req, res) => {
   try {
     const { dir } = req.body || {}
-    res.json({ success: true, data: importShotVideos(req.params.id, req.params.eid, { dir }) })
+    res.json({ success: true, data: await importShotVideos(req.params.id, req.params.eid, { dir }) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1087,9 +1113,9 @@ router.post('/:id/world/extract', async (req, res) => {
 })
 
 // 世界观概览
-router.get('/:id/world', (req, res) => {
+router.get('/:id/world', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     res.json({ success: true, data: summarize(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -1099,7 +1125,7 @@ router.get('/:id/world', (req, res) => {
 // 实体列表（可按 type 过滤）
 router.get('/:id/world/entities', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     let rows = await novelChildReadService.list('entities', req.params.id, { requestId: req.id })
     if (req.query.type) rows = rows.filter((e) => e.type === req.query.type)
     res.json({ success: true, data: rows })
@@ -1109,9 +1135,9 @@ router.get('/:id/world/entities', async (req, res) => {
 })
 
 // 关系列表
-router.get('/:id/world/relations', (req, res) => {
+router.get('/:id/world/relations', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     res.json({ success: true, data: listRelations(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -1120,9 +1146,9 @@ router.get('/:id/world/relations', (req, res) => {
 
 // ===== 该小说的模型配置（供应商/模型，抽取按 小说→用户→全局→Mock 解析） =====
 
-router.get('/:id/model-config', (req, res) => {
+router.get('/:id/model-config', async (req, res) => {
   try {
-    const project = getNovelProject(req.params.id)
+    const project = await getNovelProjectAsync(req.params.id)
     const pref = project.providerPreferences?.llm || null
     res.json({
       success: true,
@@ -1133,9 +1159,9 @@ router.get('/:id/model-config', (req, res) => {
   }
 })
 
-router.put('/:id/model-config', (req, res) => {
+router.put('/:id/model-config', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const body = req.body || {}
     const llm = body.llm
     let next = null
@@ -1147,8 +1173,8 @@ router.put('/:id/model-config', (req, res) => {
       // 只接受 provider/model；不接受 config（避免 baseUrl 覆盖 + 全局密钥外泄）
       next = { provider, model: llm.model ? String(llm.model) : null, updatedAt: new Date().toISOString() }
     }
-    const providerPreferences = { ...(getNovelProject(req.params.id).providerPreferences || {}), llm: next, updatedAt: new Date().toISOString() }
-    const updated = updateNovelProject(req.params.id, { providerPreferences })
+    const providerPreferences = { ...((await getNovelProjectAsync(req.params.id)).providerPreferences || {}), llm: next, updatedAt: new Date().toISOString() }
+    const updated = await updateNovelProject(req.params.id, { providerPreferences })
     res.json({ success: true, data: { preferences: updated.providerPreferences, resolved: resolveLLMPreference(next, req.user?.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -1157,7 +1183,7 @@ router.put('/:id/model-config', (req, res) => {
 
 router.post('/:id/model-config/test', async (req, res) => {
   try {
-    const project = getNovelProject(req.params.id)
+    const project = await getNovelProjectAsync(req.params.id)
     const body = req.body || {}
     let pref = project.providerPreferences?.llm || null
     if (body.llm !== undefined) {
@@ -1209,16 +1235,16 @@ router.get('/:id/assets', async (req, res) => {
 // 从角色/世界观导入候选草稿（不生成图）
 // 设定图批量出图（分批、限并发、可续跑）：前端循环调用直到 remaining=0
 // 归一化设定图：按名称重绑 sourceId 到当前角色/实体；泛名/重名加类别前缀
-router.post('/:id/assets/normalize', (req, res) => {
+router.post('/:id/assets/normalize', async (req, res) => {
   try {
-    res.json({ success: true, data: normalizeAssets(req.params.id) })
+    res.json({ success: true, data: await normalizeAssets(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
 // 停止批量出图（当前批次最多再完成并发数的少量图）
-router.post('/:id/assets/bulk-cancel', (req, res) => {
+router.post('/:id/assets/bulk-cancel', async (req, res) => {
   try {
     const run = cancelRun(req.params.id)
     res.json({ success: true, data: { cancelled: true, cancelledAt: run.cancelledAt } })
@@ -1228,7 +1254,7 @@ router.post('/:id/assets/bulk-cancel', (req, res) => {
 })
 
 // 批量出图状态
-router.get('/:id/assets/bulk-status', (req, res) => {
+router.get('/:id/assets/bulk-status', async (req, res) => {
   try {
     res.json({ success: true, data: getRunStatus(req.params.id) })
   } catch (error) {
@@ -1259,21 +1285,21 @@ router.post('/:id/assets/bulk-generate', validateBody(bulkGenerateAssetsSchema),
   }
 })
 
-router.post('/:id/assets/suggest', (req, res) => {
+router.post('/:id/assets/suggest', async (req, res) => {
   try {
     const { categories, stages, maxStages } = req.body || {}
-    const created = suggestAssets(req.params.id, { categories, stages, maxStages })
-    res.json({ success: true, data: { created: created.length, assets: listAssets(req.params.id), stats: assetStats(req.params.id) } })
+    const created = await suggestAssets(req.params.id, { categories, stages, maxStages })
+    res.json({ success: true, data: { created: created.length, assets: await listAssetsAsync(req.params.id), stats: await assetStatsAsync(req.params.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
 // 手动新增设定图
-router.post('/:id/assets', (req, res) => {
+router.post('/:id/assets', async (req, res) => {
   try {
     const { category, name, prompt } = req.body || {}
-    const asset = createAsset(req.params.id, { category, name, prompt, source: 'manual' })
+    const asset = await createAsset(req.params.id, { category, name, prompt, source: 'manual' })
     res.status(201).json({ success: true, data: asset })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -1281,18 +1307,18 @@ router.post('/:id/assets', (req, res) => {
 })
 
 // 编辑
-router.patch('/:id/assets/:aid', (req, res) => {
+router.patch('/:id/assets/:aid', async (req, res) => {
   try {
-    res.json({ success: true, data: updateAsset(req.params.id, req.params.aid, req.body || {}) })
+    res.json({ success: true, data: await updateAsset(req.params.id, req.params.aid, req.body || {}) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
 // 删除
-router.delete('/:id/assets/:aid', (req, res) => {
+router.delete('/:id/assets/:aid', async (req, res) => {
   try {
-    res.json({ success: true, data: deleteAsset(req.params.id, req.params.aid) })
+    res.json({ success: true, data: await deleteAsset(req.params.id, req.params.aid) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1311,9 +1337,9 @@ router.post('/:id/assets/:aid/generate', async (req, res) => {
 
 // ===== 抽取 schema（供前端渲染角色卡/世界观类型与属性标签） =====
 
-router.get('/:id/schema', (req, res) => {
+router.get('/:id/schema', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     res.json({
       success: true,
       data: {
@@ -1332,9 +1358,9 @@ router.get('/:id/schema', (req, res) => {
 // ===== 阶段推进 + 备选/选定（Sprint 26） =====
 
 // 推进阶段（进入下一阶段后，之前阶段锁定）
-router.post('/:id/advance', (req, res) => {
+router.post('/:id/advance', async (req, res) => {
   try {
-    const project = advanceStage(req.params.id, (req.body || {}).to)
+    const project = await advanceStage(req.params.id, (req.body || {}).to)
     res.json({ success: true, data: { stage: project.stage } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -1344,25 +1370,25 @@ router.post('/:id/advance', (req, res) => {
 // 角色备选集合
 router.get('/:id/characters/sets', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const rows = await novelChildReadService.listSets('characterSets', req.params.id, { requestId: req.id })
     res.json({ success: true, data: rows })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
-router.post('/:id/characters/select', (req, res) => {
+router.post('/:id/characters/select', async (req, res) => {
   try {
     const { setId } = req.body || {}
     if (!setId) return res.status(400).json({ success: false, error: 'setId required' })
-    res.json({ success: true, data: selectCharacterSet(req.params.id, setId) })
+    res.json({ success: true, data: await selectCharacterSet(req.params.id, setId) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
 
 // 审校状态 + 备注（世界观实体）
-router.patch('/:id/world/entities/:eid/review', (req, res) => {
+router.patch('/:id/world/entities/:eid/review', async (req, res) => {
   try {
     const { status, note } = req.body || {}
     if (status && !['pending', 'confirmed', 'revision'].includes(status)) {
@@ -1372,7 +1398,7 @@ router.patch('/:id/world/entities/:eid/review', (req, res) => {
     if (!entity || entity.novelId !== req.params.id) throw new Error('world entity not found')
     if (status) entity.status = status
     if (note !== undefined) entity.note = String(note).slice(0, 2000)
-    storageService.updateWorldEntity(entity)
+    await writeChild('entities', entity)
     res.json({ success: true, data: entity })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -1382,18 +1408,18 @@ router.patch('/:id/world/entities/:eid/review', (req, res) => {
 // 世界观备选集合
 router.get('/:id/world/sets', async (req, res) => {
   try {
-    getNovelProject(req.params.id)
+    await getNovelProjectAsync(req.params.id)
     const rows = await novelChildReadService.listSets('worldSets', req.params.id, { requestId: req.id })
     res.json({ success: true, data: rows })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
-router.post('/:id/world/select', (req, res) => {
+router.post('/:id/world/select', async (req, res) => {
   try {
     const { setId } = req.body || {}
     if (!setId) return res.status(400).json({ success: false, error: 'setId required' })
-    res.json({ success: true, data: selectWorldSet(req.params.id, setId) })
+    res.json({ success: true, data: await selectWorldSet(req.params.id, setId) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

@@ -1,12 +1,13 @@
 import logger from '../utils/logger.js'
 import { generateId } from '../utils/idGenerator.js'
 import { storageService } from './storageService.js'
+import { writeChild, writeChildren } from './novelChildStore.js'
 import { NovelCharacter, CARD_SCHEMA, CARD_FIELDS, CARD_GROUPS, CHARACTER_KINDS } from '../models/NovelCharacter.js'
 import { getLLMProviderByPref } from '../providers/llmProviderFactory.js'
 import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
-import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
-import { listChunks } from './novelChunkService.js'
+import { updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
+import { getNovelProjectAsync, listChunksAsync } from './novelAsyncReadService.js'
 import { runGroups } from './extractionStatus.js'
 import { generateJSONWithRetry } from '../utils/llmRetry.js'
 
@@ -203,9 +204,9 @@ async function llmExtractAll(llm, useChunks, { chunkSize, maxChars, concurrency,
  * @param {object} opts { provider?, maxChapters?, chunkSize?, maxChars?, minFreq?, projectId?, userId? }
  */
 export async function extractCharacters(novelId, opts = {}) {
-  const project = getNovelProject(novelId)
+  const project = await getNovelProjectAsync(novelId)
   assertEditable(project, 'characters')
-  const chunks = listChunks(novelId)
+  const chunks = await listChunksAsync(novelId)
   if (!chunks.length) throw new Error('尚未摄取正文，请先 ingest')
 
   const maxChapters = clampInt(opts.maxChapters, chunks.length, 1, 100000)
@@ -241,24 +242,26 @@ export async function extractCharacters(novelId, opts = {}) {
   // 不删除历史角色：集合按 id 引用稳定记录；删除会让旧集合全部悬空（选中即显示空）。
   // 每次抽取新增记录 + 新建集合并选中，历史备选集仍可回看。
 
-  const saved = characters.map((c) =>
-    storageService.createNovelCharacter(
-      new NovelCharacter({
-        novelId,
-        name: c.name,
-        kind: c.kind,
-        aliases: c.aliases,
-        description: c.description,
-        card: c.card,
-        provider,
-      })
+  const saved = await writeChildren(
+    'characters',
+    characters.map(
+      (c) =>
+        new NovelCharacter({
+          novelId,
+          name: c.name,
+          kind: c.kind,
+          aliases: c.aliases,
+          description: c.description,
+          card: c.card,
+          provider,
+        })
     )
   )
 
   writeNovelFile(novelId, 'characters/characters.json', JSON.stringify(saved, null, 2))
 
   // 备选集合：每次抽取生成一个候选集合，默认选中最新
-  const set = storageService.createCharacterSet({
+  const set = await writeChild('characterSets', {
     id: generateId(),
     novelId,
     provider,
@@ -266,7 +269,7 @@ export async function extractCharacters(novelId, opts = {}) {
     characterIds: saved.map((c) => c.id),
   })
 
-  const updated = updateNovelProject(novelId, {
+  const updated = await updateNovelProject(novelId, {
     status: 'extracted',
     counts: { ...project.counts, characters: saved.length },
     characterSets: [...(project.characterSets || []), set.id],
@@ -277,8 +280,8 @@ export async function extractCharacters(novelId, opts = {}) {
 }
 
 /** 选定某个角色集合为当前生效 */
-export function selectCharacterSet(novelId, setId) {
-  const project = getNovelProject(novelId)
+export async function selectCharacterSet(novelId, setId) {
+  const project = await getNovelProjectAsync(novelId)
   assertEditable(project, 'characters')
   const set = storageService.getCharacterSet(setId)
   if (!set || set.novelId !== novelId) throw new Error(`character set not found: ${setId}`)
