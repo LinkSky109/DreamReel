@@ -11,7 +11,7 @@
 | LLM 供应商 | 复用现有 `llmProviderFactory`（项目级 → 用户级 → 全局 → Mock 四级回退） |
 | 分季合并 | 只允许**相邻弧**合并，保持剧情连贯合理 |
 | 存储冗余 | **去掉** `novelChunks.text` 与 `episodes/*.txt` 的重复，改为**偏移量**切分 |
-| 当前项目 | **重建** 8378 集 |
+| 当前项目 | **重建**（最终 8496 集） |
 | 兼容性 | 现有功能必须继续可用（API 形状、旧数据、测试） |
 
 ## 0.1 实施结果（2026-10-21）
@@ -34,12 +34,12 @@
 常用命令：
 
 ```bash
-# 重要：重建前必须停止 Web 服务。
-# 运行中的服务会把内存里的旧数据写回 db.json，导致 JSON 与 PG 的集 ID 不一致。
-# 重建脚本检测到 PORT 被占用时会拒绝执行（确需跳过用 --force，但不推荐）。
+# 重要：重建前先停止旧版本 Web 实例，避免与服务内规划并发。
+# 小说域只写 PostgreSQL；重建脚本检测到 PORT 被占用时会拒绝执行（确需跳过用 --force，但不推荐）。
+# 数据备份以 pg_dump / PITR 为准。
 
-# 重建（破坏性：自动备份 db.json、归档旧 episodes/assets/handoff/sync）
-npm run series:rebuild -- --novel <novelId> --sync-pg --advance
+# 重建（破坏性：写 PG 事务，归档旧 episodes/assets/handoff/sync 媒体）
+npm run series:rebuild -- --novel <novelId> --advance
 
 # 只校验
 npm run series:verify -- <novelId> [--strict]
@@ -47,20 +47,22 @@ npm run series:verify -- <novelId> [--strict]
 
 ### 故障排查：`episode not found`
 
-前端列表读 PostgreSQL，剧本/分镜/资产/合成等写操作按 JSON `seriesEpisodes` 查找。
-若两者集 ID 不一致，会出现「列表能看到某集，但点操作报 `episode not found`」。
+前端与后端都只读 PostgreSQL。若仍出现「列表能看到某集，但点操作报 `episode not found`」，
+说明该集记录与资产/剧本引用的 `id` 或 `logical_key` 不一致（常见于旧数据或中断的重建）。
 
 处理：
 
 ```bash
-# 1) 停止 Web 服务
-# 2) 用缓存重建并同步 PG（不会重新调用 LLM）
-npm run series:rebuild -- --novel <novelId> --sync-pg --advance
-# 3) 重启服务
+# 1) 停止旧版本 Web 实例
+# 2) 检查该小说的 PG 记录与 logical_key
+npm run series:verify -- <novelId> [--strict]
+# 3) 用缓存重建（不会重新调用 LLM；事务内写 PG）
+npm run series:rebuild -- --novel <novelId> --advance
+# 4) 重启服务
 ```
 
-本次已修复并验证：JSON 与 PG 均为 **33 季 / 8496 集**，集 ID 集合完全一致；
-单集剧本、分镜、资产查询、一致性校验接口均返回正常。
+当前基线：《殖装》**33 季 / 8496 集**，`logical_key` 完整，单集剧本、分镜、资产查询、
+一致性校验接口均返回正常。
 
 > 重建会清空该小说的 `novelCharacterStates`；如需角色形象时间线，随后运行
 > `node scripts/backfill-character-states.js <novelId> [--all]`。
@@ -84,7 +86,7 @@ npm run series:rebuild -- --novel <novelId> --sync-pg --advance
 2. **兼容优先**：新增能力全部**加性**；旧字段与旧读路径保留，旧 `sourceFile` 数据可继续读。
 3. **懒生成**：分集大纲、分镜在需要时才调用 LLM；季规划一次性生成并缓存。
 4. **幂等可续跑**：章摘要/弧线/大纲均落盘缓存，按 hash 校验，支持中断续跑与 `--force`。
-5. **可回滚**：重建前备份 `db.json`，旧媒体归档到 `_archive/<ts>/`，不直接删除。
+5. **可回滚**：重建前做 `pg_dump`/PITR 备份，旧媒体归档到 `_archive/<ts>/`，不直接删除。
 6. **时长硬约束**：85–95s 为验收线；对数学上无解的章节（死区）记录例外并最小化偏差。
 7. **不冲突**：实施只改 `src/services`、`src/models`、`src/utils`、`scripts`、`tests`；`src/routes`、`src/db`、`src/repositories`、`web/` 需与对应会话协调后再动。
 
@@ -258,13 +260,13 @@ cleaned.txt + chunks(offsets)
 
 `scripts/rebuild-series.js --novel 47dd19996161517b --provider project`：
 
-1. 备份 `storage/data/db.json` → `db.backup-<ts>.json`。
+1. 备份 PostgreSQL（`pg_dump` 或 PITR）；旧媒体归档到 `_archive/<ts>/`。
 2. 校验/重算 `source/cleaned.txt` 的 `cleanedHash` 与章偏移（缺失则从现有 `chunks` 反推）。
 3. 生成章摘要与弧线（有缓存则复用；`--force` 重算）。
 4. 装配季（相邻合并 ≥200）。
-5. **归档旧产物**：旧 `seriesSeasons/seriesEpisodes` 记录、`episodes/*.txt`、`assets/*.json`、`handoff/*`、媒体文件 → `_archive/<ts>/`（`--purge` 才删除）。
+5. **归档旧产物**：旧 `episodes/*.txt`、`assets/*.json`、`handoff/*`、媒体文件 → `_archive/<ts>/`（`--purge` 才删除）；旧 PG 季/集记录在事务内替换。
 6. 重置 `project.stage='series'`（解除锁定），重建季/集（偏移方式），`recomputeNovelCounts`。
-7. 写 `plan/{chapter-summaries,arcs,seasons,exceptions}.json`；`_flush()`。
+7. 写 `novel_plan_runs` / `novel_plan_artifacts`（章摘要/弧线/季/例外）。
 8. 运行 `verify-series.js`，输出达标率报告。
 9. 可选：`--advance` 结束后把 stage 推回 `episodes`。
 
@@ -317,8 +319,8 @@ cleaned.txt + chunks(offsets)
 | `seriesPlannerService.checkConsistency` | 同上 | 一致性校验全空 | 同上 |
 | `novelChunkService` 各消费方 | `novelChunks.text` | 停止持久化后为空 | `listChunks` 水合；`getChunkText` |
 | `routes/novels.js` 字数统计 | `chunk.text.length` | 显示 0 字 | 水合后自然修复 |
-| `novelChildWriteSync`（dual→PG） | `content = doc.text` | PG 里 `content=''` | 与 DB 会话对齐：content 可空，读时按偏移水合 |
-| `novelChildReadService`（postgres/shadow） | `text = row.content` | PG 读路径空文本 | 在 read service 中按 `start_offset/end_offset` 水合 |
+| PG 子集合写入 | `content = doc.text` | PG 里 `content=''` | content 可空，读时按偏移从 `novel_sources` 水合 |
+| `novelChildReadService`（PG） | `text = row.content` | PG 读路径空文本 | 在 read service 中按 `start_offset/end_offset` 水合 |
 | `scripts/migrate-novel-children-to-pg.js` | `doc.text → content` | 迁移写入空 | 同步改为写偏移 + 空 content |
 
 > 关键：`novel_chunks.content` 是 `NOT NULL DEFAULT ''`，写空不会报错，**但会静默丢正文**——这是最隐蔽的风险，必须在水合层统一解决。
