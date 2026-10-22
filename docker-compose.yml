@@ -1,20 +1,42 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dreamreel-postgres
+    environment:
+      POSTGRES_USER: dreamreel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dreamreel}
+      POSTGRES_DB: dreamreel
+    volumes:
+      - dreamreel-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dreamreel -d dreamreel"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
   dreamreel:
     build: .
     container_name: dreamreel
-    ports:
-      - "3000:3000"
-    # NODE_ENV=production 时 authService 要求 JWT_SECRET（至少 32 字符），
-    # 从仓库根 .env 注入；不具备该文件时请先 cp .env.example .env。
+    # NODE_ENV=production 时 authService 要求 JWT_SECRET（至少 32 字符）；
+    # 从仓库根 .env 注入，缺失时容器会快速失败而不是静默使用弱密钥。
+    # 不具备该文件时请先 cp .env.example .env 并设置强随机 JWT_SECRET。
     env_file:
       - path: .env
         required: false
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - SERVE_STATIC=true
+      - DATABASE_URL=postgres://dreamreel:${POSTGRES_PASSWORD:-dreamreel}@postgres:5432/dreamreel
+      - REQUIRE_AUTH=true
+      - AUTO_MIGRATE=true
       - VIDEO_PROVIDER=mock
       - LLM_PROVIDER=mock
       - TTS_PROVIDER=mock
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - dreamreel-storage:/app/storage
     restart: unless-stopped
@@ -36,3 +58,4 @@ services:
 
 volumes:
   dreamreel-storage:
+  dreamreel-pg:

@@ -118,13 +118,29 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * API 基址解析顺序：运行时注入 ENV_API_URL → 构建期 VITE_API_BASE_URL →
+ * localStorage 覆盖 → 同源 /api。
+ * 同源默认值在 Vite dev（proxy）与 Nginx/单进程托管下都成立，
+ * 因此生产构建不再回退到 localhost:3000。
+ */
 export function apiBase(): string {
-  const envBase = (window as Window & { ENV_API_URL?: string }).ENV_API_URL
-  if (envBase) return envBase
-  const saved = localStorage.getItem('dreamreel_api_url')
+  const trimBase = (value: string | undefined | null): string | undefined => {
+    const trimmed = value?.trim()
+    if (!trimmed) return undefined
+    return trimmed.length > 1 ? trimmed.replace(/\/+$/, '') : trimmed
+  }
+
+  const runtimeBase = trimBase((window as Window & { ENV_API_URL?: string }).ENV_API_URL)
+  if (runtimeBase) return runtimeBase
+
+  const buildBase = trimBase(import.meta.env.VITE_API_BASE_URL)
+  if (buildBase) return buildBase
+
+  const saved = trimBase(localStorage.getItem('dreamreel_api_url'))
   if (saved) return saved
-  if (window.location.port) return `${window.location.origin}/api`
-  return 'http://localhost:3000/api'
+
+  return '/api'
 }
 
 function buildQuery(params: Record<string, string | number | boolean | undefined | null>): string {
