@@ -21,6 +21,7 @@ const PUBLIC_RULES = [
   { method: 'GET', prefix: '/api/templates' },
   { method: 'GET', prefix: '/api/styles' },
   { method: 'GET', prefix: '/api/challenges' },
+  { method: 'GET', prefix: '/api/collab/shared' },
 ]
 
 /**

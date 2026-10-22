@@ -1,7 +1,7 @@
 import { projectService } from '../services/projectService.js'
 
 /**
- * 项目所有权校验基础机制（R36 / T16-001）
+ * 项目所有权校验基础机制（R36 / T16-001 / R3-T3.1）
  *
  * 统一的「用户 → 项目」归属校验入口：
  * - 匿名请求（无有效 token）固定视为 default 用户，只能操作 default 用户的项目
@@ -13,19 +13,23 @@ import { projectService } from '../services/projectService.js'
  */
 
 /**
- * 加载项目并执行所有权校验
+ * 按显式项目 ID 执行所有权校验（用于 body/query 传参的路由）
  * @param {import('express').Request} req
  * @param {import('express').Response} res
- * @param {object} [options]
- * @param {string} [options.projectIdParam='projectId'] 路径参数名（部分路由为 :id）
+ * @param {string} projectId
  * @returns {Promise<{project: object, userId: string}|null>} 校验通过返回项目与用户 ID；失败时已发送 404/403 响应，返回 null
  */
-export async function requireProjectOwnership(req, res, { projectIdParam = 'projectId' } = {}) {
+export async function requireProjectAccess(req, res, projectId) {
   const userId = req.user?.id || 'default'
+
+  if (!projectId) {
+    res.status(400).json({ error: '缺少项目 ID' })
+    return null
+  }
 
   let project
   try {
-    project = await projectService.getProject(req.params[projectIdParam])
+    project = await projectService.getProject(projectId)
   } catch (error) {
     res.status(404).json({ error: error.message })
     return null
@@ -37,6 +41,18 @@ export async function requireProjectOwnership(req, res, { projectIdParam = 'proj
   }
 
   return { project, userId }
+}
+
+/**
+ * 加载项目并执行所有权校验
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {object} [options]
+ * @param {string} [options.projectIdParam='projectId'] 路径参数名（部分路由为 :id）
+ * @returns {Promise<{project: object, userId: string}|null>} 校验通过返回项目与用户 ID；失败时已发送 404/403 响应，返回 null
+ */
+export async function requireProjectOwnership(req, res, { projectIdParam = 'projectId' } = {}) {
+  return requireProjectAccess(req, res, req.params[projectIdParam])
 }
 
 /**
@@ -53,7 +69,7 @@ export function requireRecycleBinOwnership(req, res, { projectIdParam = 'project
     return null
   }
 
-  if (item.project.userId !== userId) {
+  if ((item.project.userId || 'default') !== userId) {
     res.status(403).json({ error: '无权操作该项目' })
     return null
   }

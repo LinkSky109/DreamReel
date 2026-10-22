@@ -7,7 +7,7 @@ import { resolveProviderConfig } from '../providers/providerResolver.js'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 
-import { requireProjectOwnership } from '../middleware/projectAccess.js'
+import { requireProjectOwnership, requireRecycleBinOwnership } from '../middleware/projectAccess.js'
 import { requirePermission } from '../middleware/authorize.js'
 import { PERMISSIONS } from '../security/roles.js'
 const STORAGE_DIR = path.resolve(config.storage.path)
@@ -197,8 +197,10 @@ router.get('/recycle-bin/stats', (req, res) => {
 })
 
 // 从回收站恢复项目
-router.post('/recycle-bin/:projectId/restore', (req, res) => {
+router.post('/recycle-bin/:projectId/restore', async (req, res) => {
   try {
+    const guard = requireRecycleBinOwnership(req, res)
+    if (!guard) return
     const result = projectService.restoreProject(req.params.projectId)
     res.json(result)
   } catch (error) {
@@ -209,6 +211,8 @@ router.post('/recycle-bin/:projectId/restore', (req, res) => {
 // 永久删除项目
 router.delete('/recycle-bin/:projectId', (req, res) => {
   try {
+    const guard = requireRecycleBinOwnership(req, res)
+    if (!guard) return
     const result = projectService.permanentlyDeleteProject(req.params.projectId)
     res.json(result)
   } catch (error) {
@@ -230,6 +234,8 @@ router.delete('/recycle-bin', (req, res) => {
 // 切换收藏
 router.post('/:projectId/favorite', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const result = await projectService.toggleFavorite(req.params.projectId)
     res.json(result)
   } catch (error) {
@@ -240,6 +246,8 @@ router.post('/:projectId/favorite', async (req, res) => {
 // 切换归档
 router.post('/:projectId/archive', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const result = await projectService.toggleArchive(req.params.projectId)
     res.json(result)
   } catch (error) {
@@ -250,6 +258,8 @@ router.post('/:projectId/archive', async (req, res) => {
 // 复制项目
 router.post('/:projectId/duplicate', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const { newName } = req.body
     const userId = getUserId(req)
     const duplicated = await projectService.duplicateProject(req.params.projectId, {
@@ -276,7 +286,9 @@ router.get('/tags', (req, res) => {
 // 获取项目详情
 router.get('/:projectId', async (req, res) => {
   try {
-    const project = await projectService.getProject(req.params.projectId)
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
+    const project = guard.project
     // 异步记录访问，不阻塞响应
     projectService.recordAccess(req.params.projectId).catch(() => {})
     res.json(project.toJSON())
@@ -288,6 +300,8 @@ router.get('/:projectId', async (req, res) => {
 // 更新项目
 router.put('/:projectId', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const project = await projectService.updateProject(req.params.projectId, req.body)
     res.json(project.toJSON())
   } catch (error) {
@@ -298,7 +312,9 @@ router.put('/:projectId', async (req, res) => {
 // 生成项目封面缩略图
 router.post('/:projectId/thumbnail', async (req, res) => {
   try {
-    const project = await projectService.getProject(req.params.projectId)
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
+    const project = guard.project
     const thumbnailUrl = await thumbnailService.generateProjectThumbnail(project)
     if (thumbnailUrl) {
       await projectService.updateProject(req.params.projectId, { coverUrl: thumbnailUrl })
@@ -368,7 +384,9 @@ router.post('/:projectId/cover', async (req, res) => {
 // 删除项目
 router.delete('/:projectId', requirePermission(PERMISSIONS.PROJECT_DELETE), async (req, res) => {
   try {
-    const project = await projectService.getProject(req.params.projectId)
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
+    const project = guard.project
     const deletedFiles = cleanupProjectFiles(project)
     await projectService.deleteProject(req.params.projectId)
     logger.info(`Project deleted: ${req.params.projectId}, cleaned ${deletedFiles.length} files`)
@@ -381,6 +399,8 @@ router.delete('/:projectId', requirePermission(PERMISSIONS.PROJECT_DELETE), asyn
 // 导出项目（JSON 文件下载）
 router.get('/:projectId/export', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const data = await projectService.exportProject(req.params.projectId)
     const safeName = (data.name || 'project').replace(/[^\w\u4e00-\u9fa5-]/g, '_')
     const fileName = `dreamreel-${safeName}-${Date.now()}.json`
@@ -561,13 +581,9 @@ router.get('/:projectId/model-config', async (req, res) => {
 router.put('/:projectId/model-config', async (req, res) => {
   try {
     const { video, llm, tts } = req.body
-    const project = await projectService.getProject(req.params.projectId)
-    const userId = getUserId(req)
-
-    // 权限检查：只有项目所有者或管理员可以修改
-    if (project.userId !== userId) {
-      return res.status(403).json({ error: '无权修改该项目的模型配置' })
-    }
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
+    const project = guard.project
 
     const preferences = { ...project.providerPreferences }
     const now = new Date().toISOString()

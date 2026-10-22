@@ -467,6 +467,8 @@ export const api = {
     request<ShareSettings>(`/collab/${projectId}/share`),
   getSharedProject: (token: string) =>
     request<{ projectId: string; share: ShareSettings }>(`/collab/shared/${encodeURIComponent(token)}`),
+  getSharedProjectDetail: (token: string) =>
+    request<Project>(`/collab/shared/${encodeURIComponent(token)}/project`),
   updateShareSettings: (
     projectId: string,
     body: { isPublic?: boolean; allowComments?: boolean; password?: string | null }

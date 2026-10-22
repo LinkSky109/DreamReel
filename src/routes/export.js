@@ -1,9 +1,9 @@
 import { Router } from 'express'
-import { projectService } from '../services/projectService.js'
 import { dubbingService } from '../services/dubbingService.js'
 import { videoCompositingService } from '../services/videoCompositingService.js'
 import { exportHistoryService } from '../services/exportHistoryService.js'
 import { collaborationService } from '../services/collaborationService.js'
+import { requireProjectOwnership } from '../middleware/projectAccess.js'
 import logger from '../utils/logger.js'
 
 const router = Router()
@@ -18,7 +18,9 @@ router.post('/project/:projectId', async (req, res) => {
   const { burnSubtitles = true, language = 'zh', voiceId = 'zh_male_calm', speed = 1.0 } = req.body
 
   try {
-    const project = await projectService.getProject(projectId)
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
+    const project = guard.project
 
     // 检查是否有已完成的镜头
     const completedShots = (project.shots || []).filter((s) => s.status === 'completed' && s.videoUrl)
@@ -83,7 +85,9 @@ router.post('/project/:projectId/sync', async (req, res) => {
   const { burnSubtitles = true, language = 'zh', voiceId = 'zh_male_calm', speed = 1.0 } = req.body
 
   try {
-    const project = await projectService.getProject(projectId)
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
+    const project = guard.project
 
     const completedShots = (project.shots || []).filter((s) => s.status === 'completed' && s.videoUrl)
     if (completedShots.length === 0) {
@@ -147,8 +151,10 @@ router.post('/project/:projectId/sync', async (req, res) => {
  * 获取项目导出历史
  * GET /api/export/project/:projectId/history
  */
-router.get('/project/:projectId/history', (req, res) => {
+router.get('/project/:projectId/history', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const history = exportHistoryService.getExportHistory(req.params.projectId)
     res.json({ total: history.length, items: history })
   } catch (error) {

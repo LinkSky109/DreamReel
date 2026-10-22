@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { versionService } from '../services/versionService.js'
-import { projectService } from '../services/projectService.js'
+import { requireProjectOwnership } from '../middleware/projectAccess.js'
 
 const router = Router()
 
@@ -10,6 +10,8 @@ const router = Router()
  */
 router.get('/:projectId/versions', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const { limit, offset } = req.query
     const result = versionService.getVersions(req.params.projectId, {
       limit: limit ? parseInt(limit, 10) : 20,
@@ -27,7 +29,8 @@ router.get('/:projectId/versions', async (req, res) => {
  */
 router.post('/:projectId/versions', async (req, res) => {
   try {
-    await projectService.getProject(req.params.projectId) // 验证项目存在
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const { label, description } = req.body
     const version = await versionService.saveVersion(req.params.projectId, {
       label,
@@ -44,8 +47,10 @@ router.post('/:projectId/versions', async (req, res) => {
  * 对比两个版本
  * GET /api/projects/:projectId/versions/compare?from=v1&to=v2
  */
-router.get('/:projectId/versions/compare', (req, res) => {
+router.get('/:projectId/versions/compare', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const { from, to } = req.query
     if (!from || !to) {
       return res.status(400).json({ error: '需要指定 from 和 to 版本 ID' })
@@ -61,8 +66,10 @@ router.get('/:projectId/versions/compare', (req, res) => {
  * 获取版本详情
  * GET /api/projects/:projectId/versions/:versionId
  */
-router.get('/:projectId/versions/:versionId', (req, res) => {
+router.get('/:projectId/versions/:versionId', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const version = versionService.getVersion(req.params.projectId, req.params.versionId)
     res.json(version)
   } catch (error) {
@@ -76,6 +83,8 @@ router.get('/:projectId/versions/:versionId', (req, res) => {
  */
 router.post('/:projectId/versions/:versionId/rollback', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const result = await versionService.rollback(req.params.projectId, req.params.versionId)
     res.json(result)
   } catch (error) {
@@ -87,8 +96,10 @@ router.post('/:projectId/versions/:versionId/rollback', async (req, res) => {
  * 删除版本
  * DELETE /api/projects/:projectId/versions/:versionId
  */
-router.delete('/:projectId/versions/:versionId', (req, res) => {
+router.delete('/:projectId/versions/:versionId', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     versionService.deleteVersion(req.params.projectId, req.params.versionId)
     res.json({ success: true })
   } catch (error) {

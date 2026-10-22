@@ -6,12 +6,12 @@ import { SharedProjectPage } from './SharedProject'
 import { LangProvider } from '../lib/i18n'
 
 const getSharedProject = vi.fn()
-const getProject = vi.fn()
+const getSharedProjectDetail = vi.fn()
 
 vi.mock('../lib/api', () => ({
   api: {
     getSharedProject: (token: string) => getSharedProject(token),
-    getProject: (id: string) => getProject(id),
+    getSharedProjectDetail: (token: string) => getSharedProjectDetail(token),
   },
 }))
 
@@ -37,7 +37,7 @@ describe('SharedProjectPage', () => {
       projectId: 'p1',
       share: { isPublic: true, allowComments: false },
     })
-    getProject.mockResolvedValue({
+    getSharedProjectDetail.mockResolvedValue({
       id: 'p1',
       name: '星海回声',
       description: '一场关于记忆的太空旅程。',
