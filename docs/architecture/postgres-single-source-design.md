@@ -23,11 +23,11 @@
 | 写路径收口 | `5cccf64`、`5fe1605`、`d6c9ed9`、`e4015f9` 已分别收口写入、世界/资产/同步、集合选定/counts、运维脚本的 PG 读 |
 | 请求路径 | 生产 API 已不依赖 `storageService` 的小说内存投影 |
 | 真实数据 | 《殖装》33 季 / 8496 集 / 1206 章 |
-| 测试基线 | 后端 820、前端 138；`series:verify` 33 季 / 8496 集 / 时长达标 99.69% / 正文覆盖 99.98% |
+| 测试基线 | 后端 817、前端 138；`series:verify` 33 季 / 8496 集 / 时长达标 99.69% / 正文覆盖 99.98% |
 | 恢复基线 | `pg_dump` 可恢复；归档 JSON 仅作应急重建（见 `docs/runbooks/novel-pg-restore.md`） |
 
-> 当前分支仍可能保留 Phase 1–5 的清理残留（测试编排、CLI、同步兼容层、内存水合本体）。
-> `npm run check:legacy` 会列出这些残留；实现合并后该命令必须为 0 违规。
+> Phase 1–5 已合并完成；`npm run check:legacy` 为 0 违规。
+> 仅保留离线恢复/回填工具、归档读取与 `apply*` 原语，均在 allowlist 内，不在请求/启动路径。
 
 ## 3. 背景与问题（已解决）
 
@@ -164,14 +164,14 @@ await withNovelTransaction(novelId, async (tx) => {
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | Phase 0 | 冻结基线、`pg_dump` + 归档备份、恢复演练可执行 | ✅ |
-| Phase 1 | 测试迁 PG：移除测试编排的 JSON 小说模式，fixture 全部写 PG | 🚧 进行中（`check:legacy` 仍会报测试编排残留） |
-| Phase 2 | 删除读适配器与同步导出：读服务统一 PG，`getNovelProject` 异步 | 🚧 进行中 |
-| Phase 3 | 删除写模式与 outbox 镜像：配置、健康检查、镜像调度、小说 outbox | 🚧 进行中 |
-| Phase 4 | 删除 JSON 投影与 `db.json` 小说集合：启动水合、归档运行时、JSON CRUD | 🚧 进行中 |
-| Phase 5 | 删除同步生成/规划/资产残留，CLI 全部异步 PG | 🚧 进行中 |
+| Phase 1 | 测试迁 PG：移除测试编排的 JSON 小说模式，fixture 全部写 PG | ✅ |
+| Phase 2 | 删除读适配器与同步导出：读服务统一 PG，`getNovelProject` 异步 | ✅ |
+| Phase 3 | 删除写模式与 outbox 镜像：配置、健康检查、镜像调度、小说 outbox | ✅ |
+| Phase 4 | 删除 JSON 投影与 `db.json` 小说集合：启动水合、归档运行时、JSON CRUD | ✅ |
+| Phase 5 | 删除同步生成/规划/资产残留，CLI 全部异步 PG | ✅ |
 | Phase 6 | 文档与门禁收口：本文件、database、runbook、AGENTS、`check:legacy` | ✅ 文档与门禁已落地 |
 
-每个阶段的 Gate 以 `npm run check:legacy` 违规数为 0、`npm run check` 全绿、API smoke 与 `series:verify` 通过为准。
+所有 Gate 已满足：`npm run check:legacy` 0 违规、`npm run check` 全绿、API smoke 与 `series:verify` 通过。
 
 ## 11. 测试策略
 

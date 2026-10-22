@@ -30,4 +30,4 @@ npm run series:verify -- <novelId>
 npm run outbox:stats
 ```
 
-> `npm run check:legacy` 在 legacy 移除实现合并前会按预期失败；Phase 1–5 完成后必须为 0 违规。
+> `npm run check:legacy` 已接入 `npm run check`；当前必须保持 0 违规。

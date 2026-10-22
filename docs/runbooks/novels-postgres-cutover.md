@@ -59,7 +59,7 @@ grep -E "novel-child-write|novel-write|回退" /tmp/dreamreel-dev.log || true
 - 写入 → 立即读：新建小说可见、详情 200、删除后列表消失。
 - `db:verify:*` mismatches=0。
 - `series:verify` 达到基线：33 季 / 8496 集 / 时长达标 99.69% / 覆盖 99.98%。
-- `check:legacy` 为 0 违规（实现合并后）。
+- `check:legacy` 为 0 违规（已接入 `npm run check`）。
 - 日志中无 JSON 回退、无写镜像失败告警。
 
 ## 4. 故障定位
