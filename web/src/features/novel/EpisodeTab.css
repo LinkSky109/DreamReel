@@ -153,3 +153,61 @@
     width: 100%;
   }
 }
+
+.dr-episode-duration {
+  margin-left: 4px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.dr-episode-duration.is-ok {
+  color: var(--success);
+}
+
+.dr-episode-duration.is-short,
+.dr-episode-duration.is-long {
+  color: var(--warn);
+}
+
+.dr-episode-outline {
+  flex-basis: 100%;
+  width: 100%;
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fg-2);
+}
+
+.dr-episode-outline-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dr-episode-outline-head strong {
+  font-size: 13px;
+}
+
+.dr-episode-outline p {
+  margin: 0;
+}
+
+.dr-episode-outline-label {
+  display: inline-block;
+  min-width: 56px;
+  margin-right: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.dr-episode-outline-cast {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}

@@ -14,6 +14,7 @@ const generateEpisodeScript = vi.fn()
 const generateEpisodeAssets = vi.fn()
 const composeEpisode = vi.fn()
 const exportEpisodeHandoff = vi.fn()
+const getEpisodeOutline = vi.fn()
 
 vi.mock('../../lib/api', () => ({
   api: {
@@ -24,6 +25,7 @@ vi.mock('../../lib/api', () => ({
     generateEpisodeAssets: (id: string, eid: string, body: unknown) => generateEpisodeAssets(id, eid, body),
     composeEpisode: (id: string, eid: string, body: unknown) => composeEpisode(id, eid, body),
     exportEpisodeHandoff: (id: string, eid: string) => exportEpisodeHandoff(id, eid),
+    getEpisodeOutline: (id: string, eid: string) => getEpisodeOutline(id, eid),
     bulkGenerateSeason: vi.fn(),
     bulkGenerateSeasonAssets: vi.fn(),
   },
@@ -46,6 +48,9 @@ const episodes = [
     episodeNo: 1,
     title: '第一章 起风',
     targetSeconds: 90,
+    estimatedSeconds: 91.2,
+    chapterStart: 0,
+    chapterEnd: 0,
     screenplay: { totalSeconds: 88, shots: [{ index: 1, description: '风起' }] },
     assets: { image: { url: '/img.png' }, video: { url: '/v.mp4' } },
   },
@@ -56,6 +61,9 @@ const episodes = [
     episodeNo: 2,
     title: '第二章 入城',
     targetSeconds: 90,
+    estimatedSeconds: 73.5,
+    chapterStart: 1,
+    chapterEnd: 2,
     screenplay: null,
     assets: {},
   },
@@ -95,6 +103,14 @@ describe('EpisodeTab', () => {
     generateEpisodeAssets.mockResolvedValue({ assets: { image: { url: '/i.png' } } })
     composeEpisode.mockResolvedValue({ fileName: 'ep1.mp4' })
     exportEpisodeHandoff.mockResolvedValue({ dir: '/exports/ep1' })
+    getEpisodeOutline.mockResolvedValue({
+      title: '第一章 起风',
+      coreConflict: '核毁灭后的死地',
+      synopsis: '残存人类在死亡狂风中求生。',
+      cliffhanger: '废墟里传来低沉的轰鸣。',
+      keyCharacters: ['林川'],
+      provider: 'llm',
+    })
   })
 
   it('渲染单集状态与季资产子集', async () => {
@@ -112,6 +128,24 @@ describe('EpisodeTab', () => {
     const second = (await screen.findByText(/第二章 入城/)).closest('.dr-episode-item') as HTMLElement
     await user.click(within(second).getByRole('button', { name: '生成剧本' }))
     await waitFor(() => expect(generateEpisodeScript).toHaveBeenCalledWith('n1', 'ep2', {}))
+  })
+
+  it('展示实际时长、跨章并懒加载大纲', async () => {
+    const user = userEvent.setup()
+    renderTab()
+    const first = (await screen.findByText(/第一章 起风/)).closest('.dr-episode-item') as HTMLElement
+    const second = (screen.getByText(/第二章 入城/)).closest('.dr-episode-item') as HTMLElement
+    expect(within(first).getByText(/91\.2s/)).toBeInTheDocument()
+    expect(within(first).getByText('时长达标')).toBeInTheDocument()
+    expect(within(second).getByText(/73\.5s/)).toBeInTheDocument()
+    expect(within(second).getByText('偏短')).toBeInTheDocument()
+    expect(within(second).getByText(/跨章/)).toBeInTheDocument()
+
+    await user.click(within(first).getByRole('button', { name: '大纲' }))
+    await waitFor(() => expect(getEpisodeOutline).toHaveBeenCalledWith('n1', 'ep1'))
+    expect(await screen.findByText('核毁灭后的死地')).toBeInTheDocument()
+    expect(screen.getByText('核心冲突')).toBeInTheDocument()
+    expect(screen.getByText('林川')).toBeInTheDocument()
   })
 
   it('搜索按集号过滤', async () => {

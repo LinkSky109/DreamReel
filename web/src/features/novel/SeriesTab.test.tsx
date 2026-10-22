@@ -42,7 +42,19 @@ describe('SeriesTab', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     listNovelSeasons.mockResolvedValue([
-      { id: 's1', novelId: 'n1', seasonNo: 1, title: '第1季', episodeCount: 200, chapterStart: 1, chapterEnd: 10 },
+      {
+        id: 's1',
+        novelId: 'n1',
+        seasonNo: 1,
+        title: '第1季',
+        episodeCount: 200,
+        chapterStart: 1,
+        chapterEnd: 10,
+        arcName: '避难所风暴与殖装融合',
+        goal: '主角在避难所求生并完成殖装融合。',
+        endingHook: '封王遗迹的召唤。',
+        planProvider: 'llm',
+      },
       { id: 's2', novelId: 'n1', seasonNo: 2, title: '第2季', episodeCount: 40, chapterStart: 11, chapterEnd: 12 },
     ])
     getNovelSeriesEstimate.mockResolvedValue({
@@ -56,7 +68,15 @@ describe('SeriesTab', () => {
       supportSeconds: { '4': 2025, '4.5': 1800, '5': 1620 },
       supportEpisodes: 20,
     })
-    planNovelSeries.mockResolvedValue({ seasons: 1, episodes: 240, episodesPerSeason: 200, episodeSeconds: 90 })
+    planNovelSeries.mockResolvedValue({
+      seasons: 1,
+      episodes: 240,
+      episodesPerSeason: 200,
+      episodeSeconds: 90,
+      provider: 'llm',
+      buckets: { inRange: 238, below: 1, above: 1, total: 240 },
+      exceptions: 2,
+    })
   })
 
   it('渲染估算与季列表', async () => {
@@ -65,20 +85,25 @@ describe('SeriesTab', () => {
     expect(screen.getByText('第2季')).toBeInTheDocument()
     expect(screen.getByText(/200 集/)).toBeInTheDocument()
     expect(screen.getByText('0.5h')).toBeInTheDocument()
+    expect(screen.getByText('避难所风暴与殖装融合')).toBeInTheDocument()
+    expect(screen.getByText('主角在避难所求生并完成殖装融合。')).toBeInTheDocument()
+    expect(screen.getByText(/封王遗迹的召唤/)).toBeInTheDocument()
   })
 
   it('规划需确认并调用接口', async () => {
     const user = userEvent.setup()
     renderTab()
-    await user.click(await screen.findByRole('button', { name: /规划（1章/ }))
+    await user.click(await screen.findByRole('button', { name: /智能规划/ }))
     expect(await screen.findByText('确认规划')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '确认规划' }))
     await waitFor(() => expect(planNovelSeries).toHaveBeenCalledWith('n1', {}))
+    expect(await screen.findByText(/85–95s 命中/)).toBeInTheDocument()
+    expect(screen.getByText('238/240')).toBeInTheDocument()
   })
 
   it('锁定后禁用规划', async () => {
     renderTab('episodes')
-    const button = await screen.findByRole('button', { name: /规划（1章/ })
+    const button = await screen.findByRole('button', { name: /智能规划/ })
     expect(button).toBeDisabled()
     expect(screen.getByText('已锁定')).toBeInTheDocument()
   })

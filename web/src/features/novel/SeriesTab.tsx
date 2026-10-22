@@ -8,7 +8,6 @@ import type { NovelDetail, NovelSeason, NovelSeriesEstimate } from '../../domain
 import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import './SeriesTab.css'
-import './SeriesTab.css'
 
 function hours(seconds: number) {
   return (seconds / 3600).toFixed(1)
@@ -35,8 +34,14 @@ export function SeriesTab({ novel, onChanged }: { novel: NovelDetail; onChanged:
   const plan = useMutation({
     mutationFn: () => api.planNovelSeries(novel.id, {}),
     onSuccess: (result) => {
+      const hit = result.buckets
+        ? Math.round((result.buckets.inRange / Math.max(1, result.buckets.total)) * 100)
+        : null
       showToast(
-        t(`规划完成：${result.seasons} 季 · ${result.episodes} 集`, `Planned ${result.seasons} seasons · ${result.episodes} episodes`),
+        t(
+          `规划完成：${result.seasons} 季 · ${result.episodes} 集${hit != null ? ` · 时长命中 ${hit}%` : ''}`,
+          `Planned ${result.seasons} seasons · ${result.episodes} episodes${hit != null ? ` · ${hit}% in range` : ''}`
+        ),
         'success'
       )
       setConfirmOpen(false)
@@ -48,6 +53,7 @@ export function SeriesTab({ novel, onChanged }: { novel: NovelDetail; onChanged:
   })
 
   const seasons = dataQuery.data?.seasons ?? []
+  const planResult = plan.data
   const estimate = dataQuery.data?.estimate
   const support = estimate?.supportSeconds?.[String(estimate.charsPerSecond)] ?? estimate?.supportSeconds?.['4.5'] ?? 0
   const diff = support - (estimate?.plannedSeconds ?? 0)
@@ -67,7 +73,9 @@ export function SeriesTab({ novel, onChanged }: { novel: NovelDetail; onChanged:
             disabled={locked || plan.isPending}
             onClick={() => setConfirmOpen(true)}
           >
-            {plan.isPending ? t('规划中…', 'Planning…') : t('规划（1章≥1集，每季≥200集）', 'Plan (1 chapter ≥ 1 episode, ≥200 per season)')}
+            {plan.isPending
+              ? t('规划中…', 'Planning…')
+              : t('智能规划（LLM 大事件，每季≥200集）', 'Smart plan (LLM arcs, ≥200/season)')}
           </button>
         </div>
 
@@ -77,6 +85,32 @@ export function SeriesTab({ novel, onChanged }: { novel: NovelDetail; onChanged:
           <span>{t('每集目标', 'Target / episode')} {estimate?.episodeSeconds ?? 90}s</span>
           <span>{t('语速', 'Speech rate')} {estimate?.charsPerSecond ?? 4.5} {t('字/秒', 'chars/s')}</span>
         </div>
+
+        {planResult ? (
+          <div className="dr-series-plan-result" role="status" aria-live="polite">
+            <span className="dr-tag">
+              {planResult.provider === 'llm'
+                ? t('LLM 大事件', 'LLM arcs')
+                : t('规则回退', 'Heuristic')}
+            </span>
+            {planResult.buckets ? (
+              <span>
+                {t('85–95s 命中', '85–95s hit')}{' '}
+                <strong>
+                  {planResult.buckets.inRange}/{planResult.buckets.total}
+                </strong>
+                {`（${Math.round(
+                  (planResult.buckets.inRange / Math.max(1, planResult.buckets.total)) * 100
+                )}%）`}
+              </span>
+            ) : null}
+            {planResult.exceptions ? (
+              <span>
+                {t('例外', 'Exceptions')} <strong>{planResult.exceptions}</strong>
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
         {estimate && estimate.totalChars > 0 ? (
           <div className="dr-series-estimate">
@@ -135,11 +169,26 @@ export function SeriesTab({ novel, onChanged }: { novel: NovelDetail; onChanged:
             <article className="dr-card dr-series-item" key={season.id}>
               <div className="dr-series-item-main">
                 <strong>{season.title}</strong>
+                {season.arcName && season.arcName !== season.title ? (
+                  <span className="dr-series-arc">{season.arcName}</span>
+                ) : null}
                 <span className="dr-tag">{season.episodeCount} {t('集', 'episodes')}</span>
+                {season.planProvider ? (
+                  <span className="dr-tag">
+                    {season.planProvider === 'llm' ? 'LLM' : t('规则', 'Rule')}
+                  </span>
+                ) : null}
               </div>
+              {season.goal ? <p className="dr-series-goal">{season.goal}</p> : null}
               <div className="dr-series-item-meta">
                 <span>{t('章', 'Chapters')} {season.chapterStart}–{season.chapterEnd}</span>
-                {season.synopsis ? <span>{season.synopsis}</span> : null}
+                {season.endingHook ? (
+                  <span className="dr-series-hook">
+                    {t('季末钩子', 'Season hook')}：{season.endingHook}
+                  </span>
+                ) : season.synopsis ? (
+                  <span>{season.synopsis}</span>
+                ) : null}
               </div>
             </article>
           ))}
@@ -166,8 +215,14 @@ export function SeriesTab({ novel, onChanged }: { novel: NovelDetail; onChanged:
       >
         <p className="dr-modal-text">
           {t(
-            '规划会按当前章节重建所有季与集（1 章至少 1 集，每季至少 200 集）。已有的季/集记录会被替换，确定继续？',
-            'Planning rebuilds all seasons and episodes from current chapters. Existing season/episode records will be replaced.'
+            '规划会按 LLM 识别的大事件分季，并按故事边界切集（每集 85–95s）。已有的季/集记录会被替换，确定继续？',
+            'Planning groups major events into seasons and cuts episodes at story boundaries (85–95s each). Existing season/episode records will be replaced.'
+          )}
+        </p>
+        <p className="dr-novel-note">
+          {t(
+            '首次规划需调用 LLM 识别大事件，可能耗时数分钟，请保持页面打开；完成后再次规划会复用缓存。',
+            'The first plan calls the LLM to detect arcs and may take several minutes. Keep this page open; later plans reuse the cache.'
           )}
         </p>
       </Modal>
