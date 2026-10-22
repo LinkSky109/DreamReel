@@ -6,9 +6,10 @@ import http from 'http'
 import path from 'path'
 import request from 'supertest'
 import app from '../src/server.js'
-import { createNovelProject, novelDir } from '../src/services/novelProjectService.js'
+import { createNovelProject, deleteNovelProject, novelDir } from '../src/services/novelProjectService.js'
 import { ingestNovel } from '../src/services/novelChunkService.js'
 import { buildManifest, syncToWebdav, getLedger, getSyncState } from '../src/services/novelSyncService.js'
+import './helpers/pg-teardown.js'
 
 const SAMPLE = `第1章 起点
 张三走在路上，张三看见李四。
@@ -100,6 +101,11 @@ describe('Sprint 30 网盘同步：WebDAV 真实上传 + 增量去重 + 重试',
 
   after(async () => {
     for (const id of created) {
+      try {
+        await deleteNovelProject(id)
+      } catch {
+        /* ignore */
+      }
       try {
         fs.rmSync(novelDir(id), { recursive: true, force: true })
       } catch {

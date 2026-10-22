@@ -98,7 +98,7 @@ describe('novelChildReadService（PostgreSQL only）', () => {
   it('备选集合按项目 ID 顺序，计算 count/live/selected', async () => {
     const service = createNovelChildReadService({
       getRepo: () => repoImpl({ ...docs, ...setsData }),
-      getProject: () => project,
+      getProjectAsync: async () => project,
     })
     const chars = await service.listSets('characterSets', 'n1')
     assert.deepEqual(chars.map((s) => s.id), ['cs2', 'cs1'])
@@ -122,5 +122,52 @@ describe('novelChildReadService（PostgreSQL only）', () => {
     })
     await assert.rejects(() => service.list('chunks', 'n1', { requestId: 'r1' }), /db down/)
     assert.match(log.warnings[0][0], /postgres 读取失败/)
+  })
+
+  it('默认 PG：注入 legacy 适配器也不会回退', async () => {
+    let legacyCalls = 0
+    const legacy = {
+      list: () => {
+        legacyCalls += 1
+        return [{ id: 'legacy-only' }]
+      },
+      listSets: () => {
+        legacyCalls += 1
+        return []
+      },
+    }
+    const service = createNovelChildReadService({
+      getRepo: () => repoImpl(),
+      getProjectAsync: async () => project,
+      legacy,
+    })
+    const rows = await service.list('seasons', 'n1')
+    assert.deepEqual(rows.map((r) => r.id), ['s1', 's2'])
+    assert.equal(legacyCalls, 0, 'PG 读路径不得触碰 legacy 适配器')
+  })
+
+  it('PG 报错时不得回退 legacy', async () => {
+    let legacyCalls = 0
+    const service = createNovelChildReadService({
+      getRepo: () => ({
+        list: async () => {
+          throw new Error('pg unavailable')
+        },
+      }),
+      getProjectAsync: async () => project,
+      legacy: {
+        list: () => {
+          legacyCalls += 1
+          return []
+        },
+        listSets: () => {
+          legacyCalls += 1
+          return []
+        },
+      },
+      log: loggerStub(),
+    })
+    await assert.rejects(() => service.list('chunks', 'n1'), /pg unavailable/)
+    assert.equal(legacyCalls, 0)
   })
 })

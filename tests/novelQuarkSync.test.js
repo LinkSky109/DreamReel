@@ -4,10 +4,11 @@ import fs from 'fs'
 import http from 'http'
 import crypto from 'crypto'
 import path from 'path'
-import { createNovelProject, novelDir } from '../src/services/novelProjectService.js'
+import { createNovelProject, deleteNovelProject, novelDir } from '../src/services/novelProjectService.js'
 import { ingestNovel } from '../src/services/novelChunkService.js'
 import { buildManifest, syncToQuark } from '../src/services/novelSyncService.js'
 import { QuarkClient } from '../src/services/quarkClient.js'
+import './helpers/pg-teardown.js'
 
 const SAMPLE = `第1章 起点
 张三走在路上，张三看见李四。
@@ -165,6 +166,11 @@ describe('Sprint 31 夸克网盘同步：真实上传协议 + 增量 + 冲突 + 
 
   after(async () => {
     for (const id of created) {
+      try {
+        await deleteNovelProject(id)
+      } catch {
+        /* ignore */
+      }
       try {
         fs.rmSync(novelDir(id), { recursive: true, force: true })
       } catch {
