@@ -380,8 +380,9 @@ interface MediaStorageProvider {
   `legacy` 读适配器仅在 `NOVEL_WRITE_MODE=legacy`（测试/回滚）下启用。
   核心生成链路（分季/大纲/剧本/角色状态/资产/配音图/交接/分镜/季设定图/风格/voice）、
   路由层、抽取/合并抽取、合成、selected-set、世界概览/关系、清单、资产索引与章节详情已改用异步 PG 读；
-  生产请求路径不再依赖内存投影（含集合选定与 counts 重算）；剩余为 legacy 测试适配器、
-  CLI/运维脚本的同步列表导出与 `novelProjectService.getNovelProject` 兼容消费，下一步收口后删除投影；
+  生产请求路径与运维脚本均不再依赖内存投影；剩余为 legacy 测试适配器、`novel.js` CLI、
+  `novelProjectService.getNovelProject` 兼容消费与 `storageService` 水合本体。
+  清理顺序与门禁见 `docs/plans/2026-10-22-novel-legacy-removal.md`；
   `db.json`（非小说域）在各自迁移完成后归档只读。
 - 验收：
   - 重建/规划在事务内完成，失败无半套数据；
@@ -495,7 +496,7 @@ interface MediaStorageProvider {
 | Phase 3a 写切换（季/集/正文） | ✅ | `NOVEL_WRITE_MODE=postgres`：seasons/episodes/novel_sources 写 PG；分集/剧本/大纲/资产/合成/交接/分镜/批量服务改用异步存储门面；事务 + advisory lock |
 | Phase 3b 写切换（项目/子集合） | ✅ | `novels` 主表与 chunks/characters/entities/assets/states/sets 改 PG 优先；JSON 仅本地读缓存；小说域 outbox 停止产生；创建/更新/删除项目直达 PG |
 | Phase 3c-1 PG 水合 + JSON 停写 | ✅ | 启动从 PG 水合小说内存投影；db.json 不再写小说集合；旧 JSON 自动归档；恢复/回填脚本读归档 |
-| Phase 3c-2 去内存投影 | 🚧 进行中 | 已删除 `NOVEL_REPO_MODE=legacy|shadow`；生产请求路径（生成/路由/抽取/合成/selected-set/世界/清单/资产索引/集合选定/counts）已异步 PG 读；剩余 legacy 适配器、CLI/运维同步导出与 getNovelProject 兼容层 |
+| Phase 3c-2 去内存投影 | 🚧 进行中 | 已删除 `NOVEL_REPO_MODE=legacy|shadow`；生产请求与运维脚本已异步 PG；剩余 legacy 测试适配器、CLI、getNovelProject 兼容层与水合本体；清理计划见 `docs/plans/2026-10-22-novel-legacy-removal.md` |
 | Phase 4 其它域 | ⏳ | 身份/创作/社区/团队/计费按域迁移 |
 | Phase 5 下线过渡设施 | ⏳ | 停 outbox、删 `db.json`/legacy 开关 |
 
