@@ -1,32 +1,15 @@
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import { claimBatch, markDone, markFailed, resetStale, getOutboxPool } from '../services/outboxStore.js'
-import { applyNovelUpsert, applyNovelDelete } from '../services/novelWriteSync.js'
-import {
-  applyChildUpsert,
-  applyChildDelete,
-  applyChildDeleteByNovel,
-  applyChildDeleteStates,
-} from '../services/novelChildWriteSync.js'
 
 /**
  * outbox worker：claim → apply → mark。
  * 事件应用必须幂等；失败按指数退避重试，超过上限进入 dead。
+ *
+ * 小说域已改为直接写 PostgreSQL，不再产生 outbox 事件；
+ * 这里只保留通用/其它域事件的分发点。
  */
-export async function applyEvent(pool, event) {
-  const orgId = event.org_id
-  const payload = event.payload || {}
-  if (event.kind === 'novel') {
-    if (event.op === 'upsert') return applyNovelUpsert(pool, payload, orgId)
-    if (event.op === 'delete') return applyNovelDelete(pool, payload.id, orgId)
-    throw new Error(`未知 novel 操作：${event.op}`)
-  }
-  if (event.op === 'upsert') return applyChildUpsert(pool, event.kind, payload, orgId)
-  if (event.op === 'delete') return applyChildDelete(pool, event.kind, payload.id, orgId)
-  if (event.op === 'deleteByNovel') return applyChildDeleteByNovel(pool, event.kind, payload.novelId, orgId)
-  if (event.op === 'deleteStates') {
-    return applyChildDeleteStates(pool, payload.novelId, orgId, payload.characterId, payload.episodeNo)
-  }
+export async function applyEvent(_pool, event) {
   throw new Error(`未知操作：${event.kind}/${event.op}`)
 }
 

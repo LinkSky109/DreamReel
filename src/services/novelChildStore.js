@@ -1,5 +1,4 @@
 import config from '../config/index.js'
-import { storageService } from './storageService.js'
 import {
   applyChildUpsert,
   applyChildDelete,
@@ -10,18 +9,10 @@ import { CHILD_KINDS } from '../repositories/novelChildRepository.js'
 import { applyNovelUpsert } from './novelWriteSync.js'
 
 /**
- * 小说子集合写入门面（Phase 3b）。
+ * 小说子集合写入门面。
  *
- * postgres：先写 PG，成功后更新本地 JSON 读缓存；PG 是事实源。
- * legacy/dual：保持原 JSON 行为（dual 由 storageService 的镜像负责）。
- *
- * 说明：Phase 3b 先覆盖 chunks / characters / entities / assets / states / sets；
- * novels 主表与项目字段仍在 Phase 3c 切换。JSON 缓存让大量同步读路径无需一次性改异步。
+ * PostgreSQL 是唯一写目标；不再有 JSON 缓存写入或 legacy/dual 分支。
  */
-
-export function isPgWriteMode() {
-  return config.novels.writeMode === 'postgres'
-}
 
 async function defaultPool() {
   const { getPool } = await import('../db/client.js')
@@ -30,7 +21,7 @@ async function defaultPool() {
 
 const ensuredNovels = new Set()
 
-/** 子记录写入前确保 novels 主行存在，避免 outbox/项目创建延迟导致外键失败。 */
+/** 子记录写入前确保 novels 主行存在，避免外键失败。 */
 async function ensureNovelPg(pool, novelId) {
   if (ensuredNovels.has(novelId)) return
   const { novelReadService } = await import('./novelReadService.js')
@@ -43,82 +34,57 @@ export function forgetNovelPg(novelId) {
   ensuredNovels.delete(novelId)
 }
 
-const JSON_WRITERS = {
-  chunks: (doc) => storageService.createNovelChunk(doc),
-  characters: (doc) => storageService.createNovelCharacter(doc),
-  entities: (doc) => storageService.createWorldEntity(doc),
-  assets: (doc) => storageService.createNovelAssetImage(doc),
-  states: (doc) => storageService.createNovelCharacterState(doc),
-  characterSets: (doc) => storageService.createCharacterSet(doc),
-  worldSets: (doc) => storageService.createWorldSet(doc),
-}
-
-const JSON_DELETERS = {
-  chunks: (id) => storageService.deleteNovelChunk?.(id) ?? false,
-  characters: (id) => storageService.deleteNovelCharacter?.(id) ?? false,
-  entities: (id) => storageService.deleteWorldEntity?.(id) ?? false,
-  assets: (id) => storageService.deleteNovelAssetImage(id),
-  states: (id) => storageService.deleteNovelCharacterState?.(id) ?? false,
-  characterSets: (id) => storageService.deleteCharacterSet?.(id) ?? false,
-  worldSets: (id) => storageService.deleteWorldSet?.(id) ?? false,
-}
-
 function requireKind(kind) {
-  if (!JSON_WRITERS[kind]) throw new Error(`未知子集合：${kind}`)
+  if (!CHILD_KINDS.includes(kind)) throw new Error(`未知子集合：${kind}`)
 }
 
-/** PG 写入成功后再更新 JSON 缓存；PG 失败时本地不落脏数据。 */
+/** 写单条子记录（主行不存在时先 upsert 主行）。 */
 export async function writeChild(kind, doc, { pool = null } = {}) {
   requireKind(kind)
-  if (isPgWriteMode()) {
-    const pg = pool || (await defaultPool())
-    await ensureNovelPg(pg, doc.novelId)
-    await applyChildUpsert(pg, kind, doc, config.novels.orgId)
-  }
-  return JSON_WRITERS[kind](doc)
+  const pg = pool || (await defaultPool())
+  await ensureNovelPg(pg, doc.novelId)
+  await applyChildUpsert(pg, kind, doc, config.novels.orgId)
+  return doc
 }
 
+/** 批量写子记录（同一 novelId，逐条 upsert）。 */
 export async function writeChildren(kind, docs, { pool = null } = {}) {
   requireKind(kind)
   if (!docs?.length) return []
-  if (!isPgWriteMode()) return docs.map((doc) => JSON_WRITERS[kind](doc))
   const pg = pool || (await defaultPool())
   if (docs[0]?.novelId) await ensureNovelPg(pg, docs[0].novelId)
-  const out = []
   for (const doc of docs) {
     await applyChildUpsert(pg, kind, doc, config.novels.orgId)
-    out.push(JSON_WRITERS[kind](doc))
   }
-  return out
+  return docs
 }
 
+/** 软删除单条子记录，返回受影响行数。 */
 export async function deleteChild(kind, id, { pool = null } = {}) {
   requireKind(kind)
-  if (isPgWriteMode()) {
-    await applyChildDelete(pool || (await defaultPool()), kind, id, config.novels.orgId)
-  }
-  return JSON_DELETERS[kind](id)
+  return applyChildDelete(pool || (await defaultPool()), kind, id, config.novels.orgId)
 }
 
+/** 软删除某角色（或整部）在某集（或不限集）的状态记录，返回受影响行数。 */
 export async function deleteChildStates(novelId, characterId = null, episodeNo = null, { pool = null } = {}) {
-  if (isPgWriteMode()) {
-    await applyChildDeleteStates(
-      pool || (await defaultPool()),
-      novelId,
-      config.novels.orgId,
-      characterId,
-      episodeNo
-    )
-  }
-  return storageService.deleteNovelCharacterStates(novelId, characterId, episodeNo)
+  return applyChildDeleteStates(
+    pool || (await defaultPool()),
+    novelId,
+    config.novels.orgId,
+    characterId,
+    episodeNo
+  )
 }
 
+/** 软删除某部小说的全部子集合，返回各集合受影响行数。 */
 export async function deleteChildrenByNovel(novelId, { pool = null } = {}) {
-  if (!isPgWriteMode()) return
   const pg = pool || (await defaultPool())
+  const removed = {}
   for (const kind of CHILD_KINDS) {
-    await applyChildDeleteByNovel(pg, kind, novelId, config.novels.orgId)
+    const count = await applyChildDeleteByNovel(pg, kind, novelId, config.novels.orgId)
+    if (count) removed[kind] = count
   }
+  return removed
 }
 
 export { CHILD_KINDS }
