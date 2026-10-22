@@ -137,4 +137,27 @@ describe('owner token：管理面放行', () => {
     const teams = await request(app).get('/api/teams').set(authed(ownerToken))
     assert.equal(teams.status, 200)
   })
+
+  it('团队详情仅成员/管理员可读', async () => {
+    const created = await request(app)
+      .post('/api/teams')
+      .set(authed(ownerToken))
+      .send({ name: 'secret-team' })
+    assert.equal(created.status, 201)
+
+    const own = await request(app)
+      .get(`/api/teams/${created.body.id}`)
+      .set(authed(ownerToken))
+    assert.equal(own.status, 200)
+
+    const other = await request(app)
+      .get(`/api/teams/${created.body.id}`)
+      .set(authed(viewerToken))
+    assert.equal(other.status, 403)
+
+    const projects = await request(app)
+      .get(`/api/teams/${created.body.id}/projects`)
+      .set(authed(viewerToken))
+    assert.equal(projects.status, 403)
+  })
 })

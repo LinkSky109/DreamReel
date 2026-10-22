@@ -1,11 +1,20 @@
 import { Router } from 'express'
 import { teamService } from '../services/teamService.js'
+import { PERMISSIONS } from '../security/roles.js'
 
 const router = Router()
 
 /** 身份只来自认证上下文，禁止 body/query 指定。 */
 function currentUserId(req) {
   return req.user?.id || req.auth?.userId || null
+}
+
+/** 组织级管理员可跨团队查看；普通用户必须是团队成员。 */
+function canReadTeam(req, team) {
+  const userId = currentUserId(req)
+  if (!userId) return true // 开发/测试未开闸时保持旧行为
+  if (req.auth?.permissions?.has(PERMISSIONS.ENTERPRISE_MANAGE)) return true
+  return Boolean(team.getMember(userId))
 }
 
 // 创建团队
@@ -34,6 +43,7 @@ router.get('/', async (req, res) => {
 router.get('/:teamId', async (req, res) => {
   try {
     const team = await teamService.getTeam(req.params.teamId)
+    if (!canReadTeam(req, team)) return res.status(403).json({ error: '无权查看该团队' })
     res.json(team)
   } catch (e) {
     res.status(404).json({ error: e.message })
@@ -103,6 +113,8 @@ router.post('/:teamId/projects/:projectId', async (req, res) => {
 // 团队项目列表
 router.get('/:teamId/projects', async (req, res) => {
   try {
+    const team = await teamService.getTeam(req.params.teamId)
+    if (!canReadTeam(req, team)) return res.status(403).json({ error: '无权查看该团队' })
     const projects = await teamService.listTeamProjects(req.params.teamId)
     res.json({ total: projects.length, items: projects })
   } catch (e) {
