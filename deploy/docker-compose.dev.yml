@@ -39,7 +39,6 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgres://dreamreel:dreamreel@postgres:5432/dreamreel}
       # 容器内的 localhost 不是宿主机：小说域默认走 JSON，避免 .env 的
       # localhost DATABASE_URL 被误用。需要 PG 时显式指向 postgres 服务。
-      OUTBOX_ENABLED: ${OUTBOX_ENABLED:-false}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
     volumes:
