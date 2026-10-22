@@ -933,13 +933,20 @@ export interface NovelSeason {
 }
 
 export interface NovelEpisodeAssets {
-  image?: { url?: string; error?: string }
-  video?: { url?: string; error?: string }
+  image?: { url?: string; filePath?: string; provider?: string; error?: string }
+  audio?: { url?: string; filePath?: string; provider?: string; duration?: number; error?: string }
+  video?: { url?: string; filePath?: string; provider?: string; taskId?: string; error?: string }
 }
 
 export interface NovelEpisodeScreenplay {
   totalSeconds?: number
-  shots?: { index: number; description?: string; duration?: number; videoUrl?: string }[]
+  shots?: {
+    index: number
+    description?: string
+    dialogue?: string
+    duration?: number
+    videoUrl?: string
+  }[]
 }
 
 export interface NovelEpisodeOutline {

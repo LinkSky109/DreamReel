@@ -51,8 +51,18 @@ import { getTTSProvider } from '../providers/ttsProviderFactory.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
 import { createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, assetStatsFromRows, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
 import { beginRun, cancelRun, isCancelled, finishRun, getRunStatus } from '../services/bulkControl.js'
-import { validateBody } from '../middleware/validate.js'
+import { validateBody, validateQuery } from '../middleware/validate.js'
 import { bulkGenerateAssetsSchema } from '../contracts/assets.js'
+import {
+  seriesPlanSchema,
+  episodeOutlineQuerySchema,
+  episodeOutlineBodySchema,
+  episodeComposeSchema,
+  episodeScriptSchema,
+  episodeAssetsSchema,
+  seasonBulkSchema,
+  seasonAssetsBulkSchema,
+} from '../contracts/novels.js'
 import { requirePermission } from '../middleware/authorize.js'
 import { PERMISSIONS } from '../security/roles.js'
 import { exportShotHandoff, importShotVideos, autoAttachReferences, setShotReferences, listShots } from '../services/shotHandoffService.js'
@@ -68,6 +78,20 @@ function statusFor(error) {
   if (/not found/i.test(error.message)) return 404
   if (/锁定|locked/i.test(error.message)) return 409
   return 400
+}
+
+// validateBody/validateQuery 只把解析结果写到 req.validated，不覆盖原始请求；
+// 这里合并原始值与校验后的值：已声明字段以解析值为准（含 coercion），未知字段保持透传。
+function bodyOf(req) {
+  const raw = req.body || {}
+  const validated = req.validated?.body
+  return validated ? { ...raw, ...validated } : raw
+}
+
+function queryOf(req) {
+  const raw = req.query || {}
+  const validated = req.validated?.query
+  return validated ? { ...raw, ...validated } : raw
 }
 
 // 创建小说项目
@@ -768,9 +792,9 @@ router.get('/:id/series/estimate', async (req, res) => {
   }
 })
 
-router.post('/:id/series/plan', async (req, res) => {
+router.post('/:id/series/plan', validateBody(seriesPlanSchema), async (req, res) => {
   try {
-    const body = req.body || {}
+    const body = bodyOf(req)
     const result = await planSeries(req.params.id, {
       episodeSeconds: body.episodeSeconds,
       episodesPerSeason: body.episodesPerSeason,
@@ -779,7 +803,10 @@ router.post('/:id/series/plan', async (req, res) => {
       tolerance: body.tolerance,
       useLLM: body.useLLM,
       provider: body.provider,
+      model: body.model,
       force: body.force,
+      forceSeasons: body.forceSeasons,
+      advanceTo: body.advanceTo,
     })
     res.json({ success: true, data: result })
   } catch (error) {
@@ -808,9 +835,9 @@ router.get('/:id/seasons/:sid/assets', async (req, res) => {
 })
 
 // 只为本季涉及的设定图批量出图（分批、限并发、可续跑）
-router.post('/:id/seasons/:sid/assets/bulk-generate', async (req, res) => {
+router.post('/:id/seasons/:sid/assets/bulk-generate', validateBody(seasonAssetsBulkSchema), async (req, res) => {
   try {
-    const body = req.body || {}
+    const body = bodyOf(req)
     const r = await bulkGenerateSeasonAssets(req.params.id, req.params.sid, {
       limit: optionalClampInt(body.limit, 1, 12),
       concurrency: optionalClampInt(body.concurrency, 1, 4),
@@ -823,9 +850,9 @@ router.post('/:id/seasons/:sid/assets/bulk-generate', async (req, res) => {
 })
 
 // 单集批量生成（按季、分批、可续跑）：前端循环调用直到 remaining=0
-router.post('/:id/seasons/:sid/bulk', async (req, res) => {
+router.post('/:id/seasons/:sid/bulk', validateBody(seasonBulkSchema), async (req, res) => {
   try {
-    const body = req.body || {}
+    const body = bodyOf(req)
     const r = await bulkGenerate(req.params.id, req.params.sid, {
       task: body.task,
       limit: optionalClampInt(body.limit, 1, 50),
@@ -854,9 +881,9 @@ router.get('/:id/episodes', async (req, res) => {
 })
 
 // 生成单集剧本
-router.post('/:id/episodes/:eid/script', async (req, res) => {
+router.post('/:id/episodes/:eid/script', validateBody(episodeScriptSchema), async (req, res) => {
   try {
-    const episode = await generateEpisodeScript(req.params.id, req.params.eid, req.body || {})
+    const episode = await generateEpisodeScript(req.params.id, req.params.eid, bodyOf(req))
     res.json({ success: true, data: episode })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -875,16 +902,39 @@ router.get('/:id/episodes/:eid/script', async (req, res) => {
 })
 
 // 分集大纲（懒生成：首次请求时生成并缓存）
-router.get('/:id/episodes/:eid/outline', async (req, res) => {
+router.get('/:id/episodes/:eid/outline', validateQuery(episodeOutlineQuerySchema), async (req, res) => {
   try {
+    const query = queryOf(req)
     const outline = await getOrGenerateOutline(req.params.id, req.params.eid, {
-      force: req.query.force === '1' || req.query.force === 'true',
+      force: query.force === true,
+      useLLM: query.useLLM,
+      provider: query.provider,
+      model: query.model,
     })
     res.json({ success: true, data: outline })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
 })
+
+// 分集大纲生成/重算（POST/PUT 等价；默认 force，显式 force=false 时复用缓存）
+async function regenerateOutline(req, res) {
+  try {
+    const body = bodyOf(req)
+    const outline = await getOrGenerateOutline(req.params.id, req.params.eid, {
+      force: body.force !== false,
+      useLLM: body.useLLM,
+      provider: body.provider,
+      model: body.model,
+    })
+    res.json({ success: true, data: outline })
+  } catch (error) {
+    res.status(statusFor(error)).json({ success: false, error: error.message })
+  }
+}
+
+router.post('/:id/episodes/:eid/outline', validateBody(episodeOutlineBodySchema), regenerateOutline)
+router.put('/:id/episodes/:eid/outline', validateBody(episodeOutlineBodySchema), regenerateOutline)
 
 // 一致性校验
 router.get('/:id/consistency', async (req, res) => {
@@ -899,9 +949,9 @@ router.get('/:id/consistency', async (req, res) => {
 // ===== 单集资产生成（Sprint 22：图/音/视频） =====
 
 // 生成单集资产
-router.post('/:id/episodes/:eid/assets', async (req, res) => {
+router.post('/:id/episodes/:eid/assets', validateBody(episodeAssetsSchema), async (req, res) => {
   try {
-    const episode = await generateEpisodeAssets(req.params.id, req.params.eid, req.body || {})
+    const episode = await generateEpisodeAssets(req.params.id, req.params.eid, bodyOf(req))
     res.json({ success: true, data: { episodeId: episode.id, status: episode.status, assets: episode.assets } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -922,9 +972,9 @@ router.get('/:id/episodes/:eid/assets', async (req, res) => {
 // ===== 成片 + 存储同步（Sprint 23） =====
 
 // 单集成片（多素材 → 目标时长 mp4）
-router.post('/:id/episodes/:eid/compose', async (req, res) => {
+router.post('/:id/episodes/:eid/compose', validateBody(episodeComposeSchema), async (req, res) => {
   try {
-    const composition = await composeEpisode(req.params.id, req.params.eid, req.body || {})
+    const composition = await composeEpisode(req.params.id, req.params.eid, bodyOf(req))
     res.json({ success: true, data: composition })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
