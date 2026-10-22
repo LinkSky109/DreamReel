@@ -708,6 +708,6 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     let res = await request(app).get('/api/novels/does-not-exist')
     assert.equal(res.status, 404)
     res = await request(app).post('/api/novels').send({})
-    assert.equal(res.status, 400)
+    assert.equal(res.status, 422)
   })
 })
