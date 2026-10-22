@@ -16,7 +16,7 @@ const doc = {
 }
 
 /**
- * legacy/dual 镜像类（createNovelWriteSync）随写模式删除；
+ * legacy/dual 镜像类已随写模式删除；
  * 保留的 PG 工具函数直接对 PostgreSQL 生效，测试也只覆盖 PG 契约。
  */
 describe('novelWriteSync · PostgreSQL apply 工具', { skip: !DATABASE_URL && '未配置 DATABASE_URL' }, () => {

@@ -10,7 +10,7 @@ import { getPool, closeDb } from '../src/db/client.js'
 const DATABASE_URL = process.env.DATABASE_URL
 
 /**
- * legacy/dual 镜像类（createNovelChildWriteSync）随写模式删除；
+ * legacy/dual 镜像类已随写模式删除；
  * 保留的 applyChild* 是离线迁移/恢复工具，测试只覆盖 PostgreSQL 契约。
  */
 describe('novelChildWriteSync · PostgreSQL apply 工具', { skip: !DATABASE_URL && '未配置 DATABASE_URL' }, () => {
