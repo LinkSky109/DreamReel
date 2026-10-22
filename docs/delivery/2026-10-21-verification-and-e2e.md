@@ -45,7 +45,7 @@
 
 ### 3.2 健康检查与部署
 
-- `isPostgresEnabled()` 覆盖 `NOVEL_REPO_MODE=postgres` 与非 legacy 写入模式；`/health/ready` 不再“探针绿、业务红”。
+- `isPostgresEnabled()` 现固定依赖 PostgreSQL；旧 `NOVEL_REPO_MODE`/legacy 写入模式已移除，`/health/ready` 不再“探针绿、业务红”。
 - `deploy/docker-compose.dev.yml`：注入仓库根 `.env` 的 `JWT_SECRET`；小说域默认 legacy，避免容器内误用 localhost 数据库。
 - 存储改为 named volume + `storage-init`：首次从宿主 `storage/` 只读复制并修正权限，规避 Docker Desktop `virtiofs ro` 导致的 503。
 - `deploy/nginx.conf`：公开素材与受保护媒体分目录缓存；隐藏上游默认 `Cache-Control`，避免 `max-age=0` 与 7 天缓存并存。

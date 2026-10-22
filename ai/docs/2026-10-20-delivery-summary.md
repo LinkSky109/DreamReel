@@ -22,7 +22,7 @@
 - PostgreSQL 16：`deploy-postgres-1`，库 `dreamreel`。
 - 迁移：`001`–`009` 全部应用。
 - 已迁移：novels 主表、chunks 1206、characters 559、entities 725、seasons 41、episodes 8378、assets 1621、states 724、集合各 1。
-- 开发环境：`NOVEL_REPO_MODE=postgres`、`NOVEL_WRITE_MODE=dual`、`OUTBOX_ENABLED=true`。
+- 开发环境：小说域已固定 PostgreSQL；旧 `NOVEL_REPO_MODE`/`NOVEL_WRITE_MODE` 已移除。
 - `REQUIRE_AUTH` 默认关闭；RBAC/审计已就绪但未强制。
 
 ## 验证
@@ -36,8 +36,7 @@
 
 ## 回滚
 
-- 读回退：`.env` 设 `NOVEL_REPO_MODE=legacy`。
-- 写回退：`NOVEL_WRITE_MODE=legacy`、`OUTBOX_ENABLED=false`。
+- 小说域回滚：仅使用 `pg_dump`/PITR；不再保留 JSON/dual 回滚。
 - 鉴权回退：`REQUIRE_AUTH=false`。
 - 详见 `docs/runbooks/novels-postgres-cutover.md`。
 
