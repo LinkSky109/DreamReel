@@ -168,6 +168,50 @@ describe('小说写仓储 · PostgreSQL', { skip: !DATABASE_URL && '未配置 DA
     assert.deepEqual(episodes.map((e) => e.logicalKey), ['s2:e2'])
   })
 
+  it('迁移 014 后：同一季内 episode_no 互换成功且 logical_key 稳定', async () => {
+    // 旧 (novel_id, season_id, episode_no) 唯一约束会阻止同一季内互换集号；
+    // 新模型以 (novel_id, logical_key) 为业务键（012），014 删除旧约束。
+    await withNovelTransaction(novelId, async (repos) => {
+      await repos.seasons.upsertMany(
+        novelId,
+        [{ id: `${novelId}-s3`, seasonNo: 3, title: '第三季', episodeCount: 2, chapterStart: 7, chapterEnd: 12 }],
+        { orgId }
+      )
+      await repos.episodes.upsertMany(
+        novelId,
+        [
+          { id: `${novelId}-ep3a`, seasonId: `${novelId}-s3`, episodeNo: 1, logicalKey: 's3:e1', title: '集A' },
+          { id: `${novelId}-ep3b`, seasonId: `${novelId}-s3`, episodeNo: 2, logicalKey: 's3:e2', title: '集B' },
+        ],
+        { orgId }
+      )
+    })
+
+    // 互换 episode_no（1<->2）：若旧唯一约束仍在，本语句会因唯一冲突失败。
+    await withNovelTransaction(novelId, async (repos) => {
+      await repos.episodes.upsertMany(
+        novelId,
+        [
+          { id: `${novelId}-ep3a`, seasonId: `${novelId}-s3`, episodeNo: 2, logicalKey: 's3:e1', title: '集A' },
+          { id: `${novelId}-ep3b`, seasonId: `${novelId}-s3`, episodeNo: 1, logicalKey: 's3:e2', title: '集B' },
+        ],
+        { orgId }
+      )
+    })
+
+    const episodes = await getNovelWriteRepositories().episodes.list(novelId, {
+      orgId,
+      seasonId: `${novelId}-s3`,
+    })
+    const byKey = new Map(episodes.map((e) => [e.logicalKey, e]))
+    assert.equal(byKey.size, 2)
+    // logical_key 稳定（id 保留），episode_no 已互换。
+    assert.equal(byKey.get('s3:e1').id, `${novelId}-ep3a`)
+    assert.equal(byKey.get('s3:e1').episodeNo, 2)
+    assert.equal(byKey.get('s3:e2').id, `${novelId}-ep3b`)
+    assert.equal(byKey.get('s3:e2').episodeNo, 1)
+  })
+
   it('事务失败整体回滚', async () => {
     const marker = `${novelId}-rollback`
     await assert.rejects(

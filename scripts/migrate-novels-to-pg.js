@@ -15,6 +15,7 @@ import pg from 'pg'
 import config from '../src/config/index.js'
 import { toNovelPayload } from '../src/repositories/novelRepository.js'
 import { stableStringify } from '../src/utils/stableJson.js'
+import { findLatestNovelArchive, loadNovelArchive } from './lib/novelJsonArchive.js'
 
 const { Client } = pg
 const args = new Set(process.argv.slice(2))
@@ -23,10 +24,35 @@ const verifyOnly = args.has('--verify')
 const orgId = config.novels.orgId
 const dbPath = path.resolve(config.storage.path, 'data', 'db.json')
 
-function loadNovels() {
-  if (!fs.existsSync(dbPath)) throw new Error(`找不到数据文件：${dbPath}`)
-  const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'))
-  return Object.values(data.novelProjects || {})
+/**
+ * 解析小说来源（可注入，便于纯函数测试）：
+ * - 优先 db.json 的 novelProjects（旧格式仍可能保留）；
+ * - 为空则回退到 storage/archive/novels-from-db-*.json 最新归档（PG 单源后 db.json 已清空）；
+ * - 两边都没有小说时报明确错误，避免 verify 误报 0。
+ * @returns {{source: string, novels: object[]}}
+ */
+export function loadNovelSource({
+  dbFile = dbPath,
+  findLatest = findLatestNovelArchive,
+  loadArchive = loadNovelArchive,
+} = {}) {
+  let data = {}
+  if (fs.existsSync(dbFile)) {
+    data = JSON.parse(fs.readFileSync(dbFile, 'utf8'))
+  }
+  const inline = Object.values(data.novelProjects || {})
+  if (inline.length) return { source: dbFile, novels: inline }
+
+  const archiveFile = findLatest()
+  if (!archiveFile) {
+    throw new Error(
+      `db.json 无小说集合，且找不到归档：${dbFile}（storage/archive/novels-from-db-*.json）`
+    )
+  }
+  const archive = loadArchive(archiveFile)
+  const novels = Object.values(archive?.collections?.novelProjects || {})
+  if (!novels.length) throw new Error(`归档中没有小说集合：${archiveFile}`)
+  return { source: archiveFile, novels }
 }
 
 function toRow(doc) {
@@ -46,8 +72,8 @@ function toRow(doc) {
 
 async function main() {
   if (!config.db.url) throw new Error('DATABASE_URL 未配置')
-  const novels = loadNovels()
-  console.log(`source: ${dbPath}`)
+  const { source, novels } = loadNovelSource()
+  console.log(`source: ${source}`)
   console.log(`novels: ${novels.length}, org: ${orgId}`)
   if (dryRun) {
     for (const doc of novels) console.log(`  [dry] ${doc.id}  ${doc.title}  stage=${doc.stage || '-'}`)
@@ -57,14 +83,15 @@ async function main() {
   const client = new Client({ connectionString: config.db.url })
   await client.connect()
   try {
-    await client.query(
-      `INSERT INTO organizations (id, name, slug, plan)
-       VALUES ($1, $2, $3, 'free')
-       ON CONFLICT (id) DO NOTHING`,
-      [orgId, 'Default Organization', orgId]
-    )
-
+    // verify 模式只读：不写入 organizations / novels。
     if (!verifyOnly) {
+      await client.query(
+        `INSERT INTO organizations (id, name, slug, plan)
+         VALUES ($1, $2, $3, 'free')
+         ON CONFLICT (id) DO NOTHING`,
+        [orgId, 'Default Organization', orgId]
+      )
+
       let inserted = 0
       let updated = 0
       for (const doc of novels) {
@@ -124,7 +151,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error('[migrate-novels]', error.message)
-  process.exit(1)
-})
+// 仅在作为 CLI 直接运行时执行，便于测试导入 loadNovelSource 纯函数。
+const isMainModule = import.meta.url === `file://${process.argv[1]}`
+if (isMainModule) {
+  main().catch((error) => {
+    console.error('[migrate-novels]', error.message)
+    process.exit(1)
+  })
+}
