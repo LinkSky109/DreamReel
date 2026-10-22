@@ -48,7 +48,6 @@ describe('小说域 · 测试库隔离与 PG-only 读', () => {
     const { rows } = await getPool().query('SELECT current_database() AS db')
     assert.equal(rows[0].db, urlDb, '实际连接的库必须等于配置的测试库')
 
-    assert.equal(config.novels.writeMode, 'postgres')
     assert.equal(config.db.driver, 'json', '非小说域不应切到 PG 测试库')
     assert.match(String(config.storage.path), /test-run|e2e-storage/, 'STORAGE_PATH 必须是隔离目录')
   })

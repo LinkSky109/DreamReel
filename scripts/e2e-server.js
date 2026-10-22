@@ -48,7 +48,6 @@ const child = spawn(process.execPath, ['src/server.js'], {
     PORT: process.env.E2E_API_PORT || '3301',
     STORAGE_PATH: storagePath,
     DB_DRIVER: 'json',
-    NOVEL_WRITE_MODE: 'postgres',
     OUTBOX_ENABLED: 'false',
     REQUIRE_AUTH: 'false',
     LLM_PROVIDER: 'mock',

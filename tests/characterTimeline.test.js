@@ -5,8 +5,8 @@ import { writeChild, deleteChildStates } from '../src/services/novelChildStore.j
 import { listCharactersAsync, listStatesAsync } from '../src/services/novelAsyncReadService.js'
 import {
   upsertState,
-  buildAppearanceDirectiveAsync,
-  deriveCharacterStagesAsync,
+  buildAppearanceDirective,
+  deriveCharacterStages,
   buildTimelineFrom,
 } from '../src/services/characterGrowthService.js'
 import './helpers/pg-teardown.js'
@@ -68,13 +68,13 @@ describe('角色形象时间线 characterGrowthService（PostgreSQL）', () => {
     assert.match(s1[0].appearance, /修订/)
   })
 
-  it('buildAppearanceDirectiveAsync 只输出 ≤ 该集的状态', async () => {
-    const d3 = await buildAppearanceDirectiveAsync(novelId, 3, ['血瞳'])
+  it('buildAppearanceDirective 只输出 ≤ 该集的状态', async () => {
+    const d3 = await buildAppearanceDirective(novelId, 3, ['血瞳'])
     assert.match(d3, /第3集/)
     assert.match(d3, /生锈铁片/)
     assert.doesNotMatch(d3, /猎枪/) // 第 5 集的装备不得出现在第 3 集
 
-    const d6 = await buildAppearanceDirectiveAsync(novelId, 6, ['血瞳'])
+    const d6 = await buildAppearanceDirective(novelId, 6, ['血瞳'])
     assert.match(d6, /猎枪/)
   })
 
@@ -85,26 +85,26 @@ describe('角色形象时间线 characterGrowthService（PostgreSQL）', () => {
     await deleteChildStates(novelId, other.id, null)
   })
 
-  it('deriveCharacterStagesAsync 只在形象实质变化时切阶段', async () => {
+  it('deriveCharacterStages 只在形象实质变化时切阶段', async () => {
     const c = await createCharacter('c-stage-1', '阶段测试')
     await upsertState(novelId, c.id, 1, { appearance: '少年，破旧斗篷，脸上带疤', equipment: '铁片' }, { source: 'llm' })
     await upsertState(novelId, c.id, 2, { appearance: '少年，破旧斗篷，脸上带疤', equipment: '铁片' }, { source: 'llm' }) // 无变化
     await upsertState(novelId, c.id, 3, { appearance: '青年，皮甲，短发', equipment: '猎枪' }, { source: 'llm' }) // 变化
     await upsertState(novelId, c.id, 4, { appearance: '青年，皮甲，短发', equipment: '猎枪' }, { source: 'llm' }) // 无变化
     await upsertState(novelId, c.id, 5, { appearance: '深渊化，背生黑翼', equipment: '光刃' }, { source: 'llm' }) // 变化
-    const stages = await deriveCharacterStagesAsync(novelId, c.id, { maxStages: 8 })
+    const stages = await deriveCharacterStages(novelId, c.id, { maxStages: 8 })
     assert.deepEqual(
       stages.map((s) => s.episodeNo),
       [1, 3, 5]
     )
   })
 
-  it('deriveCharacterStagesAsync 超过上限时均匀抽样并保留首尾', async () => {
+  it('deriveCharacterStages 超过上限时均匀抽样并保留首尾', async () => {
     const c = await createCharacter('c-stage-2', '阶段抽样')
     for (let i = 1; i <= 10; i += 1) {
       await upsertState(novelId, c.id, i, { appearance: `第${i}阶段完全不同外形${'x'.repeat(i)}`, equipment: `装备${i}` }, { source: 'llm' })
     }
-    const stages = await deriveCharacterStagesAsync(novelId, c.id, { maxStages: 4 })
+    const stages = await deriveCharacterStages(novelId, c.id, { maxStages: 4 })
     assert.equal(stages.length, 4)
     assert.equal(stages[0].episodeNo, 1)
     assert.equal(stages[stages.length - 1].episodeNo, 10)

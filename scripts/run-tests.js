@@ -38,8 +38,7 @@ try {
 } catch (error) {
   console.error(`[test-db] 测试库准备失败：${error.message}`)
   console.error(
-    '[test-db] 需要 DATABASE_URL（可另设 TEST_DATABASE_URL，库名必须以 _test 结尾）。' +
-      '本套件已不使用 NOVEL_WRITE_MODE=legacy / SKIP_TEST_DB。'
+    '[test-db] 需要 DATABASE_URL（可另设 TEST_DATABASE_URL，库名必须以 _test 结尾）。'
   )
   process.exit(1)
 }
@@ -85,7 +84,6 @@ const result = spawnSync(
       ELEVENLABS_API_KEY: '',
       // 非小说域仍用隔离的 JSON 存储；小说域只走 PostgreSQL 测试库。
       DB_DRIVER: 'json',
-      NOVEL_WRITE_MODE: 'postgres',
       OUTBOX_ENABLED: 'false',
       REQUIRE_AUTH: 'false',
       DATABASE_URL: databaseUrlForTests,
