@@ -1,17 +1,15 @@
 import fs from 'fs'
 import path from 'path'
 import config from '../config/index.js'
-import { storageService } from './storageService.js'
 import { NovelChunk } from '../models/NovelChunk.js'
 import {
   updateNovelProject,
   writeNovelFile,
   novelDir,
   assertEditable,
-  getChunkText,
   invalidateCleanedCache,
 } from './novelProjectService.js'
-import { getNovelProjectAsync } from './novelAsyncReadService.js'
+import { getNovelProjectAsync, listChunksAsync } from './novelAsyncReadService.js'
 import { fetchQishuxiaTxt } from './novelSourceService.js'
 import { hashText, locateChapters } from '../utils/textOffsets.js'
 import { withNovelTransaction } from '../repositories/unitOfWork.js'
@@ -172,14 +170,6 @@ export async function ingestNovel(novelId, { sourceType = 'text', text, url, max
     )
   }
 
-  // 清理旧缓存切片
-  if (storageService.data.novelChunks) {
-    for (const c of storageService.listNovelChunks(novelId)) {
-      delete storageService.data.novelChunks[c.id]
-    }
-  }
-  for (const c of chunks) storageService.createNovelChunk(c)
-
   writeNovelFile(
     novelId,
     'chunks/chunks.json',
@@ -209,16 +199,9 @@ export async function ingestNovel(novelId, { sourceType = 'text', text, url, max
 }
 
 /**
- * 章节列表。返回带 text 的对象（新数据从 cleaned.txt 按偏移水合），
+ * 章节列表。返回带 text 的对象（正文从 cleaned.txt 按偏移水合），
  * 以保持抽取/世界观/统计等既有调用方无需改动。
  */
-export function listChunks(novelId) {
-  return storageService
-    .listNovelChunks(novelId)
-    .sort((a, b) => a.index - b.index)
-    .map((chunk) => {
-      if (typeof chunk.text === 'string' && chunk.text.length) return chunk
-      const text = getChunkText(novelId, chunk)
-      return text ? { ...chunk, text } : chunk
-    })
+export async function listChunks(novelId) {
+  return listChunksAsync(novelId)
 }

@@ -5,7 +5,7 @@ import { assertEditable } from './novelProjectService.js'
 import { getEpisode, updateEpisode, getEpisodeText } from './novelEpisodeStore.js'
 
 import { isGenericName } from '../utils/nameFilters.js'
-import { buildAppearanceDirectiveAsync, generateEpisodeStates } from './characterGrowthService.js'
+import { buildAppearanceDirective, generateEpisodeStates } from './characterGrowthService.js'
 import { getNovelProjectAsync, listCharactersAsync, listEntitiesAsync } from './novelAsyncReadService.js'
 import { getOrGenerateOutline } from './episodeOutlineService.js'
 
@@ -171,7 +171,7 @@ export async function generateEpisodeScript(novelId, episodeId, opts = {}) {
       ]
       const localNames = [...new Set([...localChars.map((c) => c.name), ...localEnts.map((e) => e.name)])]
       const episodeNo = Number(ep.episodeNo ?? (ep.chapterIndex ?? 0) + 1)
-      const appearanceDirective = await buildAppearanceDirectiveAsync(novelId, episodeNo, localNames)
+      const appearanceDirective = await buildAppearanceDirective(novelId, episodeNo, localNames)
       const ctx = { core, local, localNames, appearanceDirective }
       const res = await llm.generateJSON(buildScriptPrompt(text, target, project.style || {}, ctx))
       const data = res.data

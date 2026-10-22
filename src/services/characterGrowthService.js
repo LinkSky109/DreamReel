@@ -1,10 +1,8 @@
 import logger from '../utils/logger.js'
 import { getLLMProvider } from '../providers/llmProviderFactory.js'
-import { storageService } from './storageService.js'
 import { writeChild, deleteChildStates } from './novelChildStore.js'
 import { NovelCharacterState } from '../models/NovelCharacterState.js'
 import { getEpisode, getEpisodeText } from './novelEpisodeStore.js'
-import { listCharacters } from './characterExtractionService.js'
 import { isGenericName } from '../utils/nameFilters.js'
 import { getNovelProjectAsync, listCharactersAsync, listStatesAsync } from './novelAsyncReadService.js'
 
@@ -27,15 +25,13 @@ export async function addState(novelId, characterId, data = {}) {
   return writeChild('states', state)
 }
 
-export function listStates(novelId, characterId) {
-  return storageService
-    .listNovelCharacterStates(novelId, characterId)
-    .sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
+export async function listStates(novelId, characterId) {
+  return listStatesAsync(novelId, characterId)
 }
 
 /** 取某角色在指定集时的状态（≤ 该集的最近一条） */
-export function getCharacterStateAt(novelId, characterId, episodeNo) {
-  const states = listStates(novelId, characterId).filter((s) => Number(s.episodeNo) <= Number(episodeNo))
+export async function getCharacterStateAt(novelId, characterId, episodeNo) {
+  const states = (await listStates(novelId, characterId)).filter((s) => Number(s.episodeNo) <= Number(episodeNo))
   return states[states.length - 1] || null
 }
 
@@ -61,7 +57,7 @@ export async function deleteStatesForEpisode(novelId, episodeNo) {
  * 组装「形象指令」文本，供剧本/出图/出片提示词使用。
  * 对每个具名角色取「≤该集」的最近状态；没有状态则跳过。
  */
-export async function buildAppearanceDirectiveAsync(novelId, episodeNo, names = null) {
+export async function buildAppearanceDirective(novelId, episodeNo, names = null) {
   const chars = (await listCharactersAsync(novelId)).filter((c) => c.name && !isGenericName(c.name))
   const wanted = names && names.length ? new Set(names) : null
   const states = await listStatesAsync(novelId)
@@ -72,24 +68,6 @@ export async function buildAppearanceDirectiveAsync(novelId, episodeNo, names = 
       .filter((s) => s.characterId === c.id && Number(s.episodeNo) <= Number(episodeNo))
       .sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
     const st = applicable[applicable.length - 1]
-    if (!st) continue
-    const bits = []
-    if (st.appearance) bits.push(`外观：${st.appearance}`)
-    if (st.equipment) bits.push(`装备：${st.equipment}`)
-    if (st.injuries) bits.push(`伤势：${st.injuries}`)
-    if (st.abilities) bits.push(`能力：${st.abilities}`)
-    if (bits.length) lines.push(`- ${c.name}（第${episodeNo}集）：${bits.join('；')}`)
-  }
-  return lines.join('\n')
-}
-
-export function buildAppearanceDirective(novelId, episodeNo, names = null) {
-  const chars = listCharacters(novelId).filter((c) => c.name && !isGenericName(c.name))
-  const wanted = names && names.length ? new Set(names) : null
-  const lines = []
-  for (const c of chars) {
-    if (wanted && !wanted.has(c.name)) continue
-    const st = getCharacterStateAt(novelId, c.id, episodeNo)
     if (!st) continue
     const bits = []
     if (st.appearance) bits.push(`外观：${st.appearance}`)
@@ -326,7 +304,7 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
   // 仅对真正没拿到 LLM 结果的角色回退（不使用 description：它可能是终态）
   if (degraded.length) {
     for (const c of degraded) {
-      const prev = getCharacterStateAt(novelId, c.id, episodeNo - 1)
+      const prev = await getCharacterStateAt(novelId, c.id, episodeNo - 1)
       const card = c.card || {}
       saved.push(
         ...(await persist(
@@ -351,8 +329,8 @@ export async function generateEpisodeStates(novelId, episodeId, opts = {}) {
 }
 
 /** 形象时间线（按角色分组），供 UI 展示 */
-export function buildTimeline(novelId) {
-  return buildTimelineFrom(listCharacters(novelId), listStates(novelId))
+export async function buildTimeline(novelId) {
+  return buildTimelineFrom(await listCharactersAsync(novelId), await listStatesAsync(novelId))
 }
 
 /**
@@ -433,18 +411,20 @@ function deriveStagesFromStates(states, { maxStages = 8 } = {}) {
   return picked.filter((s, i) => picked.findIndex((x) => x.id === s.id) === i)
 }
 
-export function deriveCharacterStages(novelId, characterId, opts = {}) {
-  return deriveStagesFromStates(listStates(novelId, characterId), opts)
-}
-
-export async function deriveCharacterStagesAsync(novelId, characterId, opts = {}) {
+export async function deriveCharacterStages(novelId, characterId, opts = {}) {
   return deriveStagesFromStates(await listStatesAsync(novelId, characterId), opts)
 }
 
 /** 校验某集是否已具备出场角色的形象状态；返回缺失角色名 */
-export function missingStatesForEpisode(novelId, episodeNo, names = []) {
-  const chars = listCharacters(novelId).filter((c) => c.name && names.includes(c.name))
-  return chars.filter((c) => !getCharacterStateAt(novelId, c.id, episodeNo)).map((c) => c.name)
+export async function missingStatesForEpisode(novelId, episodeNo, names = []) {
+  const chars = (await listCharactersAsync(novelId)).filter((c) => c.name && names.includes(c.name))
+  const states = await listStatesAsync(novelId)
+  return chars
+    .filter(
+      (c) =>
+        !states.some((s) => s.characterId === c.id && Number(s.episodeNo) <= Number(episodeNo))
+    )
+    .map((c) => c.name)
 }
 
 export default {

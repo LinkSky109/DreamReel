@@ -1,13 +1,13 @@
 import logger from '../utils/logger.js'
 import { generateId } from '../utils/idGenerator.js'
-import { storageService } from './storageService.js'
 import { writeChild, writeChildren } from './novelChildStore.js'
 import { NovelCharacter, CARD_SCHEMA, CARD_FIELDS, CARD_GROUPS, CHARACTER_KINDS } from '../models/NovelCharacter.js'
 import { getLLMProviderByPref } from '../providers/llmProviderFactory.js'
 import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
 import { updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
-import { getNovelProjectAsync, listChunksAsync } from './novelAsyncReadService.js'
+import { getNovelProjectAsync, listChunksAsync, listCharactersAsync } from './novelAsyncReadService.js'
+import { novelChildReadService } from './novelChildReadService.js'
 import { runGroups } from './extractionStatus.js'
 import { generateJSONWithRetry } from '../utils/llmRetry.js'
 
@@ -291,30 +291,11 @@ export async function selectCharacterSet(novelId, setId) {
 }
 
 /** 当前生效的角色集合（未选定则返回全部） */
-export function listCharacters(novelId) {
-  const project = storageService.getNovelProject(novelId)
-  const all = storageService.listNovelCharacters(novelId)
-  const setId = project && project.selectedCharacterSet
-  if (setId) {
-    const set = storageService.getCharacterSet(setId)
-    if (set) {
-      const ids = new Set(set.characterIds)
-      return all.filter((c) => ids.has(c.id))
-    }
-  }
-  return all
+export async function listCharacters(novelId) {
+  return listCharactersAsync(novelId)
 }
 
 /** 备选集合列表（含字符数 + 仍存在的记录数） */
-export function listCharacterSets(novelId) {
-  const project = storageService.getNovelProject(novelId)
-  const live = new Set(storageService.listNovelCharacters(novelId).map((c) => c.id))
-  return (project?.characterSets || [])
-    .map((sid) => {
-      const set = storageService.getCharacterSet(sid)
-      if (!set) return null
-      const liveCount = (set.characterIds || []).filter((x) => live.has(x)).length
-      return { id: set.id, provider: set.provider, createdAt: set.createdAt, count: set.characterIds.length, live: liveCount, selected: sid === project.selectedCharacterSet }
-    })
-    .filter(Boolean)
+export async function listCharacterSets(novelId) {
+  return novelChildReadService.listSets('characterSets', novelId)
 }

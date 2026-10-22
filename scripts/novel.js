@@ -62,6 +62,8 @@ async function main() {
     sync: await import('../src/services/novelSyncService.js'),
     handoff: await import('../src/services/episodeHandoffService.js'),
     world: await import('../src/services/worldbuildingService.js'),
+    read: await import('../src/services/novelReadService.js'),
+    asyncRead: await import('../src/services/novelAsyncReadService.js'),
   }
 
   const [cmd, ...rest] = process.argv.slice(2)
@@ -83,8 +85,7 @@ async function main() {
 
     case 'list': {
       print(
-        services.project
-          .listNovelProjects()
+        (await services.read.novelReadService.list())
           .map((p) => ({ id: p.id, title: p.title, status: p.status, counts: p.counts }))
       )
       break
@@ -117,7 +118,7 @@ async function main() {
         minFreq: flags['min-freq'] ? Number(flags['min-freq']) : undefined,
       })
       await services.card.ensureCards(id)
-      print({ novelId: id, provider: result.provider, characters: services.extract.listCharacters(id).length })
+      print({ novelId: id, provider: result.provider, characters: (await services.extract.listCharacters(id)).length })
       break
     }
 
@@ -125,7 +126,7 @@ async function main() {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
       print(
-        services.extract.listCharacters(id).map((c) => ({
+        (await services.extract.listCharacters(id)).map((c) => ({
           name: c.name,
           aliases: c.aliases,
           provider: c.provider,
@@ -139,15 +140,15 @@ async function main() {
     case 'show': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      const p = services.project.getNovelProject(id)
-      print({ ...p, chunkCount: services.chunk.listChunks(id).length, reviewStats: services.card.reviewStats(id) })
+      const p = await services.asyncRead.getNovelProjectAsync(id)
+      print({ ...p, chunkCount: (await services.chunk.listChunks(id)).length, reviewStats: await services.card.reviewStats(id) })
       break
     }
 
     case 'stats': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.card.reviewStats(id))
+      print(await services.card.reviewStats(id))
       break
     }
 
@@ -387,21 +388,21 @@ async function main() {
     case 'world-show': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.world.summarize(id))
+      print(await services.world.summarize(id))
       break
     }
 
     case 'world-entities': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.world.listEntities(id, positional[1]).map((e) => ({ type: e.type, name: e.name, aliases: e.aliases, mentions: e.mentions })))
+      print((await services.world.listEntities(id, positional[1])).map((e) => ({ type: e.type, name: e.name, aliases: e.aliases, mentions: e.mentions })))
       break
     }
 
     case 'world-relations': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.world.listRelations(id))
+      print(await services.world.listRelations(id))
       break
     }
 
@@ -416,7 +417,7 @@ async function main() {
     case 'characters-sets': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.extract.listCharacterSets(id))
+      print(await services.extract.listCharacterSets(id))
       break
     }
 
@@ -431,7 +432,7 @@ async function main() {
     case 'world-sets': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.world.listWorldSets(id))
+      print(await services.world.listWorldSets(id))
       break
     }
 

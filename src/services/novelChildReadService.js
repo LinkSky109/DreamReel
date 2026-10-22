@@ -1,28 +1,17 @@
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
-import { storageService } from './storageService.js'
 import { createPostgresNovelChildRepository } from '../repositories/novelChildRepository.js'
 import { getChunkText } from './novelProjectService.js'
 import { novelReadService } from './novelReadService.js'
-import { listChunks } from './novelChunkService.js'
-import { listCharacters, listCharacterSets } from './characterExtractionService.js'
-import { listEntities, listWorldSets } from './worldbuildingService.js'
-import { listSeasons, listEpisodes } from './seriesPlannerService.js'
-import { listAssets } from './novelAssetService.js'
-import { listStates } from './characterGrowthService.js'
 
 /**
  * 小说子集合只读服务（Phase 3c-2）。
  *
- * PostgreSQL 是唯一读源；不再有 legacy/shadow 回退。
- * 项目投影仅用于 selectedCharacterSet/selectedWorldSet 过滤；后续异步化后可移除。
+ * PostgreSQL 是唯一读源；不存在 legacy/shadow 回退。
  */
 export function createNovelChildReadService({
-  legacy,
   getRepo,
-  getProject = (id) => storageService.getNovelProject(id),
-  getProjectAsync = async (id) => getProject(id),
-  mode = 'postgres',
+  getProjectAsync = async () => null,
   orgId = 'default',
   log = logger,
 } = {}) {
@@ -77,7 +66,6 @@ export function createNovelChildReadService({
   }
 
   async function listRows(kind, novelId, { requestId, seasonId, category, characterId } = {}) {
-    if (mode === 'legacy') return legacy.list(kind, novelId, { seasonId, category, characterId })
     try {
       const repo = await getRepo()
       const rows = await repo.list(kind, novelId, { orgId })
@@ -94,7 +82,6 @@ export function createNovelChildReadService({
   }
 
   async function listSets(kind, novelId, { requestId } = {}) {
-    if (mode === 'legacy') return legacy.listSets(kind, novelId)
     try {
       const repo = await getRepo()
       const sets = await repo.list(kind, novelId, { orgId })
@@ -138,25 +125,6 @@ function getRepoLazy() {
 
 export const novelChildReadService = createNovelChildReadService({
   getProjectAsync: (id) => novelReadService.get(id),
-  legacy: {
-    list: (kind, novelId, opts = {}) => {
-      if (kind === 'chunks') return listChunks(novelId)
-      if (kind === 'characters') return listCharacters(novelId)
-      if (kind === 'entities') return listEntities(novelId)
-      if (kind === 'seasons') return listSeasons(novelId)
-      if (kind === 'episodes') return listEpisodes(novelId, opts.seasonId)
-      if (kind === 'assets') return listAssets(novelId, { category: opts.category })
-      if (kind === 'states') return listStates(novelId, opts.characterId)
-      throw new Error(`未知子集合：${kind}`)
-    },
-    listSets: (kind, novelId) => {
-      if (kind === 'characterSets') return listCharacterSets(novelId)
-      if (kind === 'worldSets') return listWorldSets(novelId)
-      throw new Error(`未知集合：${kind}`)
-    },
-  },
   getRepo: getRepoLazy,
-  // legacy 仅用于测试/回滚；生产写模式为 postgres 时读强制 PG。
-  mode: config.novels.writeMode === 'legacy' ? 'legacy' : 'postgres',
   orgId: config.novels.orgId,
 })

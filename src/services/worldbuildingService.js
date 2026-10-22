@@ -1,13 +1,13 @@
 import logger from '../utils/logger.js'
 import { generateId } from '../utils/idGenerator.js'
 import { getLLMProviderByPref } from '../providers/llmProviderFactory.js'
-import { storageService } from './storageService.js'
 import { writeChild, writeChildren } from './novelChildStore.js'
 import { WorldEntity, WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES, WORLD_CORE_TYPES, attributeKeysFor } from '../models/WorldEntity.js'
 import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
 import { updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
 import { getNovelProjectAsync, listChunksAsync, listEntitiesAsync } from './novelAsyncReadService.js'
+import { novelChildReadService } from './novelChildReadService.js'
 import { runGroups } from './extractionStatus.js'
 import { generateJSONWithRetry } from '../utils/llmRetry.js'
 
@@ -219,7 +219,7 @@ export async function extractWorld(novelId, opts = {}) {
     selectedWorldSet: set.id,
   })
 
-  const summary = summarize(novelId)
+  const summary = await summarize(novelId)
   return { project: await getNovelProjectAsync(novelId), provider, entities: saved.length, summary, set }
 }
 
@@ -235,60 +235,19 @@ export async function selectWorldSet(novelId, setId) {
 }
 
 /** 备选集合列表（含实体数 + 仍存在的记录数） */
-export function listWorldSets(novelId) {
-  const project = storageService.getNovelProject(novelId)
-  const live = new Set(storageService.listWorldEntities(novelId).map((e) => e.id))
-  return (project?.worldSets || [])
-    .map((sid) => {
-      const set = storageService.getWorldSet(sid)
-      if (!set) return null
-      const liveCount = (set.entityIds || []).filter((x) => live.has(x)).length
-      return { id: set.id, provider: set.provider, createdAt: set.createdAt, count: set.entityIds.length, live: liveCount, selected: sid === project.selectedWorldSet }
-    })
-    .filter(Boolean)
+export async function listWorldSets(novelId) {
+  return novelChildReadService.listSets('worldSets', novelId)
 }
 
 /** 当前生效集合内的实体（未选定则全部）——避免历史集合污染统计 */
-function currentEntities(novelId) {
-  const project = storageService.getNovelProject(novelId)
-  let list = storageService.listWorldEntities(novelId)
-  const setId = project && project.selectedWorldSet
-  if (setId) {
-    const set = storageService.getWorldSet(setId)
-    if (set) {
-      const ids = new Set(set.entityIds)
-      list = list.filter((e) => ids.has(e.id))
-    }
-  }
-  return list
-}
-
-export function listEntities(novelId, type) {
-  const list = currentEntities(novelId)
-  const filtered = type ? list.filter((e) => e.type === type) : list
-  return filtered.sort((a, b) => (b.mentions || 0) - (a.mentions || 0))
-}
-
-/** 关系（解析 target 到实体 id） */
-export function listRelations(novelId) {
-  const entities = currentEntities(novelId)
-  const byName = new Map(entities.map((e) => [e.name, e.id]))
-  const out = []
-  for (const e of entities) {
-    for (const r of e.relations || []) {
-      out.push({ from: e.id, fromName: e.name, to: byName.get(r.target) || null, toName: r.target, kind: r.kind || '' })
-    }
-  }
-  return out
-}
-
-export async function listEntitiesAsyncView(novelId, type) {
+export async function listEntities(novelId, type) {
   const list = await listEntitiesAsync(novelId)
   const filtered = type ? list.filter((e) => e.type === type) : list
   return filtered.sort((a, b) => (b.mentions || 0) - (a.mentions || 0))
 }
 
-export async function listRelationsAsync(novelId) {
+/** 关系（解析 target 到实体 id） */
+export async function listRelations(novelId) {
   const entities = await listEntitiesAsync(novelId)
   const byName = new Map(entities.map((e) => [e.name, e.id]))
   const out = []
@@ -300,34 +259,18 @@ export async function listRelationsAsync(novelId) {
   return out
 }
 
-export async function summarizeAsync(novelId) {
+export async function summarize(novelId) {
   const entities = await listEntitiesAsync(novelId)
   const byType = {}
   for (const t of WORLD_TYPES) byType[t] = 0
   for (const e of entities) byType[e.type] = (byType[e.type] || 0) + 1
   const missing = WORLD_CORE_TYPES.filter((t) => byType[t] === 0)
-  const relations = await listRelationsAsync(novelId)
+  const relations = await listRelations(novelId)
   return {
     total: entities.length,
     byType,
     byTypeLabel: Object.fromEntries(Object.entries(byType).map(([k, v]) => [WORLD_TYPE_LABELS[k] || k, v])),
     relations: relations.length,
-    missingCoreTypes: missing.map((t) => WORLD_TYPE_LABELS[t]),
-    provider: entities[0]?.provider || null,
-  }
-}
-
-export function summarize(novelId) {
-  const entities = currentEntities(novelId)
-  const byType = {}
-  for (const t of WORLD_TYPES) byType[t] = 0
-  for (const e of entities) byType[e.type] = (byType[e.type] || 0) + 1
-  const missing = WORLD_CORE_TYPES.filter((t) => byType[t] === 0)
-  return {
-    total: entities.length,
-    byType,
-    byTypeLabel: Object.fromEntries(Object.entries(byType).map(([k, v]) => [WORLD_TYPE_LABELS[k] || k, v])),
-    relations: listRelations(novelId).length,
     missingCoreTypes: missing.map((t) => WORLD_TYPE_LABELS[t]),
     provider: entities[0]?.provider || null,
   }

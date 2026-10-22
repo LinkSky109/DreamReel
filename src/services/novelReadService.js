@@ -1,13 +1,11 @@
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import { getNovelRepository } from '../repositories/novelRepository.js'
-import { storageService } from './storageService.js'
 
 /**
  * 小说只读服务（Phase 3c-2）。
  *
- * PostgreSQL 是唯一读源；不再有 legacy/shadow 回退。
- * 内存投影只服务于尚未异步化的内部同步读，不参与这里。
+ * PostgreSQL 是唯一读源；不存在 legacy/shadow 回退。
  */
 
 const INTERNAL_FIELDS = ['orgId', 'version', 'deletedAt']
@@ -18,7 +16,7 @@ function toApiShape(doc) {
   return out
 }
 
-export function createNovelReadService({ legacy, getRepo, mode = 'postgres', orgId = 'default', log = logger } = {}) {
+export function createNovelReadService({ getRepo, orgId = 'default', log = logger } = {}) {
   async function repoList() {
     const repo = await getRepo()
     const rows = await repo.list({ orgId, limit: 1000 })
@@ -27,7 +25,6 @@ export function createNovelReadService({ legacy, getRepo, mode = 'postgres', org
 
   return {
     async list({ requestId } = {}) {
-      if (mode === 'legacy') return legacy.list()
       try {
         const rows = await repoList()
         return rows.map(toApiShape)
@@ -38,7 +35,6 @@ export function createNovelReadService({ legacy, getRepo, mode = 'postgres', org
     },
 
     async get(id, { requestId } = {}) {
-      if (mode === 'legacy') return legacy.get(id)
       try {
         const repo = await getRepo()
         const doc = await repo.findById(id, { orgId })
@@ -64,16 +60,6 @@ function getRepoLazy() {
 }
 
 export const novelReadService = createNovelReadService({
-  legacy: {
-    list: () => storageService.listNovelProjects().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-    get: (id) => {
-      const project = storageService.getNovelProject(id)
-      if (!project) throw new Error(`Novel project not found: ${id}`)
-      return project
-    },
-  },
   getRepo: getRepoLazy,
-  // legacy 仅用于测试/回滚；生产写模式为 postgres 时读强制 PG。
-  mode: config.novels.writeMode === 'legacy' ? 'legacy' : 'postgres',
   orgId: config.novels.orgId,
 })
