@@ -75,20 +75,20 @@ export async function updateNovelProject(id, patch = {}) {
  */
 export async function recomputeNovelCounts(id) {
   const project = await getNovelProjectForWrite(id)
-  const liveC = new Set(storageService.listNovelCharacters(id).map((c) => c.id))
-  const liveW = new Set(storageService.listWorldEntities(id).map((e) => e.id))
-  const setC = project.selectedCharacterSet ? storageService.getCharacterSet(project.selectedCharacterSet) : null
-  const setW = project.selectedWorldSet ? storageService.getWorldSet(project.selectedWorldSet) : null
-  const characters = setC ? (setC.characterIds || []).filter((x) => liveC.has(x)).length : liveC.size
-  const worldEntities = setW ? (setW.entityIds || []).filter((x) => liveW.has(x)).length : liveW.size
+  const { novelChildReadService } = await import('./novelChildReadService.js')
+  const [characters, worldEntities, chunks] = await Promise.all([
+    novelChildReadService.list('characters', id),
+    novelChildReadService.list('entities', id),
+    novelChildReadService.list('chunks', id),
+  ])
   // PG 写模式下季/集不再写 JSON；保留项目上已有计数，避免被 JSON 的 0 覆盖。
   const pgWrite = config.novels.writeMode === 'postgres'
   return updateNovelProject(id, {
     counts: {
       ...project.counts,
-      chapters: storageService.listNovelChunks(id).length,
-      characters,
-      worldEntities,
+      chapters: chunks.length,
+      characters: characters.length,
+      worldEntities: worldEntities.length,
       seasons: pgWrite ? project.counts?.seasons ?? 0 : storageService.listSeasons(id).length,
       episodes: pgWrite ? project.counts?.episodes ?? 0 : storageService.listEpisodes(id).length,
     },

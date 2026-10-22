@@ -283,8 +283,10 @@ export async function extractCharacters(novelId, opts = {}) {
 export async function selectCharacterSet(novelId, setId) {
   const project = await getNovelProjectAsync(novelId)
   assertEditable(project, 'characters')
-  const set = storageService.getCharacterSet(setId)
-  if (!set || set.novelId !== novelId) throw new Error(`character set not found: ${setId}`)
+  const { novelChildReadService } = await import('./novelChildReadService.js')
+  const sets = await novelChildReadService.listSets('characterSets', novelId)
+  const set = sets.find((s) => s.id === setId)
+  if (!set) throw new Error(`character set not found: ${setId}`)
   return updateNovelProject(novelId, { selectedCharacterSet: setId })
 }
 

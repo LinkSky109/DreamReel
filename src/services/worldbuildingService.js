@@ -227,8 +227,10 @@ export async function extractWorld(novelId, opts = {}) {
 export async function selectWorldSet(novelId, setId) {
   const project = await getNovelProjectAsync(novelId)
   assertEditable(project, 'world')
-  const set = storageService.getWorldSet(setId)
-  if (!set || set.novelId !== novelId) throw new Error(`world set not found: ${setId}`)
+  const { novelChildReadService } = await import('./novelChildReadService.js')
+  const sets = await novelChildReadService.listSets('worldSets', novelId)
+  const set = sets.find((s) => s.id === setId)
+  if (!set) throw new Error(`world set not found: ${setId}`)
   return updateNovelProject(novelId, { selectedWorldSet: setId })
 }
 
