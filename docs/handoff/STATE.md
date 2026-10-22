@@ -8,20 +8,20 @@
 
 | 项 | 值 |
 |---|---|
-| 阶段 | **R2 小说域 PG 单源收口完成** |
+| 阶段 | **R2 小说域 PG 单源收口完成；已合并 main 并推送** |
 | 轮次 | R2（小说域）；R0 合并 main、R1 安全止血仍待办 |
-| 目标 | 当前分支通过全量门禁 → 备份 → 合并 main → 进入 R1 安全/发布 |
-| 阻塞 | 无代码阻塞；合并 main / push 需用户明确批准 |
-| 下一步 | 1) 提交并复核 `docs/handoff`/计划；2) `npm run check`；3) `pg_dump` 备份；4) Lead 合并 main；5) 启动 R1-T1A/T1B |
+| 目标 | 进入 R1 安全/发布；main 已同步远端 |
+| 阻塞 | 无；合并/推送已完成 |
+| 下一步 | 1) 启动 R1-T1B 安全 P0；2) 补 R1-T1A 迁移冷启动/verify；3) 复跑 E2E；4) R2 契约与交付报告 |
 
 ## 2. 事实基线
 
 | 项 | 值 |
 |---|---|
 | 仓库 | `/Users/link/myApp/DreamReel` |
-| 当前分支 | `feat/novel-pg-single-source` |
-| HEAD | 以 `git log --oneline -1` 为准（分支 `feat/novel-pg-single-source`） |
-| main | `34e7a25 merge: 验证与 E2E 收口总结` |
+| 当前分支 | `main`（已合并并推送） |
+| HEAD | `5bfd062 merge: 小说域 PostgreSQL 单源与 legacy 清理`（后续文档状态提交另计） |
+| main | `5bfd062`（已推送 origin/main）；tag `novel-pg-cutover-2026-10-22` |
 | PostgreSQL | 迁移 `001`–`013` 已应用；`outbox_events` 已由 013 删除 |
 | 小说数据 | 1 部《殖装》/1206 章/33 季/8496 集；角色 559/实体 725/资产 1621 |
 | 测试基线 | 后端 **817**、前端 **138**、`check:legacy` **0**；`series:verify` 99.69% / 覆盖 99.98% |
@@ -36,9 +36,9 @@
 
 | ID | 任务 | Owner | 状态 | 证据/备注 |
 |---|---|---|---|---|
-| R0-T0.1 | 备份（pg_dump + archive + bundle） | lead | pending | 合并 main 前必须完成 |
+| R0-T0.1 | 备份（pg_dump + archive + bundle） | lead | done | `storage/backup/pre-merge-20261022-153321.sql`（14MB） |
 | R0-T0.2 | 在途改动按层提交 | lead | done | 分层 commit + 4 个 worktree 已合并 |
-| R0-T0.3 | 合并 main + tag `baseline/r0-*` | lead | pending | 需用户批准 |
+| R0-T0.3 | 合并 main + tag | lead | done | merge `5bfd062`；tag `novel-pg-cutover-2026-10-22`；已 push |
 | R0-T0.4 | 门禁/测试锁脚本 | lead | pending | `check` 已可用；`scripts/agent/*` 未建 |
 | R0-T0.5 | 长期 worktree | lead | review | 本轮已用临时 worktree 完成并行并清理 |
 | R0-T0.6 | 长期巡检机制 | lead | pending | STATE/JOURNAL 已转为正式源 |

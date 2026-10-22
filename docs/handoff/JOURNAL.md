@@ -111,3 +111,17 @@
 - 命令：`npm run check:docs` → 缺失 0；`npm run check:legacy` → PASS；`npm run check` → 817/138。
 - 文件：`docs/handoff/{README,STATE,JOURNAL,TEMPLATE}.md`、`docs/plans/2026-10-22-remediation-plan.md`、架构/运行手册/AGENTS/deploy。
 - 下一步：备份 → 合并 main → R1 安全止血；合并/push 需用户批准。
+
+## 2026-10-22 15:36 (+08:00) · lead · R0-T0.1/T0.3 合并推送
+
+- 动作：备份数据库 → 合并 `feat/novel-pg-single-source` 到 main → 跑全量门禁 → 打 tag → 推送。
+- 备份：`storage/backup/pre-merge-20261022-153321.sql`（14MB，pg_dump via deploy-postgres-1）。
+- 命令与结果：
+  - `git merge --no-ff feat/novel-pg-single-source` → merge `5bfd062`
+  - `npm run check` → 后端 817 / 前端 138 / legacy 0
+  - `series:verify` → 33 季 / 8496 集 / 99.69% / 覆盖 99.98%
+  - `git push origin main` → `34e7a25..5bfd062`
+  - `git push origin feat/novel-pg-single-source` → 新远端分支
+  - `git push origin novel-pg-cutover-2026-10-22` → tag 已推送
+- 未完成/风险：R1 安全止血与 E2E 复跑仍未完成。
+- 下一步：R1-T1B 鉴权/密钥/路径安全；R1-T1A 迁移冷启动；R2 契约/交付报告。
