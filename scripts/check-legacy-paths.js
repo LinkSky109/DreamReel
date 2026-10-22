@@ -93,7 +93,7 @@ const LEGACY_ALLOWLIST = [
   },
   {
     file: 'scripts/backfill-novel-write-model.js',
-    rules: ['novel-json-archive-runtime', 'storage-service-novel-read'],
+    rules: ['novel-json-archive-runtime', 'storage-service-novel-read', 'storage-service-novel-collection'],
     reason: '离线回填：读取旧 JSON/归档并写入 PG 新列',
   },
   {
