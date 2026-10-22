@@ -125,3 +125,21 @@
   - `git push origin novel-pg-cutover-2026-10-22` → tag 已推送
 - 未完成/风险：R1 安全止血与 E2E 复跑仍未完成。
 - 下一步：R1-T1B 鉴权/密钥/路径安全；R1-T1A 迁移冷启动；R2 契约/交付报告。
+
+## 2026-10-22 19:52 (+08:00) · lead · R1 三轨并行完成
+
+- 动作：按 handoff 建立 db/security/release 三个 worktree，Track A/B/C 并行实现并合并。
+- 合并：
+  - `0b1318a merge: R1 Track A 数据安全`
+  - `8662944 merge: R1 Track B 安全止血`
+  - `c00ca6c merge: R1 Track C 发布链`
+- 结果：
+  - `npm run check` → 后端 869 / 前端 143 / legacy 0
+  - `npm run db:migrate` → 014 已应用；`db:status` pending 0
+  - `db:verify:novels` → postgres=1 source=1 mismatches=0
+  - `scripts/agent/smoke.sh` → health/ready、401/200、静态首页通过
+- 未完成/风险：
+  - main 本地已合并但未推送；E2E 未复跑。
+  - 生产管理员角色分配流程缺失；API Key 旧明文仍惰性迁移。
+  - R1-T1B.6 媒体严格访问开关 deferred 到 R3。
+- 下一步：提交 STATE/JOURNAL → `npm run test:e2e` → 推送 main（需用户批准）→ R2 契约/交付报告。

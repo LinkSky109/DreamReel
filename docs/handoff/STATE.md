@@ -8,23 +8,23 @@
 
 | 项 | 值 |
 |---|---|
-| 阶段 | **R2 小说域 PG 单源收口完成；已合并 main 并推送** |
-| 轮次 | R2（小说域）；R0 合并 main、R1 安全止血仍待办 |
-| 目标 | 进入 R1 安全/发布；main 已同步远端 |
-| 阻塞 | 无；合并/推送已完成 |
-| 下一步 | 1) 启动 R1-T1B 安全 P0；2) 补 R1-T1A 迁移冷启动/verify；3) 复跑 E2E；4) R2 契约与交付报告 |
+| 阶段 | **R1 止血完成（R1-T1B.6 媒体严格开关 deferred）｜main 本地已合并，未推送** |
+| 轮次 | R1 完成；下一步 R2 收口/E2E 与发布 |
+| 目标 | 更新交接源 → E2E → 推送 main → R2 契约/交付 |
+| 阻塞 | 推送需用户确认；生产管理员角色分配与 API Key 惰性迁移需运维确认 |
+| 下一步 | 1) 提交 STATE/JOURNAL；2) 跑 E2E；3) 推送 main；4) R2 契约与交付报告 |
 
 ## 2. 事实基线
 
 | 项 | 值 |
 |---|---|
 | 仓库 | `/Users/link/myApp/DreamReel` |
-| 当前分支 | `main`（已合并并推送） |
-| HEAD | `5bfd062 merge: 小说域 PostgreSQL 单源与 legacy 清理`（后续文档状态提交另计） |
-| main | `5bfd062`（已推送 origin/main）；tag `novel-pg-cutover-2026-10-22` |
-| PostgreSQL | 迁移 `001`–`013` 已应用；`outbox_events` 已由 013 删除 |
+| 当前分支 | `main`（本地已合并三轨，未推送） |
+| HEAD | 以 `git log --oneline -1` 为准（三轨 merge：`0b1318a` / `8662944` / `c00ca6c`） |
+| main | 本地 `c00ca6c` + 文档提交；origin/main 仍为 `840dd54` |
+| PostgreSQL | 迁移 `001`–`014` 已应用；`outbox_events` 已由 013 删除；014 已删旧 episodes 唯一约束 |
 | 小说数据 | 1 部《殖装》/1206 章/33 季/8496 集；角色 559/实体 725/资产 1621 |
-| 测试基线 | 后端 **817**、前端 **138**、`check:legacy` **0**；`series:verify` 99.69% / 覆盖 99.98% |
+| 测试基线 | 后端 **869**、前端 **143**、`check:legacy` **0**；`db:verify:novels` mismatches=0；smoke 通过 |
 | 运行时 | 小说域 PG-only；`db.json` 仅非小说集合；无 JSON 导出快照、无 outbox |
 | 恢复 | `pg_dump`/PITR 为唯一数据回滚；归档 JSON 仅离线应急 |
 
@@ -47,13 +47,14 @@
 
 | ID | 任务 | 状态 | 备注 |
 |---|---|---|---|
-| R1-T1A.1 | `db:verify:novels` 归档回退修复 | pending | — |
+| R1-T1A.1 | `db:verify:novels` 归档回退修复 | done | 归档回退 + 只读 verify；mismatches=0 |
 | R1-T1A.2 | 回滚/恢复口径 + 删死开关 | done | 文档已改为 PG-only/PITR |
-| R1-T1A.3 | 迁移 013 删 episodes 旧唯一约束 | pending | 013 已被 outbox drop 占用；需重新编号 |
-| R1-T1A.4 | 迁移链冷启动验证 | pending | 需从空库验证 001–013 |
+| R1-T1A.3 | 迁移 014 删 episodes 旧唯一约束 | done | 014 已应用；重排用例通过 |
+| R1-T1A.4 | 迁移链冷启动验证 | done | 临时库 001–014 全应用 |
 | R1-T1A.5 | dual 废弃/移除 | done | `NOVEL_WRITE_MODE` 已删除 |
-| R1-T1B.1–6 | 安全 P0（鉴权/API Key/路径/管理面） | pending | 见计划 |
-| R1-T1C.1–5 | 发布链 | pending | 见计划 |
+| R1-T1B.1–5 | 安全 P0（鉴权/API Key/路径/管理面） | done | 869 测试、smoke 401/200 通过 |
+| R1-T1C.1–5 | 发布链 | done | API 基址/镜像/Compose+迁移/产物策略/smoke |
+| R1-T1B.6 | 媒体严格访问开关 | deferred | 本轮控制改动面，留 R3 |
 
 ### R2 收口
 
@@ -63,7 +64,7 @@
 | R2-T2.2 | 移除 storageService 顶层 await/水合 | done | 投影/水合已删除 |
 | R2-T2.3 | Phase 3c-2 路由去投影读 | done | 生产/测试 PG-only |
 | R2-T2.4 | 文档/清单刷新 | done | `check:docs` 缺失 0 |
-| R2-T2.5 | 全量门禁 + 交付报告 + tag | review | `npm run check` 绿；E2E 未复跑 |
+| R2-T2.5 | 全量门禁 + 交付报告 + tag | review | `npm run check` 869/143 绿；E2E 未复跑 |
 | R2-T2.6 | 收敛双构建链 | pending | — |
 | R2-T2.7 | 已知边界收尾（outbox/JSON 导出/死代码） | done | outbox/worker/store/表与 JSON 导出已删 |
 
@@ -78,6 +79,8 @@
 | 时间 | 命令 | 结果 | 执行人 |
 |---|---|---|---|
 | 2026-10-22 15:17 | `npm run check` | 后端 817 / 前端 138 / lint/typecheck/docs/legacy 全绿 | lead |
+| 2026-10-22 19:51 | `npm run check` | 后端 869 / 前端 143 / legacy 0 | lead |
+| 2026-10-22 19:5x | `db:verify:novels` / `smoke.sh` | mismatches=0；401/200/静态首页通过 | lead |
 | 2026-10-22 15:17 | `npm run check:legacy` | 0 违规 | lead |
 | 2026-10-22 15:12 | `npm run db:migrate` / `db:status` | 013 已应用，pending 0 | lead |
 | 2026-10-22 14:5x | `series:verify` | 33 季 / 8496 集 / 99.69% / 覆盖 99.98% | lead |
@@ -89,10 +92,11 @@
 
 | 风险 | 影响 | 缓解 | 状态 |
 |---|---|---|---|
-| R1 鉴权/密钥/路径安全未完成 | 匿名写入、密钥/文件风险 | R1-T1B | 待处理 |
+| 生产管理员无角色分配流程 | 管理面 403 | 上线前补角色/运维初始化 | 待处理 |
+| API Key 旧明文惰性迁移 | 旧 key 首次使用才哈希 | 上线前触发一次或跑一次性迁移 | 待处理 |
 | 未合并 main | 基线未发布 | T0.1 备份 → T0.3 合并 | 待用户批准 |
 | E2E 未复跑 | 发布回归未知 | `npm run test:e2e` + 冒烟 | 待执行 |
-| 迁移 013 已用于 outbox | T1A.3 需新编号 014 | 只增不改，新增 014 | 已记录 |
+| 迁移 013 已用于 outbox | T1A.3 使用 014 | 已应用 014 | 已缓解 |
 | 归档 JSON 误用 | 回退到旧数据 | 只允许离线工具 + `check:legacy` | 已控制 |
 
 ## 6. 巡检记录
