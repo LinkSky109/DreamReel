@@ -20,7 +20,7 @@
 |---|---|
 | 仓库 | `/Users/link/myApp/DreamReel` |
 | 当前分支 | `feat/novel-pg-single-source` |
-| HEAD | `2dacaaf test: 更新无 outbox/JSON 导出断言`（文档提交后以 `git log` 为准） |
+| HEAD | `1efc882 docs: 更新正式交接源与 PG-only 收口状态`（后续以 `git log` 为准） |
 | main | `34e7a25 merge: 验证与 E2E 收口总结` |
 | PostgreSQL | 迁移 `001`–`013` 已应用；`outbox_events` 已由 013 删除 |
 | 小说数据 | 1 部《殖装》/1206 章/33 季/8496 集；角色 559/实体 725/资产 1621 |

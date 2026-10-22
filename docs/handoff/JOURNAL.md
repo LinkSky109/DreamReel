@@ -103,3 +103,11 @@
   - E2E 未复跑；R2-T2.5 仍 review。
   - 旧 outbox 表已删除；009 迁移保留，013 为删除迁移。
 - 下一步：提交 handoff/计划 → 最终 check → 备份 → 合并 main → R1-T1B。
+
+## 2026-10-22 15:30 (+08:00) · lead · docs 正式化
+
+- 动作：把 `docs/handoff` 与整改计划纳入 git，作为正式协作事实源；同步 PG-only、outbox/JSON 导出下线与门禁结果。
+- 提交：`9078ba8 chore(deploy): 移除 outbox 环境变量`、`1efc882 docs: 更新正式交接源与 PG-only 收口状态`
+- 命令：`npm run check:docs` → 缺失 0；`npm run check:legacy` → PASS；`npm run check` → 817/138。
+- 文件：`docs/handoff/{README,STATE,JOURNAL,TEMPLATE}.md`、`docs/plans/2026-10-22-remediation-plan.md`、架构/运行手册/AGENTS/deploy。
+- 下一步：备份 → 合并 main → R1 安全止血；合并/push 需用户批准。
