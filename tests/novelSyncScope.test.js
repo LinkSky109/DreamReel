@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import fs from 'fs'
 import path from 'path'
 import config from '../src/config/index.js'
-import { createNovelProject, novelDir } from '../src/services/novelProjectService.js'
+import { createNovelProject, deleteNovelProject, novelDir } from '../src/services/novelProjectService.js'
 import { ingestNovel } from '../src/services/novelChunkService.js'
 import { buildManifest, resolveScope, SYNC_SCOPES } from '../src/services/novelSyncService.js'
+import './helpers/pg-teardown.js'
 
 const SAMPLE = `第1章 起点
 张三走在路上。
@@ -35,8 +36,10 @@ describe('同步范围（产物 + 文档 / 仅产物 / 全部）', () => {
     }
   })
 
-  after(() => {
+  after(async () => {
     if (!project) return
+    // PG 软删除 + 目录清理（deleteNovelProject 覆盖 novels/images/videos/audio/exports）。
+    await deleteNovelProject(project.id)
     fs.rmSync(novelDir(project.id), { recursive: true, force: true })
     for (const dir of ['images', 'videos', 'audio/voices', 'exports']) {
       fs.rmSync(path.join(config.storage.path, dir, 'novels', project.id), { recursive: true, force: true })

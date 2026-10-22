@@ -3,16 +3,20 @@ import assert from 'node:assert/strict'
 import fs from 'fs'
 import {
   createNovelProject,
+  deleteNovelProject,
   novelDir,
   readCleanedText,
   getEpisodeText,
 } from '../src/services/novelProjectService.js'
-import { ingestNovel, listChunks } from '../src/services/novelChunkService.js'
-import { planSeries, listEpisodes, listSeasons } from '../src/services/seriesPlannerService.js'
+import { ingestNovel } from '../src/services/novelChunkService.js'
+import { listChunksAsync } from '../src/services/novelAsyncReadService.js'
+import { planSeries } from '../src/services/seriesPlannerService.js'
+import { getEpisode, listEpisodes, listSeasons } from '../src/services/novelEpisodeStore.js'
+import { getNovelWriteRepositories } from '../src/repositories/unitOfWork.js'
 import { planEpisodesInRange } from '../src/services/episodePlanService.js'
 import { assembleSeasons } from '../src/services/seasonPlanService.js'
 import { getOrGenerateOutline } from '../src/services/episodeOutlineService.js'
-import { storageService } from '../src/services/storageService.js'
+import './helpers/pg-teardown.js'
 
 const SENT = '他抬头望向荒原尽头，风沙里传来低沉的轰鸣声，像有什么东西正在苏醒。'
 
@@ -34,19 +38,20 @@ function buildNovel(chapterCount, baseChars) {
 describe('分季分集：故事边界 + 85–95s', () => {
   const created = []
 
-  after(() => {
+  // PG 软删除 + 目录清理；不再从 db.json 小说集合手工摘除记录。
+  after(async () => {
     for (const id of created) {
+      try {
+        await deleteNovelProject(id)
+      } catch {
+        /* ignore */
+      }
       try {
         fs.rmSync(novelDir(id), { recursive: true, force: true })
       } catch {
         /* ignore */
       }
-      for (const e of storageService.listEpisodes(id)) storageService.deleteEpisode(e.id)
-      for (const s of storageService.listSeasons(id)) storageService.deleteSeason(s.id)
-      for (const c of storageService.listNovelChunks(id)) delete storageService.data.novelChunks[c.id]
-      delete storageService.data.novelProjects?.[id]
     }
-    storageService._flush()
   })
 
   it('planEpisodesInRange：全部落在 85–95s，偏移连续且可切片', () => {
@@ -123,10 +128,12 @@ describe('分季分集：故事边界 + 85–95s', () => {
     created.push(project.id)
     await ingestNovel(project.id, { sourceType: 'text', text: raw })
 
-    const chunks = listChunks(project.id)
+    const chunks = await listChunksAsync(project.id)
     assert.ok(chunks.every((c) => c.startOffset !== null && c.startOffset !== undefined && c.text.length > 0))
-    // 存储层不再持久化正文
-    assert.ok(storageService.listNovelChunks(project.id).every((c) => !c.text))
+    // PostgreSQL 只存偏移：章节正文在 novel_sources，不在 novel_chunks.content
+    const stored = await getNovelWriteRepositories().chunks.list(project.id)
+    assert.ok(stored.length > 0)
+    assert.ok(stored.every((c) => !c.text), 'novel_chunks.content 不应持久化正文')
 
     const result = await planSeries(project.id, { episodesPerSeason: 200, useLLM: false })
     assert.ok(result.episodes > 0)
@@ -134,8 +141,8 @@ describe('分季分集：故事边界 + 85–95s', () => {
     assert.ok(result.buckets.inRange / result.episodes >= 0.99, JSON.stringify(result.buckets))
 
     const cleaned = readCleanedText(project.id)
-    const episodes = listEpisodes(project.id)
-    assert.ok(seasonsAtLeast(listSeasons(project.id), episodes.length))
+    const episodes = await listEpisodes(project.id)
+    assert.ok(seasonsAtLeast(await listSeasons(project.id), episodes.length))
     for (const ep of episodes) {
       assert.ok(ep.startOffset !== null && ep.startOffset !== undefined && ep.endOffset !== null && ep.endOffset !== undefined)
       assert.equal(getEpisodeText(project.id, ep), cleaned.slice(ep.startOffset, ep.endOffset))
@@ -152,11 +159,12 @@ describe('分季分集：故事边界 + 85–95s', () => {
     created.push(project.id)
     await ingestNovel(project.id, { sourceType: 'text', text: raw })
     await planSeries(project.id, { episodesPerSeason: 200, useLLM: false })
-    const ep = listEpisodes(project.id)[0]
+    const ep = (await listEpisodes(project.id))[0]
     const outline = await getOrGenerateOutline(project.id, ep.id, { useLLM: false })
     assert.equal(outline.provider, 'heuristic')
     assert.ok(outline.synopsis.length > 0)
-    assert.equal(storageService.getEpisode(ep.id).outline.provider, 'heuristic')
+    const stored = await getEpisode(project.id, ep.id)
+    assert.equal(stored.outline.provider, 'heuristic')
     const again = await getOrGenerateOutline(project.id, ep.id, { useLLM: false })
     assert.equal(again.generatedAt, outline.generatedAt)
   })

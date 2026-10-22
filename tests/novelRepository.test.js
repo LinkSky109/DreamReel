@@ -1,17 +1,10 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import {
-  createJsonNovelRepository,
-  createPostgresNovelRepository,
-} from '../src/repositories/novelRepository.js'
+import { createPostgresNovelRepository } from '../src/repositories/novelRepository.js'
 import { migrate } from '../src/db/migrate.js'
 import { getPool, getDb, closeDb } from '../src/db/client.js'
 
 const DATABASE_URL = process.env.DATABASE_URL
-
-function jsonStore() {
-  return { data: { novelProjects: {} }, save() {} }
-}
 
 async function assertContract(repo, orgId) {
   const base = {
@@ -58,13 +51,7 @@ async function assertContract(repo, orgId) {
   assert.equal((await repo.list({ orgId, includeDeleted: true })).length, 1)
 }
 
-describe('NovelRepository 契约 · JSON 适配器', () => {
-  it('满足创建/查询/更新/软删契约', async () => {
-    const repo = createJsonNovelRepository(jsonStore())
-    await assertContract(repo, 'org_json')
-  })
-})
-
+// 小说域只有 PostgreSQL 适配器；JSON 适配器随 legacy 路径一并移除，不再测试。
 describe('NovelRepository 契约 · PostgreSQL 适配器', { skip: !DATABASE_URL && '未配置 DATABASE_URL' }, () => {
   const orgId = `org_pg_test_${Date.now()}`
   let repo

@@ -5,8 +5,8 @@ import os from 'os'
 import path from 'path'
 import request from 'supertest'
 import app from '../src/server.js'
-import { storageService } from '../src/services/storageService.js'
-import { createNovelProject, novelDir } from '../src/services/novelProjectService.js'
+import { createNovelProject, deleteNovelProject, novelDir } from '../src/services/novelProjectService.js'
+import { listChunksAsync } from '../src/services/novelAsyncReadService.js'
 import { cleanText, splitChapters, ingestNovel } from '../src/services/novelChunkService.js'
 import { heuristicExtract, mergeCharacters } from '../src/services/characterExtractionService.js'
 import { heuristicExtract as worldHeuristicExtract, mergeEntities } from '../src/services/worldbuildingService.js'
@@ -20,6 +20,7 @@ import { CARD_SCHEMA, CARD_FIELDS, CHARACTER_FIELDS } from '../src/models/NovelC
 import { WORLD_TYPES, WORLD_ATTRIBUTES } from '../src/models/WorldEntity.js'
 import config from '../src/config/index.js'
 import ffmpeg from '../src/utils/ffmpeg.js'
+import './helpers/pg-teardown.js'
 
 const SAMPLE = `第1章 起点
 一秒记住【奇书网】本站域名
@@ -32,8 +33,14 @@ const SAMPLE = `第1章 起点
 describe('Sprint 19 小说 → 角色流水线', () => {
   const created = []
 
-  after(() => {
+  // 清理走 PG 软删除 + 目录删除（不再手工维护 db.json 小说集合）。
+  after(async () => {
     for (const id of created) {
+      try {
+        await deleteNovelProject(id)
+      } catch {
+        /* 测试失败时项目可能未落库，忽略清理错误 */
+      }
       try {
         fs.rmSync(novelDir(id), { recursive: true, force: true })
       } catch {
@@ -42,12 +49,7 @@ describe('Sprint 19 小说 → 角色流水线', () => {
       try { fs.rmSync(path.join(config.storage.path, 'videos', 'novels', id), { recursive: true, force: true }) } catch { /* ignore */ }
       try { fs.rmSync(path.join(config.storage.path, 'images', 'novels', id), { recursive: true, force: true }) } catch { /* ignore */ }
       try { fs.rmSync(path.join(config.storage.path, 'exports', 'novels', id), { recursive: true, force: true }) } catch { /* ignore */ }
-      delete storageService.data.novelProjects?.[id]
-      for (const c of storageService.listNovelChunks(id)) delete storageService.data.novelChunks[c.id]
-      for (const c of storageService.listNovelCharacters(id)) delete storageService.data.novelCharacters[c.id]
-      if (storageService.listNovelAssetImages) for (const a of storageService.listNovelAssetImages(id)) delete storageService.data.novelAssetImages[a.id]
     }
-    storageService._flush()
   })
 
   it('cleanText 去水印；splitChapters 分章', () => {
@@ -98,12 +100,14 @@ describe('Sprint 19 小说 → 角色流水线', () => {
     assert.ok(WORLD_ATTRIBUTES.item.some((a) => a.key === 'spirit'))
   })
 
-  it('ingest → 切片入库', async () => {
+  it('ingest → 切片入库（PG 读回）', async () => {
     const p = await createNovelProject({ title: '单元测试小说' })
     created.push(p.id)
     const r = await ingestNovel(p.id, { sourceType: 'text', text: SAMPLE })
     assert.equal(r.chapterCount, 2)
-    assert.equal(storageService.listNovelChunks(p.id).length, 2)
+    const chunks = await listChunksAsync(p.id)
+    assert.equal(chunks.length, 2)
+    assert.ok(chunks.every((c) => c.text.length > 0))
   })
 
   it('HTTP: create → ingest → extract → patch → review-stats', async () => {

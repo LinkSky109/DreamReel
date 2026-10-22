@@ -64,4 +64,51 @@ describe('novelReadService（PostgreSQL only）', () => {
     await assert.rejects(() => service.list({ requestId: 'r1' }), /db down/)
     assert.match(log.warnings[0][0], /postgres 读取失败/)
   })
+
+  it('默认 PG：即使注入 legacy 适配器也不会回退', async () => {
+    let legacyCalls = 0
+    const legacy = {
+      list: () => {
+        legacyCalls += 1
+        return [{ id: 'legacy-only' }]
+      },
+      get: () => {
+        legacyCalls += 1
+        return { id: 'legacy-only' }
+      },
+    }
+    const service = createNovelReadService({ getRepo: () => repoImpl(), legacy, log: loggerStub() })
+    const list = await service.list()
+    assert.deepEqual(list.map((r) => r.id), ['n2', 'n1'])
+    const doc = await service.get('n1')
+    assert.equal(doc.id, 'n1')
+    assert.equal(legacyCalls, 0, 'PG 读路径不得触碰 legacy 适配器')
+  })
+
+  it('PG 报错时不得回退 legacy', async () => {
+    let legacyCalls = 0
+    const service = createNovelReadService({
+      getRepo: () => ({
+        list: async () => {
+          throw new Error('pg unavailable')
+        },
+        findById: async () => {
+          throw new Error('pg unavailable')
+        },
+      }),
+      legacy: {
+        list: () => {
+          legacyCalls += 1
+          return []
+        },
+        get: () => {
+          legacyCalls += 1
+          return null
+        },
+      },
+      log: loggerStub(),
+    })
+    await assert.rejects(() => service.list(), /pg unavailable/)
+    assert.equal(legacyCalls, 0)
+  })
 })

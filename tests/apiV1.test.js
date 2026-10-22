@@ -2,6 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import request from 'supertest'
 import app from '../src/server.js'
+import './helpers/pg-teardown.js'
 
 describe('API 版本与契约', () => {
   it('GET /api/v1/meta 返回版本元信息', async () => {
