@@ -14,6 +14,7 @@ import { apiVersion } from './middleware/apiVersion.js'
 import { authOptional } from './middleware/auth.js'
 import { authGate } from './middleware/authGate.js'
 import { identity } from './middleware/identity.js'
+import { errorHandler } from './middleware/errorHandler.js'
 import { auditWrites } from './middleware/audit.js'
 import { rateLimit } from './middleware/rateLimit.js'
 import { idempotency } from './middleware/idempotency.js'
@@ -184,16 +185,7 @@ app.use((req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'))
 })
 
-// Error handler
-app.use((error, _req, res, _next) => {
-  if (/^CORS origin not allowed/.test(error.message)) {
-    return res.status(403).json({ error: 'Forbidden', message: error.message })
-  }
-  logger.error('Unhandled error:', error.message)
-  res.status(500).json({
-    error: 'Internal server error',
-    message: config.env === 'development' ? error.message : undefined,
-  })
-})
+// Error handler（集中映射，见 src/middleware/errorHandler.js）
+app.use(errorHandler)
 
 export default app
