@@ -102,6 +102,11 @@ const LEGACY_ALLOWLIST = [
     reason: '离线一次性迁移：读取归档 JSON 写入 PG 子集合',
   },
   {
+    file: 'scripts/migrate-novels-to-pg.js',
+    rules: ['novel-json-archive-runtime'],
+    reason: '离线一次性迁移/校验：db.json 无小说集合时回退读取归档 JSON（verify 只读比对 PG）',
+  },
+  {
     file: 'scripts/archive-novel-json.js',
     rules: [
       'novel-json-archive-runtime',
