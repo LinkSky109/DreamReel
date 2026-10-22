@@ -87,7 +87,44 @@ describe('authGate 公开白名单', () => {
     assert.equal(isPublicApiRequest({ method: 'POST', baseUrl: '/api', path: '/open/v1/foo' }), true)
   })
 
+  it('/api/v1 与 /api 共用同一份白名单', () => {
+    assert.equal(
+      isPublicApiRequest({ method: 'POST', baseUrl: '/api', path: '/v1/auth/login' }),
+      true
+    )
+    assert.equal(
+      isPublicApiRequest({ method: 'POST', baseUrl: '/api', path: '/v1/auth/register' }),
+      true
+    )
+    assert.equal(
+      isPublicApiRequest({ method: 'GET', baseUrl: '/api', path: '/v1/gallery/123' }),
+      true
+    )
+    assert.equal(
+      isPublicApiRequest({ method: 'POST', baseUrl: '/api', path: '/v1/projects' }),
+      false
+    )
+  })
+
   it('小说写接口不公开', () => {
     assert.equal(isPublicApiRequest({ method: 'DELETE', baseUrl: '/api', path: '/novels/1' }), false)
+  })
+
+  it('管理面（含 v1）不在公开白名单', () => {
+    const cases = [
+      { method: 'GET', baseUrl: '/api', path: '/enterprise/overview' },
+      { method: 'GET', baseUrl: '/api', path: '/v1/enterprise/overview' },
+      { method: 'GET', baseUrl: '/api', path: '/system/info' },
+      { method: 'GET', baseUrl: '/api', path: '/v1/system/info' },
+      { method: 'GET', baseUrl: '/api', path: '/webhooks' },
+      { method: 'GET', baseUrl: '/api', path: '/v1/webhooks' },
+      { method: 'GET', baseUrl: '/api', path: '/teams' },
+      { method: 'GET', baseUrl: '/api', path: '/v1/teams' },
+      { method: 'POST', baseUrl: '/api', path: '/cloud-drive/quark/qr' },
+      { method: 'GET', baseUrl: '/api', path: '/v1/api-keys' },
+    ]
+    for (const req of cases) {
+      assert.equal(isPublicApiRequest(req), false, `${req.method} ${req.baseUrl}${req.path}`)
+    }
   })
 })
