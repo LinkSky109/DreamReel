@@ -1,10 +1,10 @@
 import fs from 'fs'
 import path from 'path'
 import config from '../config/index.js'
-import { storageService } from './storageService.js'
 import { NovelProject } from '../models/NovelProject.js'
 import { STAGES } from '../models/NovelProject.js'
-import { novelMirror } from './novelWriteSync.js'
+import { applyNovelDelete, applyNovelUpsert } from './novelWriteSync.js'
+import { deleteChildrenByNovel, forgetNovelPg } from './novelChildStore.js'
 
 const NOVELS_ROOT = path.resolve(config.storage.path, 'novels')
 
@@ -18,58 +18,55 @@ export function novelDir(novelId) {
   return path.join(NOVELS_ROOT, novelId)
 }
 
-export function createNovelProject(data = {}) {
+async function defaultPool() {
+  const { getPool } = await import('../db/client.js')
+  return getPool()
+}
+
+/** 创建小说项目：文件目录 + PostgreSQL 主行（唯一事实源）。 */
+export async function createNovelProject(data = {}) {
   if (!data.title) throw new Error('title is required')
   const project = new NovelProject(data)
   project.dir = novelDir(project.id)
   ensureDir(project.dir)
   for (const sub of SUB_DIRS) ensureDir(path.join(project.dir, sub))
-  const saved = storageService.createNovelProject(project)
-  novelMirror.scheduleUpsert(saved)
-  return saved
-}
-
-export function listNovelProjects() {
-  return storageService
-    .listNovelProjects()
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-}
-
-export function getNovelProject(id) {
-  const project = storageService.getNovelProject(id)
-  if (!project) throw new Error(`Novel project not found: ${id}`)
+  await applyNovelUpsert(await defaultPool(), project, config.novels.orgId)
   return project
 }
 
-export function updateNovelProject(id, patch = {}) {
-  const project = getNovelProject(id)
+/** 读取小说项目（PostgreSQL）。 */
+export async function getNovelProject(id) {
+  const { novelReadService } = await import('./novelReadService.js')
+  return novelReadService.get(id)
+}
+
+export async function updateNovelProject(id, patch = {}) {
+  const project = structuredClone(await getNovelProject(id))
   Object.assign(project, patch, { updatedAt: new Date().toISOString() })
-  const saved = storageService.updateNovelProject(project)
-  novelMirror.scheduleUpsert(saved)
-  return saved
+  await applyNovelUpsert(await defaultPool(), project, config.novels.orgId)
+  return project
 }
 
 /**
- * 从实际数据重算 counts（章节/角色/实体/季/集）。
+ * 从实际数据重算 counts（章节/角色/实体）。
  * 增量更新一旦被覆盖（如数据清理）就会漂移，导致页面显示「章 0」等；用本函数纠正。
- * 角色/实体按“当前选中集合”计数，避免历史集合虚高。
+ * 角色/实体按“当前选中集合”计数，避免历史集合虚高；
+ * 季/集计数由分季规划写入，这里保留既有值。
  */
-export function recomputeNovelCounts(id) {
-  const project = getNovelProject(id)
-  const liveC = new Set(storageService.listNovelCharacters(id).map((c) => c.id))
-  const liveW = new Set(storageService.listWorldEntities(id).map((e) => e.id))
-  const setC = project.selectedCharacterSet ? storageService.getCharacterSet(project.selectedCharacterSet) : null
-  const setW = project.selectedWorldSet ? storageService.getWorldSet(project.selectedWorldSet) : null
-  const characters = setC ? (setC.characterIds || []).filter((x) => liveC.has(x)).length : liveC.size
-  const worldEntities = setW ? (setW.entityIds || []).filter((x) => liveW.has(x)).length : liveW.size
+export async function recomputeNovelCounts(id) {
+  const project = await getNovelProject(id)
+  const { novelChildReadService } = await import('./novelChildReadService.js')
+  const [characters, worldEntities, chunks] = await Promise.all([
+    novelChildReadService.list('characters', id),
+    novelChildReadService.list('entities', id),
+    novelChildReadService.list('chunks', id),
+  ])
   return updateNovelProject(id, {
     counts: {
       ...project.counts,
-      chapters: storageService.listNovelChunks(id).length,
-      characters,
-      worldEntities,
-      seasons: storageService.listSeasons(id).length,
-      episodes: storageService.listEpisodes(id).length,
+      chapters: chunks.length,
+      characters: characters.length,
+      worldEntities: worldEntities.length,
     },
   })
 }
@@ -91,23 +88,25 @@ export function assertEditable(project, stage) {
 }
 
 /** 推进到下一阶段（或指定阶段）；不可回退 */
-export function advanceStage(id, toStage) {
-  const project = getNovelProject(id)
+export async function advanceStage(id, toStage) {
+  const project = await getNovelProject(id)
   const cur = stageIndex(project.stage)
   const to = toStage ? stageIndex(toStage) : cur + 1
   if (to < 0 || to >= STAGES.length) throw new Error('无效阶段')
   if (to <= cur) throw new Error(`不能回退阶段（当前 ${project.stage}）`)
-  project.stage = STAGES[to]
-  project.updatedAt = new Date().toISOString()
-  return storageService.updateNovelProject(project)
+  return updateNovelProject(id, { stage: STAGES[to] })
 }
 
 /**
- * 删除小说项目：db 级联清理 + 全部落盘目录清理（不可恢复）。
+ * 删除小说项目：PG 软删主行 + 子集合，并落盘目录清理（不可恢复）。
  * 覆盖 novels/<id>、exports/novels/<id>、images|videos|audio/novels/<id>。
  */
-export function deleteNovelProject(id) {
-  getNovelProject(id)
+export async function deleteNovelProject(id) {
+  // 不存在时抛错，避免脚本静默成功
+  await getNovelProject(id)
+  const pool = await defaultPool()
+  await applyNovelDelete(pool, id, config.novels.orgId)
+  const removedRecords = await deleteChildrenByNovel(id, { pool })
   const root = path.resolve(config.storage.path)
   const dirs = [
     novelDir(id),
@@ -123,9 +122,8 @@ export function deleteNovelProject(id) {
       removedDirs.push(dir)
     }
   }
-  const db = storageService.deleteNovelProjectCascade(id)
-  novelMirror.scheduleDelete(id)
-  return { id, deleted: db.deleted, removedDirs, removedRecords: db.removed }
+  forgetNovelPg(id)
+  return { id, deleted: true, removedDirs, removedRecords }
 }
 
 export function writeNovelFile(novelId, relativePath, content) {
@@ -141,4 +139,53 @@ export function readNovelFile(novelId, relativePath) {
   const full = path.join(novelDir(novelId), relativePath)
   if (!fs.existsSync(full)) return null
   return fs.readFileSync(full)
+}
+
+// cleaned.txt 缓存：避免按章/按集水合时反复读盘
+const cleanedCache = new Map() // novelId -> { mtimeMs, text }
+
+/** 读取 source/cleaned.txt（带 mtime 缓存）；不存在返回 '' */
+export function readCleanedText(novelId) {
+  const full = path.join(novelDir(novelId), 'source', 'cleaned.txt')
+  try {
+    const st = fs.statSync(full)
+    const cached = cleanedCache.get(novelId)
+    if (cached && cached.mtimeMs === st.mtimeMs) return cached.text
+    const text = fs.readFileSync(full, 'utf-8')
+    cleanedCache.set(novelId, { mtimeMs: st.mtimeMs, text })
+    return text
+  } catch {
+    return ''
+  }
+}
+
+/** 兼容读取：优先内存/旧字段 text，其次按偏移从 cleaned.txt 切片 */
+export function getChunkText(novelId, chunk) {
+  if (!chunk) return ''
+  if (typeof chunk.text === 'string' && chunk.text.length) return chunk.text
+  if (chunk.startOffset !== null && chunk.startOffset !== undefined && chunk.endOffset !== null && chunk.endOffset !== undefined) {
+    const cleaned = readCleanedText(novelId)
+    if (cleaned) return cleaned.slice(chunk.startOffset, chunk.endOffset)
+  }
+  return ''
+}
+
+/** 兼容读取：优先旧 sourceFile，其次按偏移从 cleaned.txt 切片 */
+export function getEpisodeText(novelId, episode) {
+  if (!episode) return ''
+  if (episode.sourceFile) {
+    const buf = readNovelFile(novelId, episode.sourceFile)
+    if (buf) return buf.toString('utf-8')
+  }
+  if (episode.startOffset !== null && episode.startOffset !== undefined && episode.endOffset !== null && episode.endOffset !== undefined) {
+    const cleaned = readCleanedText(novelId)
+    if (cleaned) return cleaned.slice(episode.startOffset, episode.endOffset)
+  }
+  return ''
+}
+
+/** 清空 cleaned 缓存（重新摄取后调用） */
+export function invalidateCleanedCache(novelId) {
+  if (novelId) cleanedCache.delete(novelId)
+  else cleanedCache.clear()
 }

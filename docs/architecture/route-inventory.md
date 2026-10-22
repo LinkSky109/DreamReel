@@ -1,6 +1,6 @@
 # 路由清单（自动生成）
 
-生成时间：2026-10-20T13:01:06.856Z
+生成时间：2026-10-21T04:45:31.922Z
 挂载文件：`src/routes/index.js`
 
 > 由 `node scripts/inventory.js` 生成，请勿手工编辑。
@@ -11,54 +11,54 @@
 |---|---|---|---:|
 | `/api/auth` | `src/routes/auth.js` | — | 5 |
 | `/api/subscription` | `src/routes/subscription.js` | — | 5 |
-| `/api/projects` | `src/routes/projects.js` | `authOptional` | 26 |
-| `/api/projects` | `src/routes/versions.js` | `authOptional` | 6 |
-| `/api/stats` | `src/routes/stats.js` | `authOptional` | 5 |
-| `/api/moderation` | `src/routes/moderation.js` | `authOptional` | 4 |
-| `/api/notifications` | `src/routes/notifications.js` | `authOptional` | 8 |
-| `/api/script` | `src/routes/script.js` | `authOptional` | 3 |
-| `/api/video` | `src/routes/video.js` | `authOptional` | 17 |
-| `/api/characters` | `src/routes/characters.js` | `authOptional` | 5 |
-| `/api/dubbing` | `src/routes/dubbing.js` | `authOptional` | 3 |
-| `/api/export` | `src/routes/export.js` | `authOptional` | 3 |
-| `/api/quota` | `src/routes/quota.js` | `authOptional` | 2 |
-| `/api/templates` | `src/routes/templates.js` | `authOptional` | 7 |
+| `/api/projects` | `src/routes/projects.js` | — | 26 |
+| `/api/projects` | `src/routes/versions.js` | — | 6 |
+| `/api/stats` | `src/routes/stats.js` | — | 5 |
+| `/api/moderation` | `src/routes/moderation.js` | — | 4 |
+| `/api/notifications` | `src/routes/notifications.js` | — | 8 |
+| `/api/script` | `src/routes/script.js` | — | 3 |
+| `/api/video` | `src/routes/video.js` | — | 17 |
+| `/api/characters` | `src/routes/characters.js` | — | 5 |
+| `/api/dubbing` | `src/routes/dubbing.js` | — | 3 |
+| `/api/export` | `src/routes/export.js` | — | 3 |
+| `/api/quota` | `src/routes/quota.js` | — | 2 |
+| `/api/templates` | `src/routes/templates.js` | — | 7 |
 | `/api/styles` | `src/routes/styles.js` | — | 3 |
-| `/api/analysis` | `src/routes/analysis.js` | `authOptional` | 3 |
-| `/api/collab` | `src/routes/collaboration.js` | `authOptional` | 12 |
+| `/api/analysis` | `src/routes/analysis.js` | — | 3 |
+| `/api/collab` | `src/routes/collaboration.js` | — | 12 |
 | `/api/providers` | `src/routes/providers.js` | — | 3 |
 | `/api/providers` | `src/routes/providerMetrics.js` | — | 3 |
 | `/api/system` | `src/routes/system.js` | — | 7 |
 | `/api/webhooks` | `src/routes/webhooks.js` | — | 8 |
 | `/api/ai-assistant` | `src/routes/aiAssistant.js` | — | 5 |
-| `/api/audio` | `src/routes/audio.js` | `authOptional` | 7 |
-| `/api/scenes` | `src/routes/scenes.js` | `authOptional` | 6 |
-| `/api/marketing` | `src/routes/marketing.js` | `authOptional` | 3 |
-| `/api/creators` | `src/routes/creators.js` | `authOptional` | 2 |
-| `/api/gallery` | `src/routes/gallery.js` | `authOptional` | 7 |
-| `/api/challenges` | `src/routes/challenges.js` | `authOptional` | 4 |
-| `/api/teams` | `src/routes/teams.js` | `authOptional` | 9 |
+| `/api/audio` | `src/routes/audio.js` | — | 7 |
+| `/api/scenes` | `src/routes/scenes.js` | — | 6 |
+| `/api/marketing` | `src/routes/marketing.js` | — | 3 |
+| `/api/creators` | `src/routes/creators.js` | — | 2 |
+| `/api/gallery` | `src/routes/gallery.js` | — | 7 |
+| `/api/challenges` | `src/routes/challenges.js` | — | 4 |
+| `/api/teams` | `src/routes/teams.js` | — | 9 |
 | `/api/open/v1` | `src/routes/openApi.js` | — | 4 |
-| `/api/api-keys` | `src/routes/apiKeys.js` | `authOptional` | 3 |
-| `/api/store` | `src/routes/store.js` | `authOptional` | 4 |
-| `/api/enterprise` | `src/routes/enterprise.js` | `authOptional` | 6 |
+| `/api/api-keys` | `src/routes/apiKeys.js` | — | 3 |
+| `/api/store` | `src/routes/store.js` | — | 4 |
+| `/api/enterprise` | `src/routes/enterprise.js` | — | 6 |
 | `/api/title-sequences` | `src/routes/titleSequences.js` | — | 2 |
 | `/api/directors` | `src/routes/directors.js` | — | 4 |
 | `/api/studios` | `src/routes/studios.js` | — | 12 |
-| `/api/images` | `src/routes/images.js` | `authOptional` | 7 |
-| `/api/edit-plans` | `src/routes/editPlans.js` | `authOptional` | 6 |
-| `/api/community` | `src/routes/community.js` | `authOptional` | 15 |
-| `/api/novels` | `src/routes/novels.js` | `authOptional` | 89 |
-| `/api/cloud-drive` | `src/routes/cloudDrive.js` | `authOptional` | 4 |
+| `/api/images` | `src/routes/images.js` | — | 7 |
+| `/api/edit-plans` | `src/routes/editPlans.js` | — | 6 |
+| `/api/community` | `src/routes/community.js` | — | 15 |
+| `/api/novels` | `src/routes/novels.js` | — | 90 |
+| `/api/cloud-drive` | `src/routes/cloudDrive.js` | — | 4 |
 
-合计：**41 个挂载前缀，337 个端点**。
+合计：**41 个挂载前缀，338 个端点**。
 
-> `/api/v1` 使用同一挂载表（另有 /api/v1/meta），共 337 个端点；`/api` 保持兼容并返回 Deprecation 头。
+> `/api/v1` 使用同一挂载表（另有 /api/v1/meta），共 338 个端点；`/api` 保持兼容并返回 Deprecation 头。
 
 ## 鉴权分布
 
 - 显式 `authRequired`：0 个前缀
-- `authOptional`（可匿名）：29 个前缀
+- `authOptional`（可匿名）：0 个前缀
 - 未挂鉴权中间件：41 个前缀
 
 未挂鉴权的 API 前缀：
@@ -518,6 +518,7 @@
 - `GET` `/api/novels/:id/episodes`
 - `POST` `/api/novels/:id/episodes/:eid/script`
 - `GET` `/api/novels/:id/episodes/:eid/script`
+- `GET` `/api/novels/:id/episodes/:eid/outline`
 - `GET` `/api/novels/:id/consistency`
 - `POST` `/api/novels/:id/episodes/:eid/assets`
 - `GET` `/api/novels/:id/episodes/:eid/assets`

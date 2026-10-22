@@ -9,7 +9,7 @@ DreamReel（梦卷）是一个 AI 短片创作平台：从一句话想法到成�
 
 - **后端**：Node.js >= 20.19 + Express 5（ES Modules），源码在 `src/`
 - **前端**：React 19 + TypeScript + Vite，源码在 `web/`，构建产物输出到 `public/`
-- **存储**：默认 JSON 文件库（`storage/data/db.json`），可选 PostgreSQL（Kysely）
+- **存储**：小说域固定 PostgreSQL（Kysely）；用户/项目/社区等未迁移域暂用 JSON（`storage/data/db.json`）
 - **小说剧场**：书名/链接 → TXT 摄取 → 分章 → 分季分集 → 角色/世界观抽取 → 单集剧本/素材生成
 
 技术栈与快速开始见根目录 `README.md`；前端细节见 `FRONTEND-DEVELOPMENT.md`；架构决策见 `docs/adr/`。
@@ -90,7 +90,8 @@ DreamReel（梦卷）是一个 AI 短片创作平台：从一句话想法到成�
 
 | 路径 | 说明 |
 |---|---|
-| `storage/data/db.json` | 主 JSON 数据库（25 个集合） |
+| `storage/data/db.json` | 非小说集合的 JSON 数据库（小说集合已移出） |
+| `storage/archive/novels-from-db-*.json` | 小说旧 JSON 快照（只读归档，供离线恢复/审计） |
 | `storage/data/db.backup-*.json` | 自动备份 |
 | `storage/novels/<novelId>/` | 每部小说的落盘工作区（详见下节） |
 | `storage/images/novels/<id>/` | 小说生成的图片素材 |
@@ -112,53 +113,16 @@ DreamReel（梦卷）是一个 AI 短片创作平台：从一句话想法到成�
 |---|---|
 | `source/raw.txt` | 原始正文（GB18030 解码后） |
 | `source/cleaned.txt` | 清洗后正文（去水印/广告/重复标题，**以此为准**） |
-| `chunks/chunks.json` | 分章索引（`index` / `chapterTitle` / `wordCount`） |
-| `characters/characters.json` | 角色抽取结果（含别名与角色卡） |
-| `worldbuilding/entities.json` | 世界观实体 |
-| `art/assets.json` | 设定图集元数据 |
-| `episodes/<episodeId>.txt` | **每集源文本片段**（详见下节） |
-| `assets/<episodeId>.json` | 每集素材产物（图/音/视频） |
 | `handoff/<episodeId>/` | 单集生成提示交接包（`prompt.txt` + `spec.json` + `refs/`） |
 | `sync/ledger.json` | 云盘同步台账 |
 
-## 6. `episodes/` 目录说明（重点）
+## 6. 集正文与媒体（旧 JSON 产物已移除）
 
-路径：`storage/novels/<novelId>/episodes/`
-
-### 内容
-
-- 该目录下是**按「集」切分并落盘的小说源文本片段**，每个 `.txt` 文件对应一集。
-- 文件名 = 该集的 `episode.id`（16 位十六进制，由 `src/utils/idGenerator.js` 的 FNV-1a 生成，如 `ef9ba1cac7c0ba45.txt`）。
-- 文件内容是这一集要改编的小说正文（来自 `source/cleaned.txt` 的对应片段）。
-- 当前《殖装》项目共有 **8402 个文件**（数据库登记 8378 集，41 季，1206 章）。
-
-### 生成方式
-
-`src/services/seriesPlannerService.js:111-113`：
-
-```js
-const rel = `episodes/${ep.id}.txt`
-writeNovelFile(novelId, rel, p.text)
-ep.sourceFile = rel
-```
-
-即：分季分集时，把每集的正文片段写入 `episodes/<episodeId>.txt`，并把相对路径记到 `episode.sourceFile`。后续剧本/一致性校验服务通过 `readNovelFile(novelId, ep.sourceFile)` 读取。
-
-### 切分规则
-
-- **1 章 ≥ 1 集**：短章直接对应 1 集；长章按目标时长切成多集（如「第一节 废墟中的男子」被切成 1/9 … 9/9）。
-- 正常文件约 1–1.3 KB，即该集的正文片段。
-- **极小文件（约 43–52 字节）**：如 `f9b54723037b5c92.txt` 内容为 `第二卷宇宙佣兵]第四二二节抵达`。这类是集内片段为空、只剩章节标题的占位文件，属于切分产生的边界情况，不是损坏。
-
-### 命名与元数据
-
-文件名本身不携带语义，**集标题/序号需查数据库**：
-
-```
-db.json → seriesEpisodes[id] → { episodeNo, chapterTitle, title, targetSeconds, sourceFile, status }
-```
-
-例如 `ef9ba1cac7c0ba45` → `episodeNo: 1`、`title: "第一节 废墟中的男子（1/9）"`、`status: "composed"`。
+- 季/集/正文/角色/世界观/资产/状态均在 PostgreSQL；正文按 `start_offset/end_offset`
+  从 `novel_sources.cleaned_text` 切片。
+- 不再生成 `episodes/<id>.txt`、`assets/<id>.json`、`chunks.json`、`characters.json`、
+  `entities.json`、`art/assets.json`。
+- 媒体文件在 `storage/images|videos|audio/novels/<id>/`；PG 只存元数据与 URL。
 
 ## 7. 文档 `docs/`
 
@@ -170,6 +134,9 @@ db.json → seriesEpisodes[id] → { episodeNo, chapterTitle, title, targetSecon
 | `docs/architecture/database.md` | 数据库结构 |
 | `docs/architecture/route-inventory.md` | 路由清单（`npm run inventory` 生成） |
 | `docs/architecture/storage-inventory.md` | 存储清单（`npm run inventory` 生成） |
+| `docs/architecture/novel-series-llm-plan.md` | 小说 LLM 分季分集（大事件 + 85–95s）设计与实施结果 |
+| `docs/architecture/postgres-single-source-design.md` | PostgreSQL 单一事实源：结构化数据全量落库设计 |
+| `docs/runbooks/novel-pg-restore.md` | 小说 PG 数据灾难恢复（从 JSON 重建） |
 | `docs/runbooks/` | 运行手册、切换/回滚步骤与演练清单 |
 | `docs/delivery/` | 交付总结与验证记录 |
 
@@ -192,6 +159,11 @@ db.json → seriesEpisodes[id] → { episodeNo, chapterTitle, title, targetSecon
 | `scripts/novel.js` | 小说流水线 CLI（`npm run novel`） |
 | `scripts/inventory.js` | 生成存储/路由清单 |
 | `scripts/db-migrate.js` | 数据库迁移 |
+| `scripts/rebuild-series.js` | 重建小说分季分集（`npm run series:rebuild`） |
+| `scripts/verify-series.js` | 校验分集时长/覆盖/边界（`npm run series:verify`） |
+| `scripts/backfill-novel-write-model.js` | 离线回填小说 PG 新列（`npm run db:backfill:novel-write`；allowlist） |
+| `scripts/restore-novel-from-json.js` | 离线灾难恢复：从归档 JSON 重建小说 PG（`npm run db:restore:novel`；allowlist） |
+| `scripts/check-legacy-paths.js` | legacy 路径门禁（`npm run check:legacy`，离线工具 allowlist） |
 | `scripts/verify-*.js` | Provider / 媒体 / 指标校验 |
 
 ## 10. 部署 `deploy/`
@@ -207,12 +179,16 @@ db.json → seriesEpisodes[id] → { episodeNo, chapterTitle, title, targetSecon
 ```
 书名/URL
   → source/raw.txt → source/cleaned.txt        (novelChunkService: 摄取/清洗/分章)
-  → chunks/chunks.json + db.novelChunks
-  → characters/characters.json                (characterExtractionService)
-  → worldbuilding/entities.json                (worldbuildingService)
-  → episodes/<episodeId>.txt × N               (seriesPlannerService: 分季分集)
-  → 单集剧本 screenplay                         (episodeScriptService)
-  → assets/<episodeId>.json + images/videos/audio  (episodeAssetService)
-  → handoff/<episodeId>/                        (episodeHandoffService)
+  → PG novel_sources.cleaned_text              (正文唯一事实源)
+  → PG novel_chunks（偏移 + 摘要）
+  → PG novel_characters / character_sets       (characterExtractionService)
+  → PG novel_world_entities / world_sets       (worldbuildingService)
+  → PG seasons / episodes（logical_key + 偏移） (seriesPlannerService: 分季分集)
+  → PG episodes.outline / screenplay           (episodeScriptService)
+  → PG novel_asset_images + images/videos/audio 元数据 (episodeAssetService)
+  → storage/novels/<id>/handoff/<episodeId>/    (episodeHandoffService)
   → 云盘同步                                     (novelSyncService → sync/ledger.json)
+
+> `storage/novels/<id>/` 下的 chunks/characters/worldbuilding/episodes 文件是工作区派生产物；
+> 结构化数据以 PostgreSQL 为准。`db.json` 不参与小说域读写。
 ```

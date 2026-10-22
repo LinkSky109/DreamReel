@@ -7,18 +7,17 @@
  * 这样每季只关心自己相关的设定图，出图/参考图匹配都在子集内进行，流程更聚焦。
  */
 import { storageService } from './storageService.js'
-import { listChunks } from './novelChunkService.js'
-import { listCharacters } from './characterExtractionService.js'
-import { listEntities } from './worldbuildingService.js'
+import { getSeason, listEpisodes } from './novelEpisodeStore.js'
+import { listChunksAsync, listCharactersAsync, listEntitiesAsync, listAssetsAsync } from './novelAsyncReadService.js'
 import { clampInt } from '../utils/coerce.js'
 import { runPool } from '../utils/pool.js'
 import { generateAssetImage } from './novelAssetService.js'
 import { isGenericName } from '../utils/nameFilters.js'
 
-export function seasonAssetSubset(novelId, seasonId) {
-  const season = storageService.getSeason(seasonId)
+export async function seasonAssetSubset(novelId, seasonId) {
+  const season = await getSeason(novelId, seasonId)
   if (!season || season.novelId !== novelId) throw new Error(`season not found: ${seasonId}`)
-  const eps = storageService.listEpisodes(novelId, seasonId)
+  const eps = await listEpisodes(novelId, seasonId)
 
   // (a) 分镜里已引用的图
   const refUrls = new Set()
@@ -29,21 +28,21 @@ export function seasonAssetSubset(novelId, seasonId) {
   // (b) 本季章节正文里出现过的角色/实体 → 名称（按名称关联，避免 id 因重抽而失效）
   const start = season.chapterStart ?? 0
   const end = season.chapterEnd ?? Number.MAX_SAFE_INTEGER
-  const chunks = listChunks(novelId).filter((c) => c.index >= start && c.index < end)
+  const chunks = (await listChunksAsync(novelId)).filter((c) => c.index >= start && c.index < end)
   const text = chunks.map((c) => c.text || '').join('\n')
   const mentionedNames = new Set()
   if (text) {
-    for (const c of listCharacters(novelId)) {
+    for (const c of await listCharactersAsync(novelId)) {
       if (c.name && !isGenericName(c.name) && text.includes(c.name)) mentionedNames.add(c.name)
       for (const al of c.aliases || []) if (al && al.length >= 2 && text.includes(al)) mentionedNames.add(c.name)
     }
-    for (const e of listEntities(novelId)) {
+    for (const e of await listEntitiesAsync(novelId)) {
       if (e.name && !isGenericName(e.name) && text.includes(e.name)) mentionedNames.add(e.name)
       for (const al of e.aliases || []) if (al && al.length >= 2 && text.includes(al)) mentionedNames.add(e.name)
     }
   }
 
-  const assets = storageService.listNovelAssetImages(novelId)
+  const assets = await listAssetsAsync(novelId)
   const subset = assets.filter((a) => (a.imageUrl && refUrls.has(a.imageUrl)) || (a.name && mentionedNames.has(a.name)))
   const items = subset.map((a) => ({
     id: a.id,
@@ -70,7 +69,7 @@ export function seasonAssetSubset(novelId, seasonId) {
 export async function bulkGenerateSeasonAssets(novelId, seasonId, opts = {}) {
   const limit = clampInt(opts.limit, 3, 1, 12)
   const concurrency = clampInt(opts.concurrency, 2, 1, 4)
-  const sub = seasonAssetSubset(novelId, seasonId)
+  const sub = await seasonAssetSubset(novelId, seasonId)
   const todo = sub.assets.filter((a) => !a.imageUrl).map((a) => a.id).slice(0, limit)
   let ok = 0
   let failed = 0
@@ -88,7 +87,7 @@ export async function bulkGenerateSeasonAssets(novelId, seasonId, opts = {}) {
     concurrency
   )
   storageService._flush() // 批量操作后立即落盘（save 为 debounce，避免调用方退出丢数据）
-  const after = seasonAssetSubset(novelId, seasonId)
+  const after = await seasonAssetSubset(novelId, seasonId)
   return {
     processed: todo.length,
     ok,

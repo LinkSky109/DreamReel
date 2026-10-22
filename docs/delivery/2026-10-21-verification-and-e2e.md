@@ -1,5 +1,8 @@
 # 2026-10-21 验证与 E2E 收口总结
 
+> 历史记录：本文反映 2026-10-21 当时状态，其中的小说读写模式描述已过时。
+> 2026-10-22 起小说域固定 PostgreSQL 单源；outbox 已删除，文中 outbox 命令为历史记录。
+
 > 范围：前端优化、前后端分离、数据库引入的复核；测试隔离与数据清理；健康探针与部署配置修正；核心链路 E2E 与 CI 接入。
 >
 > 结论口径：只记录实际执行过的命令与结果；“待执行”项单独列出，不与已验证项混写。
@@ -42,7 +45,7 @@
 
 ### 3.2 健康检查与部署
 
-- `isPostgresEnabled()` 覆盖 `NOVEL_REPO_MODE=postgres` 与非 legacy 写入模式；`/health/ready` 不再“探针绿、业务红”。
+- `isPostgresEnabled()` 现固定依赖 PostgreSQL；旧 `NOVEL_REPO_MODE`/legacy 写入模式已移除，`/health/ready` 不再“探针绿、业务红”。
 - `deploy/docker-compose.dev.yml`：注入仓库根 `.env` 的 `JWT_SECRET`；小说域默认 legacy，避免容器内误用 localhost 数据库。
 - 存储改为 named volume + `storage-init`：首次从宿主 `storage/` 只读复制并修正权限，规避 Docker Desktop `virtiofs ro` 导致的 503。
 - `deploy/nginx.conf`：公开素材与受保护媒体分目录缓存；隐藏上游默认 `Cache-Control`，避免 `max-age=0` 与 7 天缓存并存。

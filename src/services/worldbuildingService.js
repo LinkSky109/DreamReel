@@ -1,12 +1,13 @@
 import logger from '../utils/logger.js'
 import { generateId } from '../utils/idGenerator.js'
 import { getLLMProviderByPref } from '../providers/llmProviderFactory.js'
-import { storageService } from './storageService.js'
+import { writeChild, writeChildren } from './novelChildStore.js'
 import { WorldEntity, WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES, WORLD_CORE_TYPES, attributeKeysFor } from '../models/WorldEntity.js'
 import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
-import { getNovelProject, updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
-import { listChunks } from './novelChunkService.js'
+import { updateNovelProject, assertEditable } from './novelProjectService.js'
+import { getNovelProjectAsync, listChunksAsync, listEntitiesAsync } from './novelAsyncReadService.js'
+import { novelChildReadService } from './novelChildReadService.js'
 import { runGroups } from './extractionStatus.js'
 import { generateJSONWithRetry } from '../utils/llmRetry.js'
 
@@ -126,9 +127,9 @@ export function mergeEntities(all) {
 }
 
 export async function extractWorld(novelId, opts = {}) {
-  const project = getNovelProject(novelId)
+  const project = await getNovelProjectAsync(novelId)
   assertEditable(project, 'world')
-  const chunks = listChunks(novelId)
+  const chunks = await listChunksAsync(novelId)
   if (!chunks.length) throw new Error('尚未摄取正文，请先 ingest')
 
   const maxChapters = clampInt(opts.maxChapters, chunks.length, 1, 100000)
@@ -185,88 +186,67 @@ export async function extractWorld(novelId, opts = {}) {
 
   // 不删除历史实体：集合按 id 引用稳定记录；删除会让旧集合全部悬空（选中即显示空）。
 
-  const saved = merged.map((e) =>
-    storageService.createWorldEntity(
-      new WorldEntity({
-        novelId,
-        type: e.type,
-        name: e.name,
-        aliases: e.aliases,
-        description: e.description,
-        attributes: e.attributes,
-        relations: e.relations,
-        mentions: e.mentions,
-        provider,
-      })
+  const saved = await writeChildren(
+    'entities',
+    merged.map(
+      (e) =>
+        new WorldEntity({
+          novelId,
+          type: e.type,
+          name: e.name,
+          aliases: e.aliases,
+          description: e.description,
+          attributes: e.attributes,
+          relations: e.relations,
+          mentions: e.mentions,
+          provider,
+        })
     )
   )
 
-  writeNovelFile(novelId, 'worldbuilding/entities.json', JSON.stringify(saved, null, 2))
-
   // 备选集合：每次抽取生成一个候选集合，默认选中最新
-  const set = storageService.createWorldSet({
+  const set = await writeChild('worldSets', {
     id: generateId(),
     novelId,
     provider,
     createdAt: new Date().toISOString(),
     entityIds: saved.map((e) => e.id),
   })
-  updateNovelProject(novelId, {
+  await updateNovelProject(novelId, {
     worldSets: [...(project.worldSets || []), set.id],
     selectedWorldSet: set.id,
   })
 
-  const summary = summarize(novelId)
-  return { project: getNovelProject(novelId), provider, entities: saved.length, summary, set }
+  const summary = await summarize(novelId)
+  return { project: await getNovelProjectAsync(novelId), provider, entities: saved.length, summary, set }
 }
 
 /** 选定某个世界观集合为当前生效 */
-export function selectWorldSet(novelId, setId) {
-  const project = getNovelProject(novelId)
+export async function selectWorldSet(novelId, setId) {
+  const project = await getNovelProjectAsync(novelId)
   assertEditable(project, 'world')
-  const set = storageService.getWorldSet(setId)
-  if (!set || set.novelId !== novelId) throw new Error(`world set not found: ${setId}`)
+  const { novelChildReadService } = await import('./novelChildReadService.js')
+  const sets = await novelChildReadService.listSets('worldSets', novelId)
+  const set = sets.find((s) => s.id === setId)
+  if (!set) throw new Error(`world set not found: ${setId}`)
   return updateNovelProject(novelId, { selectedWorldSet: setId })
 }
 
 /** 备选集合列表（含实体数 + 仍存在的记录数） */
-export function listWorldSets(novelId) {
-  const project = storageService.getNovelProject(novelId)
-  const live = new Set(storageService.listWorldEntities(novelId).map((e) => e.id))
-  return (project?.worldSets || [])
-    .map((sid) => {
-      const set = storageService.getWorldSet(sid)
-      if (!set) return null
-      const liveCount = (set.entityIds || []).filter((x) => live.has(x)).length
-      return { id: set.id, provider: set.provider, createdAt: set.createdAt, count: set.entityIds.length, live: liveCount, selected: sid === project.selectedWorldSet }
-    })
-    .filter(Boolean)
+export async function listWorldSets(novelId) {
+  return novelChildReadService.listSets('worldSets', novelId)
 }
 
 /** 当前生效集合内的实体（未选定则全部）——避免历史集合污染统计 */
-function currentEntities(novelId) {
-  const project = storageService.getNovelProject(novelId)
-  let list = storageService.listWorldEntities(novelId)
-  const setId = project && project.selectedWorldSet
-  if (setId) {
-    const set = storageService.getWorldSet(setId)
-    if (set) {
-      const ids = new Set(set.entityIds)
-      list = list.filter((e) => ids.has(e.id))
-    }
-  }
-  return list
-}
-
-export function listEntities(novelId, type) {
-  const list = currentEntities(novelId)
+export async function listEntities(novelId, type) {
+  const list = await listEntitiesAsync(novelId)
   const filtered = type ? list.filter((e) => e.type === type) : list
   return filtered.sort((a, b) => (b.mentions || 0) - (a.mentions || 0))
 }
 
 /** 关系（解析 target 到实体 id） */
-export function listRelations(novelId) {
-  const entities = currentEntities(novelId)
+export async function listRelations(novelId) {
+  const entities = await listEntitiesAsync(novelId)
   const byName = new Map(entities.map((e) => [e.name, e.id]))
   const out = []
   for (const e of entities) {
@@ -277,17 +257,18 @@ export function listRelations(novelId) {
   return out
 }
 
-export function summarize(novelId) {
-  const entities = currentEntities(novelId)
+export async function summarize(novelId) {
+  const entities = await listEntitiesAsync(novelId)
   const byType = {}
   for (const t of WORLD_TYPES) byType[t] = 0
   for (const e of entities) byType[e.type] = (byType[e.type] || 0) + 1
   const missing = WORLD_CORE_TYPES.filter((t) => byType[t] === 0)
+  const relations = await listRelations(novelId)
   return {
     total: entities.length,
     byType,
     byTypeLabel: Object.fromEntries(Object.entries(byType).map(([k, v]) => [WORLD_TYPE_LABELS[k] || k, v])),
-    relations: listRelations(novelId).length,
+    relations: relations.length,
     missingCoreTypes: missing.map((t) => WORLD_TYPE_LABELS[t]),
     provider: entities[0]?.provider || null,
   }

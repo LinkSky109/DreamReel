@@ -56,6 +56,7 @@ import type {
   NovelEpisode,
   NovelEpisodeAssets,
   NovelEpisodeCharacterState,
+  NovelEpisodeOutline,
   NovelEpisodeStates,
   NovelExtractJobs,
   NovelSchema,
@@ -573,6 +574,8 @@ export const api = {
     requestData<NovelSeriesEstimate>(`/novels/${id}/series/estimate`),
   planNovelSeries: (id: string, body: Record<string, unknown> = {}) =>
     requestData<NovelSeriesPlanResult>(`/novels/${id}/series/plan`, { method: 'POST', body }),
+  getEpisodeOutline: (id: string, eid: string) =>
+    requestData<NovelEpisodeOutline>(`/novels/${id}/episodes/${eid}/outline`),
   generateNovelStyle: (id: string) =>
     requestData<unknown>(`/novels/${id}/style/generate`, { method: 'POST', body: {} }),
   getNovelVoices: (id: string) => requestData<NovelVoiceAssignment>(`/novels/${id}/voices`),

@@ -3,12 +3,13 @@ import path from 'path'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import { storageService } from './storageService.js'
-import { getNovelProject, novelDir } from './novelProjectService.js'
+import { getEpisode, updateEpisode } from './novelEpisodeStore.js'
+import { novelDir } from './novelProjectService.js'
 import { generateEpisodeScript } from './episodeScriptService.js'
 import { ASSET_CATEGORY_LABELS } from '../models/NovelAssetImage.js'
 import { isGenericName } from '../utils/nameFilters.js'
 import { buildAppearanceDirective } from './characterGrowthService.js'
-import { listCharacters } from './characterExtractionService.js'
+import { getNovelProjectAsync, listAssetsAsync, listCharactersAsync, listEntitiesAsync } from './novelAsyncReadService.js'
 
 /**
  * 分镜级「外部生成」交接（Sprint 29）
@@ -38,8 +39,8 @@ function sanitize(name) {
   return String(name || 'asset').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 40)
 }
 
-function getEpisodeOrThrow(novelId, episodeId) {
-  const ep = storageService.getEpisode(episodeId)
+async function getEpisodeOrThrow(novelId, episodeId) {
+  const ep = await getEpisode(novelId, episodeId)
   if (!ep || ep.novelId !== novelId) throw new Error(`episode not found: ${episodeId}`)
   return ep
 }
@@ -81,8 +82,8 @@ function copyToolGuide(dir) {
  * 导出分镜清单（给外部工具）。返回 { dir, shotCount, refCount, withRefs }
  */
 export async function exportShotHandoff(novelId, episodeId, opts = {}) {
-  const project = getNovelProject(novelId)
-  let episode = getEpisodeOrThrow(novelId, episodeId)
+  const project = await getNovelProjectAsync(novelId)
+  let episode = await getEpisodeOrThrow(novelId, episodeId)
   if (!episode.screenplay) {
     episode = await generateEpisodeScript(novelId, episodeId, { provider: opts.scriptProvider })
   }
@@ -92,16 +93,16 @@ export async function exportShotHandoff(novelId, episodeId, opts = {}) {
   fs.rmSync(dir, { recursive: true, force: true })
   fs.mkdirSync(refsDir, { recursive: true })
 
-  const byUrl = new Map(storageService.listNovelAssetImages(novelId).filter((a) => a.imageUrl).map((a) => [a.imageUrl, a]))
+  const byUrl = new Map((await listAssetsAsync(novelId)).filter((a) => a.imageUrl).map((a) => [a.imageUrl, a]))
   const used = new Map()
 
   // 本集角色形象（按剧情时间点），附到每个分镜提示词，避免终态装备出现在早期集
   const episodeNo = Number(episode.episodeNo ?? (episode.chapterIndex ?? 0) + 1)
   const shotText = (episode.screenplay.shots || []).map((s) => String(s.description || '')).join(' ')
-  const appearNames = listCharacters(novelId)
+  const appearNames = (await listCharactersAsync(novelId))
     .filter((c) => c.name && shotText.includes(c.name))
     .map((c) => c.name)
-  const appearanceText = buildAppearanceDirective(novelId, episodeNo, appearNames.length ? appearNames : null).replace(/\n/g, '；')
+  const appearanceText = (await buildAppearanceDirective(novelId, episodeNo, appearNames.length ? appearNames : null)).replace(/\n/g, '；')
 
   const shots = (episode.screenplay.shots || []).map((s) => {
     const nn = String(s.index).padStart(2, '0')
@@ -171,8 +172,8 @@ export async function exportShotHandoff(novelId, episodeId, opts = {}) {
 /**
  * 导入回传视频（扫描回传目录 → 写回 shot.videoUrl）。返回 { imported, missing }
  */
-export function importShotVideos(novelId, episodeId, opts = {}) {
-  const episode = getEpisodeOrThrow(novelId, episodeId)
+export async function importShotVideos(novelId, episodeId, opts = {}) {
+  const episode = await getEpisodeOrThrow(novelId, episodeId)
   const shots = episode.screenplay?.shots || []
   const dir = opts.dir || shotUploadDir(novelId, episodeId)
   const files = fs.existsSync(dir) ? fs.readdirSync(dir) : []
@@ -195,7 +196,7 @@ export function importShotVideos(novelId, episodeId, opts = {}) {
   }
   if (imported.length) {
     episode.status = 'shot-videos'
-    storageService.updateEpisode(episode)
+    await updateEpisode(novelId, episode)
   }
   return { dir, imported, missing, total: shots.length }
 }
@@ -210,16 +211,16 @@ export function importShotVideos(novelId, episodeId, opts = {}) {
  *  - 命中按“名称长度”排序（越长越具体，优先），每个分镜最多 maxPerShot 张，避免一屏塞满
  *  - 只增不删：手动配过的参考图保留
  */
-export function autoAttachReferences(novelId, episodeId, opts = {}) {
-  const episode = getEpisodeOrThrow(novelId, episodeId)
+export async function autoAttachReferences(novelId, episodeId, opts = {}) {
+  const episode = await getEpisodeOrThrow(novelId, episodeId)
   const shots = episode.screenplay?.shots || []
   const maxPerShot = Number(opts.maxPerShot) > 0 ? Number(opts.maxPerShot) : 6
-  const assets = storageService.listNovelAssetImages(novelId).filter((a) => a.imageUrl && a.name && !isGenericName(a.name))
+  const assets = (await listAssetsAsync(novelId)).filter((a) => a.imageUrl && a.name && !isGenericName(a.name))
 
   // 来源 id → 别名表（角色/世界观实体都收）
   const aliasById = new Map()
-  for (const c of storageService.listNovelCharacters(novelId)) aliasById.set(c.id, [c.name, ...(c.aliases || [])])
-  for (const e of storageService.listWorldEntities(novelId)) aliasById.set(e.id, [e.name, ...(e.aliases || [])])
+  for (const c of await listCharactersAsync(novelId)) aliasById.set(c.id, [c.name, ...(c.aliases || [])])
+  for (const e of await listEntitiesAsync(novelId)) aliasById.set(e.id, [e.name, ...(e.aliases || [])])
 
   const keywords = assets.map((a) => ({
     url: a.imageUrl,
@@ -264,24 +265,24 @@ export function autoAttachReferences(novelId, episodeId, opts = {}) {
     }
   }
 
-  storageService.updateEpisode(episode)
+  await updateEpisode(novelId, episode)
   storageService._flush() // 批量操作后立即落盘（save 为 debounce，避免调用方退出丢数据）
   return { episodeId, shots: shots.length, shotsTouched, refsAdded, maxPerShot }
 }
 
 /** 手动设置某分镜的参考图 */
-export function setShotReferences(novelId, episodeId, index, referenceImages = []) {
-  const episode = getEpisodeOrThrow(novelId, episodeId)
+export async function setShotReferences(novelId, episodeId, index, referenceImages = []) {
+  const episode = await getEpisodeOrThrow(novelId, episodeId)
   const shot = (episode.screenplay?.shots || []).find((s) => s.index === Number(index))
   if (!shot) throw new Error(`shot not found: ${index}`)
   shot.referenceImages = Array.isArray(referenceImages) ? referenceImages.filter(Boolean) : []
-  storageService.updateEpisode(episode)
+  await updateEpisode(novelId, episode)
   return shot
 }
 
 /** 分镜列表（含参考图与是否已有回传视频） */
-export function listShots(novelId, episodeId) {
-  const episode = getEpisodeOrThrow(novelId, episodeId)
+export async function listShots(novelId, episodeId) {
+  const episode = await getEpisodeOrThrow(novelId, episodeId)
   const dir = shotUploadDir(novelId, episodeId)
   const files = fs.existsSync(dir) ? fs.readdirSync(dir) : []
   return (episode.screenplay?.shots || []).map((s) => {

@@ -16,6 +16,7 @@ import pg from 'pg'
 import config from '../src/config/index.js'
 import { toChildPayload, CHILD_KINDS } from '../src/repositories/novelChildRepository.js'
 import { stableStringify } from '../src/utils/stableJson.js'
+import { findLatestNovelArchive, loadNovelArchive } from './lib/novelJsonArchive.js'
 
 const { Client } = pg
 const args = new Set(process.argv.slice(2))
@@ -52,7 +53,13 @@ const TABLES = {
 
 function loadData() {
   if (!fs.existsSync(dbPath)) throw new Error(`找不到数据文件：${dbPath}`)
-  return JSON.parse(fs.readFileSync(dbPath, 'utf8'))
+  const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'))
+  const hasNovels = data.novelProjects && Object.keys(data.novelProjects).length > 0
+  if (hasNovels) return data
+  const latest = findLatestNovelArchive()
+  if (!latest) return data
+  console.log(`db.json 无小说集合，使用归档：${latest}`)
+  return { ...data, ...loadNovelArchive(latest).collections }
 }
 
 function valuesFor(kind, doc, position, now) {

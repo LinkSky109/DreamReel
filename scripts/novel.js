@@ -55,12 +55,15 @@ async function main() {
     card: await import('../src/services/characterCardService.js'),
     style: await import('../src/services/novelStyleService.js'),
     series: await import('../src/services/seriesPlannerService.js'),
+    episodeStore: await import('../src/services/novelEpisodeStore.js'),
     epScript: await import('../src/services/episodeScriptService.js'),
     epAsset: await import('../src/services/episodeAssetService.js'),
     compose: await import('../src/services/episodeComposeService.js'),
     sync: await import('../src/services/novelSyncService.js'),
     handoff: await import('../src/services/episodeHandoffService.js'),
     world: await import('../src/services/worldbuildingService.js'),
+    read: await import('../src/services/novelReadService.js'),
+    asyncRead: await import('../src/services/novelAsyncReadService.js'),
   }
 
   const [cmd, ...rest] = process.argv.slice(2)
@@ -69,7 +72,7 @@ async function main() {
   switch (cmd) {
     case 'create': {
       if (!flags.title) throw new Error('缺少 --title')
-      const project = services.project.createNovelProject({
+      const project = await services.project.createNovelProject({
         title: flags.title,
         author: flags.author || '',
         category: flags.category || '',
@@ -82,8 +85,7 @@ async function main() {
 
     case 'list': {
       print(
-        services.project
-          .listNovelProjects()
+        (await services.read.novelReadService.list())
           .map((p) => ({ id: p.id, title: p.title, status: p.status, counts: p.counts }))
       )
       break
@@ -115,8 +117,8 @@ async function main() {
         maxChars: flags['max-chars'] ? Number(flags['max-chars']) : undefined,
         minFreq: flags['min-freq'] ? Number(flags['min-freq']) : undefined,
       })
-      services.card.ensureCards(id)
-      print({ novelId: id, provider: result.provider, characters: services.extract.listCharacters(id).length })
+      await services.card.ensureCards(id)
+      print({ novelId: id, provider: result.provider, characters: (await services.extract.listCharacters(id)).length })
       break
     }
 
@@ -124,7 +126,7 @@ async function main() {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
       print(
-        services.extract.listCharacters(id).map((c) => ({
+        (await services.extract.listCharacters(id)).map((c) => ({
           name: c.name,
           aliases: c.aliases,
           provider: c.provider,
@@ -138,15 +140,15 @@ async function main() {
     case 'show': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      const p = services.project.getNovelProject(id)
-      print({ ...p, chunkCount: services.chunk.listChunks(id).length, reviewStats: services.card.reviewStats(id) })
+      const p = await services.asyncRead.getNovelProjectAsync(id)
+      print({ ...p, chunkCount: (await services.chunk.listChunks(id)).length, reviewStats: await services.card.reviewStats(id) })
       break
     }
 
     case 'stats': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.card.reviewStats(id))
+      print(await services.card.reviewStats(id))
       break
     }
 
@@ -161,11 +163,15 @@ async function main() {
     case 'plan': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      const result = services.series.planSeries(id, {
+      const result = await services.series.planSeries(id, {
         episodeSeconds: flags['episode-seconds'] ? Number(flags['episode-seconds']) : undefined,
         episodesPerSeason: flags['episodes-per-season'] ? Number(flags['episodes-per-season']) : undefined,
         charsPerSecond: flags['chars-per-second'] ? Number(flags['chars-per-second']) : undefined,
         maxChapters: flags['max-chapters'] ? Number(flags['max-chapters']) : undefined,
+        tolerance: flags.tolerance ? Number(flags.tolerance) : undefined,
+        useLLM: flags['no-llm'] ? false : flags['use-llm'] ? true : undefined,
+        provider: flags.provider,
+        force: flags.force === true,
       })
       print(result)
       break
@@ -175,7 +181,7 @@ async function main() {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
       print(
-        services.series.listSeasons(id).map((s) => ({
+        (await services.episodeStore.listSeasons(id)).map((s) => ({
           seasonNo: s.seasonNo,
           title: s.title,
           episodeCount: s.episodeCount,
@@ -188,7 +194,7 @@ async function main() {
     case 'episodes': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      const list = services.series.listEpisodes(id, positional[1])
+      const list = await services.episodeStore.listEpisodes(id, positional[1])
       print({
         count: list.length,
         sample: list.slice(0, 5).map((e) => ({ episodeNo: e.episodeNo, title: e.title, targetSeconds: e.targetSeconds, status: e.status })),
@@ -356,14 +362,14 @@ async function main() {
       const eid = positional[1]
       const file = positional[2]
       if (!id || !eid || !file) throw new Error('用法：handoff-import <novelId> <episodeId> <file.mp4>')
-      print(services.handoff.importHandoffResult(id, eid, file))
+      print(await services.handoff.importHandoffResult(id, eid, file))
       break
     }
 
     case 'handoff-list': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.handoff.listHandoff(id))
+      print(await services.handoff.listHandoff(id))
       break
     }
 
@@ -382,28 +388,28 @@ async function main() {
     case 'world-show': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.world.summarize(id))
+      print(await services.world.summarize(id))
       break
     }
 
     case 'world-entities': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.world.listEntities(id, positional[1]).map((e) => ({ type: e.type, name: e.name, aliases: e.aliases, mentions: e.mentions })))
+      print((await services.world.listEntities(id, positional[1])).map((e) => ({ type: e.type, name: e.name, aliases: e.aliases, mentions: e.mentions })))
       break
     }
 
     case 'world-relations': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.world.listRelations(id))
+      print(await services.world.listRelations(id))
       break
     }
 
     case 'advance': {
       const id = positional[0]
       if (!id) throw new Error('用法：advance <novelId> [--to <stage>]')
-      const p = services.project.advanceStage(id, flags.to)
+      const p = await services.project.advanceStage(id, flags.to)
       print({ stage: p.stage })
       break
     }
@@ -411,7 +417,7 @@ async function main() {
     case 'characters-sets': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.extract.listCharacterSets(id))
+      print(await services.extract.listCharacterSets(id))
       break
     }
 
@@ -419,14 +425,14 @@ async function main() {
       const id = positional[0]
       const setId = positional[1]
       if (!id || !setId) throw new Error('用法：characters-select <novelId> <setId>')
-      print({ selectedCharacterSet: services.extract.selectCharacterSet(id, setId).selectedCharacterSet })
+      print({ selectedCharacterSet: (await services.extract.selectCharacterSet(id, setId)).selectedCharacterSet })
       break
     }
 
     case 'world-sets': {
       const id = positional[0]
       if (!id) throw new Error('缺少 <novelId>')
-      print(services.world.listWorldSets(id))
+      print(await services.world.listWorldSets(id))
       break
     }
 
@@ -434,7 +440,7 @@ async function main() {
       const id = positional[0]
       const setId = positional[1]
       if (!id || !setId) throw new Error('用法：world-select <novelId> <setId>')
-      print({ selectedWorldSet: services.world.selectWorldSet(id, setId).selectedWorldSet })
+      print({ selectedWorldSet: (await services.world.selectWorldSet(id, setId)).selectedWorldSet })
       break
     }
 

@@ -8,7 +8,7 @@
  *
  * 发布新版本时 bump CACHE_VERSION。
  */
-const CACHE_VERSION = 'dreamreel-v6'
+const CACHE_VERSION = 'dreamreel-v7'
 const CACHE_PREFIX = 'dreamreel-'
 const OFFLINE_URL = '/index.html'
 const APP_SHELL = [

@@ -1,12 +1,13 @@
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
 import { getLLMProvider } from '../providers/llmProviderFactory.js'
-import { storageService } from './storageService.js'
-import { getNovelProject, readNovelFile, assertEditable } from './novelProjectService.js'
-import { listCharacters } from './characterExtractionService.js'
-import { listEntities } from './worldbuildingService.js'
+import { assertEditable } from './novelProjectService.js'
+import { getEpisode, updateEpisode, getEpisodeText } from './novelEpisodeStore.js'
+
 import { isGenericName } from '../utils/nameFilters.js'
 import { buildAppearanceDirective, generateEpisodeStates } from './characterGrowthService.js'
+import { getNovelProjectAsync, listCharactersAsync, listEntitiesAsync } from './novelAsyncReadService.js'
+import { getOrGenerateOutline } from './episodeOutlineService.js'
 
 /**
  * 单集剧本生成（Sprint 21 / S21-3）
@@ -104,13 +105,13 @@ function buildScriptPrompt(text, target, style = {}, ctx = {}) {
 }
 
 /** 全书核心设定（稳定、跨集一致 → 利于缓存命中） */
-function bookCoreLines(novelId) {
+async function bookCoreLines(novelId) {
   const key = (x) => [-(x.mentions || 0), String(x.name)]
-  const chars = listCharacters(novelId)
+  const chars = (await listCharactersAsync(novelId))
     .filter((c) => c.name && !isGenericName(c.name))
     .sort((a, b) => key(a)[0] - key(b)[0] || a.name.localeCompare(b.name))
     .slice(0, 14)
-  const ents = listEntities(novelId)
+  const ents = (await listEntitiesAsync(novelId))
     .filter((e) => e.name && !isGenericName(e.name))
     .sort((a, b) => key(a)[0] - key(b)[0] || a.name.localeCompare(b.name))
     .slice(0, 12)
@@ -126,12 +127,22 @@ function bookCoreLines(novelId) {
 }
 
 export async function generateEpisodeScript(novelId, episodeId, opts = {}) {
-  const project = getNovelProject(novelId)
+  const project = await getNovelProjectAsync(novelId)
   assertEditable(project, 'episodes')
-  const ep = storageService.getEpisode(episodeId)
+  const ep = await getEpisode(novelId, episodeId)
   if (!ep || ep.novelId !== novelId) throw new Error(`episode not found: ${episodeId}`)
 
-  const text = readNovelFile(novelId, ep.sourceFile)?.toString('utf-8') || ''
+  // 懒生成分集大纲（已有则直接复用；mock/不可用时走启发式，不影响剧本生成）
+  try {
+    await getOrGenerateOutline(novelId, episodeId, {
+      useLLM: opts.provider !== 'heuristic',
+      provider: opts.outlineProvider,
+    })
+  } catch (error) {
+    logger.warn(`分集大纲生成失败，继续生成剧本：${error.message}`)
+  }
+
+  const text = await getEpisodeText(novelId, ep)
   const target = ep.targetSeconds || 90
   const configured = config.llm && config.llm.provider && config.llm.provider !== 'mock'
 
@@ -141,12 +152,12 @@ export async function generateEpisodeScript(novelId, episodeId, opts = {}) {
     try {
       const llm = getLLMProvider()
       // 稳定前缀：全书核心设定（跨集一致 → 命中缓存）
-      const core = bookCoreLines(novelId)
+      const core = await bookCoreLines(novelId)
       // 动态尾部：本集正文里出现的具名角色/设定
-      const localChars = listCharacters(novelId)
+      const localChars = (await listCharactersAsync(novelId))
         .filter((c) => c.name && !isGenericName(c.name) && text.includes(c.name))
         .slice(0, 12)
-      const localEnts = listEntities(novelId)
+      const localEnts = (await listEntitiesAsync(novelId))
         .filter((e) => e.name && !isGenericName(e.name) && text.includes(e.name))
         .slice(0, 12)
       const local = [
@@ -160,7 +171,7 @@ export async function generateEpisodeScript(novelId, episodeId, opts = {}) {
       ]
       const localNames = [...new Set([...localChars.map((c) => c.name), ...localEnts.map((e) => e.name)])]
       const episodeNo = Number(ep.episodeNo ?? (ep.chapterIndex ?? 0) + 1)
-      const appearanceDirective = buildAppearanceDirective(novelId, episodeNo, localNames)
+      const appearanceDirective = await buildAppearanceDirective(novelId, episodeNo, localNames)
       const ctx = { core, local, localNames, appearanceDirective }
       const res = await llm.generateJSON(buildScriptPrompt(text, target, project.style || {}, ctx))
       const data = res.data
@@ -194,7 +205,7 @@ export async function generateEpisodeScript(novelId, episodeId, opts = {}) {
   ep.screenplay = screenplay
   ep.status = 'scripted'
   ep.scriptProvider = provider
-  storageService.updateEpisode(ep)
+  await updateEpisode(novelId, ep)
 
   // 生成/刷新本集角色形象状态（供出图/出片按剧情时间点使用；失败不影响剧本本身）
   try {
@@ -205,8 +216,8 @@ export async function generateEpisodeScript(novelId, episodeId, opts = {}) {
   return ep
 }
 
-export function getEpisodeScript(novelId, episodeId) {
-  const ep = storageService.getEpisode(episodeId)
+export async function getEpisodeScript(novelId, episodeId) {
+  const ep = await getEpisode(novelId, episodeId)
   if (!ep || ep.novelId !== novelId) throw new Error(`episode not found: ${episodeId}`)
   return ep.screenplay
 }

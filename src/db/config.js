@@ -10,14 +10,9 @@ export function databaseUrl() {
 
 /**
  * 是否需要 PostgreSQL 连接。
- * 除了 DB_DRIVER，小说域单独的 repo/write 开关也会让运行时依赖 PG，
- * 健康检查必须看到这些开关，否则会出现“探针绿、业务红”。
+ * 小说域已固定为 PostgreSQL 单源（无 legacy/dual 写模式），
+ * 运行时始终依赖 PG；健康检查必须探测连接，避免“探针绿、业务红”。
  */
 export function isPostgresEnabled() {
-  return (
-    config.db.driver === 'postgres' ||
-    config.db.driver === 'dual' ||
-    config.novels.repoMode === 'postgres' ||
-    config.novels.writeMode !== 'legacy'
-  )
+  return true
 }

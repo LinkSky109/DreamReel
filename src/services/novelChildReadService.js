@@ -1,41 +1,45 @@
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
-import { storageService } from './storageService.js'
 import { createPostgresNovelChildRepository } from '../repositories/novelChildRepository.js'
-import { stableStringify } from '../utils/stableJson.js'
-import { listChunks } from './novelChunkService.js'
-import { listCharacters, listCharacterSets } from './characterExtractionService.js'
-import { listEntities, listWorldSets } from './worldbuildingService.js'
-import { listSeasons, listEpisodes } from './seriesPlannerService.js'
-import { listAssets } from './novelAssetService.js'
-import { listStates } from './characterGrowthService.js'
+import { getChunkText } from './novelProjectService.js'
+import { novelReadService } from './novelReadService.js'
 
 /**
- * 小说子集合只读切换（chunks / characters / entities）。
- * legacy：JSON；shadow：返回 JSON 并比对 PG；postgres：返回 PG。
+ * 小说子集合只读服务（Phase 3c-2）。
+ *
+ * PostgreSQL 是唯一读源；不存在 legacy/shadow 回退。
  */
 export function createNovelChildReadService({
-  legacy,
   getRepo,
-  mode = 'legacy',
+  getProjectAsync = async () => null,
   orgId = 'default',
   log = logger,
-  getProject = (id) => storageService.getNovelProject(id),
 } = {}) {
-  function selectionIds(novelId) {
-    const project = storageService.getNovelProject(novelId)
-    const characterSet = project?.selectedCharacterSet
-      ? storageService.getCharacterSet(project.selectedCharacterSet)
-      : null
-    const worldSet = project?.selectedWorldSet ? storageService.getWorldSet(project.selectedWorldSet) : null
+  async function selectionIds(repo, novelId) {
+    const project = await getProjectAsync(novelId)
+    const [characterSets, worldSets] = await Promise.all([
+      repo.list('characterSets', novelId, { orgId }),
+      repo.list('worldSets', novelId, { orgId }),
+    ])
+    const characterSet = characterSets.find((s) => s.id === project?.selectedCharacterSet)
+    const worldSet = worldSets.find((s) => s.id === project?.selectedWorldSet)
     return {
       characters: characterSet ? new Set(characterSet.characterIds || []) : null,
       entities: worldSet ? new Set(worldSet.entityIds || []) : null,
     }
   }
 
-  function normalizePg(kind, novelId, rows, opts = {}) {
-    if (kind === 'chunks') return [...rows].sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+  async function normalizePg(repo, kind, novelId, rows, opts = {}) {
+    if (kind === 'chunks') {
+      // PG content 可能为空（正文只在 cleaned.txt）；按偏移水合，保证接口仍返回 text
+      return [...rows]
+        .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+        .map((row) => {
+          if (typeof row.text === 'string' && row.text.length) return row
+          const text = getChunkText(novelId, row)
+          return text ? { ...row, text } : row
+        })
+    }
     if (kind === 'seasons') return [...rows].sort((a, b) => (a.seasonNo ?? 0) - (b.seasonNo ?? 0))
     if (kind === 'states') {
       const filtered = opts.characterId ? rows.filter((row) => row.characterId === opts.characterId) : rows
@@ -50,7 +54,7 @@ export function createNovelChildReadService({
       // 先按源顺序，再按 createdAt 降序稳定排序，和旧接口一致
       return [...filtered].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     }
-    const selected = selectionIds(novelId)
+    const selected = await selectionIds(repo, novelId)
     if (kind === 'characters' && selected.characters) {
       return rows.filter((row) => selected.characters.has(row.id))
     }
@@ -61,64 +65,33 @@ export function createNovelChildReadService({
     return rows
   }
 
-  function compare(kind, novelId, legacyRows, pgRows, requestId) {
-    const legacyMap = new Map(legacyRows.map((d) => [d.id, d]))
-    const pgMap = new Map(pgRows.map((d) => [d.id, d]))
-    const missing = [...legacyMap.keys()].filter((id) => !pgMap.has(id))
-    const extra = [...pgMap.keys()].filter((id) => !legacyMap.has(id))
-    const changed = [...legacyMap.keys()]
-      .filter((id) => pgMap.has(id) && stableStringify(legacyMap.get(id)) !== stableStringify(pgMap.get(id)))
-      .slice(0, 10)
-    if (missing.length || extra.length || changed.length) {
-      log.warn('[novel-child-shadow] mismatch', {
+  async function listRows(kind, novelId, { requestId, seasonId, category, characterId } = {}) {
+    try {
+      const repo = await getRepo()
+      const rows = await repo.list(kind, novelId, { orgId })
+      return normalizePg(repo, kind, novelId, rows, { seasonId, category, characterId })
+    } catch (error) {
+      log.warn('[novel-child-read] postgres 读取失败', {
         requestId,
         kind,
         novelId,
-        missing: missing.slice(0, 10),
-        extra: extra.slice(0, 10),
-        changed,
-        counts: { legacy: legacyRows.length, postgres: pgRows.length },
+        message: error.message,
       })
+      throw error
     }
-  }
-
-  async function listRows(kind, novelId, { requestId, seasonId, category, characterId } = {}) {
-      const legacyRows = legacy.list(kind, novelId, { seasonId, category, characterId })
-      if (mode === 'legacy') return legacyRows
-      let pgRows
-      try {
-        const repo = await getRepo()
-        pgRows = await repo.list(kind, novelId, { orgId })
-      } catch (error) {
-        log.warn('[novel-child-read] postgres 读取失败，回退 legacy', {
-          requestId,
-          kind,
-          novelId,
-          message: error.message,
-        })
-        return legacyRows
-      }
-      const normalizedPg = normalizePg(kind, novelId, pgRows, { seasonId, category, characterId })
-    if (mode === 'shadow') {
-      compare(kind, novelId, legacyRows, normalizedPg, requestId)
-      return legacyRows
-    }
-    return normalizedPg
   }
 
   async function listSets(kind, novelId, { requestId } = {}) {
-    const legacyRows = legacy.listSets(kind, novelId)
-    if (mode === 'legacy') return legacyRows
     try {
       const repo = await getRepo()
       const sets = await repo.list(kind, novelId, { orgId })
       const liveRows = await listRows(kind === 'characterSets' ? 'characters' : 'entities', novelId, { requestId })
       const live = new Set(liveRows.map((row) => row.id))
-      const project = getProject(novelId)
+      const project = await getProjectAsync(novelId)
       const order = kind === 'characterSets' ? project?.characterSets || [] : project?.worldSets || []
       const selected = kind === 'characterSets' ? project?.selectedCharacterSet : project?.selectedWorldSet
       const byId = new Map(sets.map((set) => [set.id, set]))
-      const rows = order
+      return order
         .map((id) => byId.get(id))
         .filter(Boolean)
         .map((set) => {
@@ -132,18 +105,13 @@ export function createNovelChildReadService({
             selected: set.id === selected,
           }
         })
-      if (mode === 'shadow') {
-        compare(kind, novelId, legacyRows, rows, requestId)
-        return legacyRows
-      }
-      return rows
     } catch (error) {
-      log.warn('[novel-set-read] postgres 读取失败，回退 legacy', { requestId, kind, novelId, message: error.message })
-      return legacyRows
+      log.warn('[novel-set-read] postgres 读取失败', { requestId, kind, novelId, message: error.message })
+      throw error
     }
   }
 
-  return { mode, list: listRows, listSets }
+  return { list: listRows, listSets }
 }
 
 let repoPromise = null
@@ -156,24 +124,7 @@ function getRepoLazy() {
 }
 
 export const novelChildReadService = createNovelChildReadService({
-  legacy: {
-    list: (kind, novelId, opts = {}) => {
-      if (kind === 'chunks') return listChunks(novelId)
-      if (kind === 'characters') return listCharacters(novelId)
-      if (kind === 'entities') return listEntities(novelId)
-      if (kind === 'seasons') return listSeasons(novelId)
-      if (kind === 'episodes') return listEpisodes(novelId, opts.seasonId)
-      if (kind === 'assets') return listAssets(novelId, { category: opts.category })
-      if (kind === 'states') return listStates(novelId, opts.characterId)
-      throw new Error(`未知子集合：${kind}`)
-    },
-    listSets: (kind, novelId) => {
-      if (kind === 'characterSets') return listCharacterSets(novelId)
-      if (kind === 'worldSets') return listWorldSets(novelId)
-      throw new Error(`未知集合：${kind}`)
-    },
-  },
+  getProjectAsync: (id) => novelReadService.get(id),
   getRepo: getRepoLazy,
-  mode: config.novels.repoMode,
   orgId: config.novels.orgId,
 })

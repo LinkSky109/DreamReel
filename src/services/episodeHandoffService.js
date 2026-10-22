@@ -2,9 +2,10 @@ import fs from 'fs'
 import path from 'path'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
-import { storageService } from './storageService.js'
-import { getNovelProject, novelDir } from './novelProjectService.js'
+import { getEpisode, updateEpisode } from './novelEpisodeStore.js'
+import { novelDir } from './novelProjectService.js'
 import { generateEpisodeScript } from './episodeScriptService.js'
+import { getNovelProjectAsync, listCharactersAsync } from './novelAsyncReadService.js'
 
 /**
  * 单集"外部生成"交接（Sprint 24 / 视频 plan 受限时的替代流程）
@@ -44,8 +45,8 @@ function buildPrompt(project, episode) {
 }
 
 export async function exportHandoff(novelId, episodeId, opts = {}) {
-  const project = getNovelProject(novelId)
-  let episode = storageService.getEpisode(episodeId)
+  const project = await getNovelProjectAsync(novelId)
+  let episode = await getEpisode(novelId, episodeId)
   if (!episode || episode.novelId !== novelId) throw new Error(`episode not found: ${episodeId}`)
 
   if (!episode.screenplay) {
@@ -84,7 +85,7 @@ export async function exportHandoff(novelId, episodeId, opts = {}) {
     fs.copyFileSync(keyframe, path.join(dir, 'refs', 'keyframe.png'))
   }
   // 参考文本：角色（名字/别名/描述）
-  const chars = storageService.listNovelCharacters(novelId)
+  const chars = await listCharactersAsync(novelId)
   if (chars.length) {
     const text = chars
       .map((c) => `${c.name}${c.aliases && c.aliases.length ? '（' + c.aliases.join('/') + '）' : ''}：${c.description || ''}`)
@@ -97,14 +98,14 @@ export async function exportHandoff(novelId, episodeId, opts = {}) {
     status: 'exported',
     at: new Date().toISOString(),
   }
-  storageService.updateEpisode(episode)
+  await updateEpisode(novelId, episode)
   logger.info(`单集交接导出：${episodeId} → ${dir}`)
 
   return { dir, promptFile: path.join(dir, 'prompt.txt'), spec, refs: fs.readdirSync(path.join(dir, 'refs')) }
 }
 
-export function importHandoffResult(novelId, episodeId, sourceFile) {
-  const episode = storageService.getEpisode(episodeId)
+export async function importHandoffResult(novelId, episodeId, sourceFile) {
+  const episode = await getEpisode(novelId, episodeId)
   if (!episode || episode.novelId !== novelId) throw new Error(`episode not found: ${episodeId}`)
   if (!sourceFile || !fs.existsSync(sourceFile)) throw new Error(`source file not found: ${sourceFile}`)
 
@@ -122,20 +123,26 @@ export function importHandoffResult(novelId, episodeId, sourceFile) {
     },
   }
   episode.handoff = { ...(episode.handoff || {}), status: 'imported', importedAt: new Date().toISOString() }
-  storageService.updateEpisode(episode)
+  await updateEpisode(novelId, episode)
   logger.info(`单集交接回传：${sourceFile} → ${dest}`)
   return episode.assets.video
 }
 
-export function listHandoff(novelId) {
-  getNovelProject(novelId)
+export async function listHandoff(novelId) {
+  await getNovelProjectAsync(novelId)
   const dir = handoffRoot(novelId)
   if (!fs.existsSync(dir)) return []
-  return fs
+  const ids = fs
     .readdirSync(dir)
     .filter((d) => fs.statSync(path.join(dir, d)).isDirectory())
-    .map((episodeId) => {
-      const ep = storageService.getEpisode(episodeId)
-      return { episodeId, status: ep?.handoff?.status || 'unknown', dir: path.relative(config.storage.path, path.join(dir, episodeId)) }
+  return Promise.all(
+    ids.map(async (episodeId) => {
+      const ep = await getEpisode(novelId, episodeId)
+      return {
+        episodeId,
+        status: ep?.handoff?.status || 'unknown',
+        dir: path.relative(config.storage.path, path.join(dir, episodeId)),
+      }
     })
+  )
 }

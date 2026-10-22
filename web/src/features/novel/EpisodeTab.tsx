@@ -1,13 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { useLang } from '../../lib/i18n'
 import { showToast } from '../../lib/toast'
 import { novelStageIndex } from '../../lib/novel'
-import type { NovelDetail, NovelEpisode } from '../../domain/types'
+import type { NovelDetail, NovelEpisode, NovelEpisodeOutline } from '../../domain/types'
 import { Icon } from '../../components/Icon'
-import './EpisodeTab.css'
 import './EpisodeTab.css'
 
 const PAGE_SIZE = 20
@@ -28,6 +27,27 @@ function badges(episode: NovelEpisode, t: (zh: string, en: string) => string) {
   )
 }
 
+function durationStateOf(episode: NovelEpisode) {
+  const sec = episode.estimatedSeconds
+  if (sec == null) return 'unknown'
+  if (sec < 85) return 'short'
+  if (sec > 95) return 'long'
+  return 'ok'
+}
+
+function durationLabelOf(episode: NovelEpisode, t: (zh: string, en: string) => string) {
+  switch (durationStateOf(episode)) {
+    case 'ok':
+      return t('时长达标', 'in range')
+    case 'short':
+      return t('偏短', 'short')
+    case 'long':
+      return t('偏长', 'long')
+    default:
+      return ''
+  }
+}
+
 export function EpisodeTab({ novel, onChanged }: { novel: NovelDetail; onChanged: () => void }) {
   const { t } = useLang()
   const queryClient = useQueryClient()
@@ -36,6 +56,9 @@ export function EpisodeTab({ novel, onChanged }: { novel: NovelDetail; onChanged
   const [page, setPage] = useState(1)
   const [busy, setBusy] = useState<{ eid: string; label: string } | null>(null)
   const [bulk, setBulk] = useState<string | null>(null)
+  const [outlineFor, setOutlineFor] = useState<string | null>(null)
+  const [outline, setOutline] = useState<NovelEpisodeOutline | null>(null)
+  const [outlineLoading, setOutlineLoading] = useState(false)
 
   const lkScript = novelStageIndex(novel.stage) > novelStageIndex('episodes')
   const lkAssets = novelStageIndex(novel.stage) > novelStageIndex('assets')
@@ -47,6 +70,12 @@ export function EpisodeTab({ novel, onChanged }: { novel: NovelDetail; onChanged
   })
   const seasons = seasonsQuery.data ?? []
   const activeSeasonId = seasonId && seasons.some((season) => season.id === seasonId) ? seasonId : seasons[0]?.id ?? ''
+
+  useEffect(() => {
+    setOutlineFor(null)
+    setOutline(null)
+    setOutlineLoading(false)
+  }, [activeSeasonId, query, page])
 
   const episodesQuery = useQuery({
     queryKey: ['novel-episodes', novel.id, activeSeasonId],
@@ -94,6 +123,30 @@ export function EpisodeTab({ novel, onChanged }: { novel: NovelDetail; onChanged
     } finally {
       setBusy(null)
       refresh()
+    }
+  }
+
+  const toggleOutline = async (episode: NovelEpisode) => {
+    if (outlineFor === episode.id) {
+      setOutlineFor(null)
+      setOutline(null)
+      return
+    }
+    setOutlineFor(episode.id)
+    if (episode.outline) {
+      setOutline(episode.outline)
+      setOutlineLoading(false)
+      return
+    }
+    setOutline(null)
+    setOutlineLoading(true)
+    try {
+      setOutline(await api.getEpisodeOutline(novel.id, episode.id))
+    } catch (error) {
+      showToast((error as Error).message, 'error')
+      setOutlineFor(null)
+    } finally {
+      setOutlineLoading(false)
     }
   }
 
@@ -298,6 +351,23 @@ export function EpisodeTab({ novel, onChanged }: { novel: NovelDetail; onChanged
                     <strong>#{episode.episodeNo}</strong> {episode.title}
                     <span>
                       · {episode.targetSeconds}s
+                      {episode.estimatedSeconds != null ? (
+                        <>
+                          {' · '}
+                          {t('内容', 'content')} {episode.estimatedSeconds.toFixed(1)}s
+                          <span className={`dr-episode-duration is-${durationStateOf(episode)}`}>
+                            {durationLabelOf(episode, t)}
+                          </span>
+                        </>
+                      ) : null}
+                      {episode.chapterStart != null &&
+                      episode.chapterEnd != null &&
+                      episode.chapterStart !== episode.chapterEnd ? (
+                        <>
+                          {' · '}
+                          {t('跨章', 'cross-chapter')} {episode.chapterStart + 1}–{episode.chapterEnd + 1}
+                        </>
+                      ) : null}
                       {episode.screenplay?.totalSeconds ? ` · ${t('已成片', 'rendered')} ${episode.screenplay.totalSeconds}s` : ''}
                     </span>
                   </div>
@@ -325,7 +395,67 @@ export function EpisodeTab({ novel, onChanged }: { novel: NovelDetail; onChanged
                   <button className="dr-btn" type="button" disabled={disabled} onClick={() => handoff(episode)}>
                     {t('交接导出', 'Handoff')}
                   </button>
+                  <button
+                    className="dr-btn"
+                    type="button"
+                    disabled={disabled}
+                    aria-expanded={outlineFor === episode.id}
+                    onClick={() => toggleOutline(episode)}
+                  >
+                    {outlineLoading && outlineFor === episode.id ? t('大纲加载中…', 'Loading…') : t('大纲', 'Outline')}
+                  </button>
                 </div>
+                {outlineFor === episode.id ? (
+                  <div
+                    className="dr-episode-outline"
+                    role="region"
+                    aria-live="polite"
+                    aria-label={t('分集大纲', 'Episode outline')}
+                  >
+                    {outlineLoading ? (
+                      <p className="dr-novel-note">{t('正在生成大纲…', 'Generating outline…')}</p>
+                    ) : outline ? (
+                      <>
+                        <div className="dr-episode-outline-head">
+                          <strong>{outline.title || episode.title}</strong>
+                          <span className="dr-tag">
+                            {outline.provider === 'llm' ? 'LLM' : t('规则', 'Rule')}
+                          </span>
+                        </div>
+                        {outline.coreConflict ? (
+                          <p>
+                            <span className="dr-episode-outline-label">{t('核心冲突', 'Core conflict')}</span>
+                            {outline.coreConflict}
+                          </p>
+                        ) : null}
+                        {outline.synopsis ? (
+                          <p>
+                            <span className="dr-episode-outline-label">{t('梗概', 'Synopsis')}</span>
+                            {outline.synopsis}
+                          </p>
+                        ) : null}
+                        {outline.cliffhanger ? (
+                          <p>
+                            <span className="dr-episode-outline-label">{t('收尾悬念', 'Cliffhanger')}</span>
+                            {outline.cliffhanger}
+                          </p>
+                        ) : null}
+                        {outline.keyCharacters?.length ? (
+                          <div className="dr-episode-outline-cast">
+                            <span className="dr-episode-outline-label">{t('重点角色', 'Key characters')}</span>
+                            <span className="dr-tag-row">
+                              {outline.keyCharacters.map((name) => (
+                                <span className="dr-tag" key={name}>
+                                  {name}
+                                </span>
+                              ))}
+                            </span>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
               </article>
             )
           })}

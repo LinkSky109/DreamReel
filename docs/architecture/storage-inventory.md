@@ -1,23 +1,22 @@
 # 存储清单（自动生成）
 
-生成时间：2026-10-20T13:01:06.860Z
+生成时间：2026-10-21T04:45:31.930Z
 
 > 由 `node scripts/inventory.js` 生成，请勿手工编辑。
 
 ## `storage/data/db.json`
 
-- 文件大小：**17.72 MB**
+- 文件大小：**8.44 MB**
 - 顶层键：25
 
 | 集合 | 行数/键数 | 类型 |
 |---|---:|---|
-| `seriesEpisodes` | 8378 | object |
+| `seriesEpisodes` | 8496 | object |
 | `novelAssetImages` | 1621 | object |
 | `novelChunks` | 1206 | object |
 | `novelWorldEntities` | 725 | object |
-| `novelCharacterStates` | 724 | object |
 | `novelCharacters` | 559 | object |
-| `seriesSeasons` | 41 | object |
+| `seriesSeasons` | 33 | object |
 | `users` | 8 | object |
 | `usage` | 5 | object |
 | `reviews` | 3 | object |
@@ -35,6 +34,7 @@
 | `comments` | 0 | object |
 | `activities` | 0 | object |
 | `shares` | 0 | object |
+| `novelCharacterStates` | 0 | object |
 | `reports` | 0 | object |
 
 （仅显示前 40 个，共 25 个集合）
@@ -44,9 +44,9 @@
 | 文件 | 调用次数 |
 |---|---:|
 | `src/services/collaborationService.js` | 39 |
+| `src/services/seriesPlannerService.js` | 18 |
 | `src/services/novelAssetService.js` | 17 |
 | `src/services/versionService.js` | 17 |
-| `src/services/seriesPlannerService.js` | 16 |
 | `src/services/exportHistoryService.js` | 15 |
 | `src/routes/novels.js` | 14 |
 | `src/services/novelProjectService.js` | 13 |
@@ -64,13 +64,15 @@
 | `src/services/reviewService.js` | 7 |
 | `src/services/statsService.js` | 7 |
 | `src/services/characterCardService.js` | 6 |
-| `src/services/novelChunkService.js` | 6 |
 | `src/services/combinedExtractionService.js` | 5 |
+| `src/services/novelChildReadService.js` | 5 |
+| `src/services/novelChunkService.js` | 5 |
 | `src/services/projectService.js` | 5 |
 | `src/services/seasonAssetService.js` | 5 |
 | `src/middleware/mediaAccess.js` | 4 |
 | `src/services/bulkEpisodeService.js` | 4 |
 | `src/services/episodeAssetService.js` | 4 |
+| `src/services/episodeOutlineService.js` | 4 |
 | `src/services/episodeScriptService.js` | 4 |
 | `src/services/generationHistoryService.js` | 4 |
 | `src/services/webhookService.js` | 4 |
@@ -83,10 +85,11 @@
 | `src/services/recommendationService.js` | 3 |
 | `src/services/studioService.js` | 3 |
 | `src/services/teamService.js` | 3 |
+| `src/services/novelReadService.js` | 2 |
 | `src/services/rankingService.js` | 2 |
 | `src/routes/community.js` | 1 |
 | `src/services/creatorService.js` | 1 |
 | `src/services/metricsStore.js` | 1 |
 
-合计：**44 个文件，336 处**。
+合计：**47 个文件，348 处**。
 

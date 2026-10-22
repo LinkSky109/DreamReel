@@ -7,13 +7,13 @@ import logger from '../utils/logger.js'
 import { getImageProvider } from '../providers/imageProviderFactory.js'
 import { getTTSProvider } from '../providers/ttsProviderFactory.js'
 import { getVideoProvider } from '../providers/videoProviderFactory.js'
-import { storageService } from './storageService.js'
-import { getNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
+import { getEpisode, updateEpisode } from './novelEpisodeStore.js'
+import { assertEditable } from './novelProjectService.js'
 import { generateEpisodeScript } from './episodeScriptService.js'
 import { ensureVoiceMap, voiceFor } from './voiceService.js'
 import { resourceIdFor } from './voiceLibraryService.js'
 import { buildAppearanceDirective } from './characterGrowthService.js'
-import { listCharacters } from './characterExtractionService.js'
+import { getNovelProjectAsync, listCharactersAsync } from './novelAsyncReadService.js'
 
 const execFileAsync = promisify(execFile)
 const TMP_DIR = path.join(path.resolve(config.storage.path), 'temp')
@@ -75,7 +75,7 @@ async function pollTask(provider, taskId, { timeoutMs = 120000, intervalMs = 200
   return { status: 'timeout' }
 }
 
-function buildVideoPrompt(project, episode, novelId = null) {
+async function buildVideoPrompt(project, episode, novelId = null) {
   const styleName = project.style && project.style.name ? project.style.name : ''
   const visual = project.style && project.style.visual ? project.style.visual : ''
   const shots = (episode.screenplay?.shots || []).slice(0, 4).map((s) => s.description).filter(Boolean).join('；')
@@ -84,10 +84,10 @@ function buildVideoPrompt(project, episode, novelId = null) {
   if (novelId) {
     const episodeNo = Number(episode.episodeNo ?? (episode.chapterIndex ?? 0) + 1)
     const shotText = (episode.screenplay?.shots || []).map((s) => String(s.description || '')).join(' ')
-    const names = listCharacters(novelId)
+    const names = (await listCharactersAsync(novelId))
       .filter((c) => c.name && shotText.includes(c.name))
       .map((c) => c.name)
-    appearance = buildAppearanceDirective(novelId, episodeNo, names.length ? names : null)
+    appearance = await buildAppearanceDirective(novelId, episodeNo, names.length ? names : null)
   }
   return [styleName, visual, episode.title, shots, appearance].filter(Boolean).join('。').slice(0, 800)
 }
@@ -143,7 +143,7 @@ function parseSpeaker(dialogue) {
  * 这样"同一角色在所有集里都是同一把声音"。返回 { audioUrl, filePath, duration, segments, voices }
  */
 async function synthesizeMultiVoice(novelId, episode, ttsProvider) {
-  const map = ensureVoiceMap(novelId)
+  const map = await ensureVoiceMap(novelId)
   const segs = []
   for (const s of episode.screenplay?.shots || []) {
     const text = cleanSpoken(s.dialogue)
@@ -199,9 +199,9 @@ async function synthesizeMultiVoice(novelId, episode, ttsProvider) {
 }
 
 export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
-  const project = getNovelProject(novelId)
+  const project = await getNovelProjectAsync(novelId)
   assertEditable(project, 'assets')
-  let episode = storageService.getEpisode(episodeId)
+  let episode = await getEpisode(novelId, episodeId)
   if (!episode || episode.novelId !== novelId) throw new Error(`episode not found: ${episodeId}`)
 
   if (!episode.screenplay) {
@@ -216,7 +216,7 @@ export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
       const imgProvider = getImageProvider()
       const outputPath = path.join(MEDIA.images, novelId, `${episodeId}_frame.png`)
       fs.mkdirSync(path.dirname(outputPath), { recursive: true })
-      const prompt = buildVideoPrompt(project, episode, novelId)
+      const prompt = await buildVideoPrompt(project, episode, novelId)
       await imgProvider.generateImage({
         prompt,
         width: 1024,
@@ -279,7 +279,7 @@ export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
   if (opts.video !== false) {
     try {
       const videoProvider = opts.provider ? opts.provider : getVideoProvider()
-      const prompt = buildVideoPrompt(project, episode, novelId)
+      const prompt = await buildVideoPrompt(project, episode, novelId)
       const { taskId } = await videoProvider.generateVideo({
         prompt,
         duration: opts.duration || 5,
@@ -319,15 +319,14 @@ export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
 
   episode.assets = assets
   episode.status = 'assets'
-  storageService.updateEpisode(episode)
+  await updateEpisode(novelId, episode)
 
-  writeNovelFile(novelId, `assets/${episodeId}.json`, JSON.stringify(assets, null, 2))
 
   return episode
 }
 
-export function getEpisodeAssets(novelId, episodeId) {
-  const episode = storageService.getEpisode(episodeId)
+export async function getEpisodeAssets(novelId, episodeId) {
+  const episode = await getEpisode(novelId, episodeId)
   if (!episode || episode.novelId !== novelId) throw new Error(`episode not found: ${episodeId}`)
   return episode.assets || null
 }

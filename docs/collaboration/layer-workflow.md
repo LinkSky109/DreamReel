@@ -12,14 +12,14 @@
 | `main` | 可发布、可回滚 | 直接提交业务改动 |
 | `feat/frontend` | 页面、组件、样式、PWA、i18n、a11y | 改 SQL/迁移 |
 | `feat/backend` | 路由、service、middleware、鉴权 | 直接改表结构 |
-| `feat/db` | 迁移、Repository、outbox、索引 | 改 UI |
+| `feat/db` | 迁移、Repository、索引 | 改 UI |
 | `feat/llm` | prompt、抽取、provider、评测 | 改鉴权/计费 |
 
 短期分支：`feat/<layer>-<slug>`、`fix/<slug>`、`chore/<slug>`。
 
 ```bash
 git checkout feat/db && git pull --ff-only
-git checkout -b feat/db-outbox-retry
+git checkout -b feat/db-repository-index
 ```
 
 ## 2. 一次改动的路径
@@ -41,7 +41,7 @@ git checkout -b feat/db-outbox-retry
 
 - 改 API 字段、错误码、分页、鉴权；
 - 新增/修改数据库迁移；
-- 改 outbox、队列、重试、幂等；
+- 改 Repository、索引、迁移；
 - 改 prompt 的输入/输出契约或模型；
 - 改计费、配额、权限矩阵；
 - 影响启动顺序、健康检查、回滚开关。
@@ -78,13 +78,12 @@ npm run db:migrate
 npm run db:status
 npm run db:verify:novels
 npm run db:verify:novel-children
-npm run outbox:stats
 ```
 
 - 新迁移编号递增，已应用迁移禁止修改（checksum 校验）；
 - 提供回滚步骤；
 - 大表变更遵循 expand → backfill → contract；
-- 写路径默认 `legacy`，用开关灰度。
+- 小说域固定 PostgreSQL 单源，不引入读写模式开关；迁移只增不改，回滚靠应用版本 + PG 备份/PITR。
 
 ### llm
 
@@ -95,7 +94,7 @@ npm run outbox:stats
 
 ## 5. PR 规范
 
-标题：`<type>(<layer>): <summary>`，例如 `feat(db): outbox 重试退避`。
+标题：`<type>(<layer>): <summary>`，例如 `feat(db): 优化章节索引`。
 
 描述必须包含：
 
@@ -103,7 +102,7 @@ npm run outbox:stats
 2. 改动范围（层、文件、接口）；
 3. 契约影响（新增/修改/废弃字段）；
 4. 验证证据（命令与结果）；
-5. 回滚方式（开关/迁移/备份）。
+5. 回滚方式（应用版本 / 迁移 / PG 备份）。
 
 合并：
 
@@ -116,13 +115,11 @@ npm run outbox:stats
 
 | 开关 | 安全值 | 用途 |
 |---|---|---|
-| `NOVEL_REPO_MODE` | `legacy` | 读路径回退 JSON |
-| `NOVEL_WRITE_MODE` | `legacy` | 关闭 PG 镜像 |
-| `OUTBOX_ENABLED` | `false` | 关闭事件投递 |
 | `REQUIRE_AUTH` | `false` | 关闭强制登录 |
 | `SERVE_STATIC` | `true` | 单进程托管前端 |
 
-回滚优先改开关，其次回滚代码，最后才动数据。
+小说域没有读写模式开关：数据回滚使用 `pg_dump`/PITR，应用回滚使用上一版本。
+其它域回滚优先改开关，其次回滚代码，最后才动数据。
 
 ## 7. 多 Agent 并行
 

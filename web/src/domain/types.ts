@@ -922,6 +922,13 @@ export interface NovelSeason {
   episodeCount: number
   chapterStart: number
   chapterEnd: number
+  // LLM 大事件（剧情弧）
+  arcName?: string
+  goal?: string
+  acts?: { setup?: string; confrontation?: string; resolution?: string } | null
+  endingHook?: string
+  estimatedEpisodes?: number | null
+  planProvider?: string
   createdAt?: string
 }
 
@@ -935,6 +942,16 @@ export interface NovelEpisodeScreenplay {
   shots?: { index: number; description?: string; duration?: number; videoUrl?: string }[]
 }
 
+export interface NovelEpisodeOutline {
+  title?: string
+  coreConflict?: string
+  synopsis?: string
+  cliffhanger?: string
+  keyCharacters?: string[]
+  provider?: string
+  generatedAt?: string
+}
+
 export interface NovelEpisode {
   id: string
   novelId: string
@@ -944,7 +961,16 @@ export interface NovelEpisode {
   chapterTitle?: string
   title: string
   targetSeconds: number
+  // 新旧兼容：旧数据用 sourceFile，新数据用偏移
   sourceFile?: string
+  chapterStart?: number | null
+  chapterEnd?: number | null
+  startOffset?: number | null
+  endOffset?: number | null
+  estimatedSeconds?: number | null
+  shortSource?: boolean
+  cleanedHash?: string
+  outline?: NovelEpisodeOutline | null
   screenplay?: NovelEpisodeScreenplay | null
   status?: string
   assets?: NovelEpisodeAssets
@@ -1157,6 +1183,12 @@ export interface NovelSeriesPlanResult {
   episodes: number
   episodesPerSeason: number
   episodeSeconds: number
+  charsPerSecond?: number
+  tolerance?: number
+  provider?: 'llm' | 'heuristic' | string
+  buckets?: { below: number; inRange: number; above: number; total: number }
+  exceptions?: number
+  exceptionSamples?: unknown[]
 }
 
 export interface NovelIngestResult {

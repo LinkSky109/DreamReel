@@ -1,16 +1,10 @@
-import config from '../config/index.js'
-import logger from '../utils/logger.js'
 import { toNovelPayload } from '../repositories/novelRepository.js'
-import { enqueue, outboxEnabled } from './outboxStore.js'
 
 /**
- * novels 写镜像。
+ * 小说主行 PostgreSQL 写入原语。
  *
- * - legacy：不写 PostgreSQL
- * - dual + OUTBOX_ENABLED=false：进程内 fire-and-forget
- * - dual + OUTBOX_ENABLED=true：先落 outbox_events，由 worker 幂等应用
- *
- * JSON 始终是事实源；镜像失败不回滚 JSON。
+ * 生产写路径由 novelProjectService 直接调用（PG 是唯一事实源）；
+ * 这里同时作为离线迁移/恢复脚本的 upsert/delete 工具，不再包含 outbox/镜像调度。
  */
 
 export async function applyNovelUpsert(pool, doc, orgId) {
@@ -43,60 +37,10 @@ export async function applyNovelUpsert(pool, doc, orgId) {
 }
 
 export async function applyNovelDelete(pool, id, orgId) {
-  await pool.query(
+  const result = await pool.query(
     `UPDATE novels SET deleted_at = now(), updated_at = now(), version = version + 1
      WHERE id = $1 AND org_id = $2 AND deleted_at IS NULL`,
     [id, orgId]
   )
+  return result.rowCount
 }
-
-export function createNovelWriteSync({ mode = 'legacy', getPool, log = logger, orgId = 'default' } = {}) {
-  const enabled = mode === 'dual'
-
-  async function upsert(doc) {
-    if (!enabled) return { skipped: true }
-    await applyNovelUpsert(await getPool(), doc, orgId)
-    return { ok: true }
-  }
-
-  function scheduleUpsert(doc) {
-    if (!enabled || !doc?.id) return
-    if (outboxEnabled()) {
-      enqueue({ kind: 'novel', op: 'upsert', payload: doc, orgId })
-      return
-    }
-    upsert(doc).catch((error) => {
-      log.warn('[novel-write] 镜像写入失败', { id: doc.id, message: error.message })
-    })
-  }
-
-  async function softDelete(id) {
-    if (!enabled) return { skipped: true }
-    await applyNovelDelete(await getPool(), id, orgId)
-    return { ok: true }
-  }
-
-  function scheduleDelete(id) {
-    if (!enabled || !id) return
-    if (outboxEnabled()) {
-      enqueue({ kind: 'novel', op: 'delete', payload: { id }, orgId })
-      return
-    }
-    softDelete(id).catch((error) => {
-      log.warn('[novel-write] 镜像删除失败', { id, message: error.message })
-    })
-  }
-
-  return { enabled, upsert, softDelete, scheduleUpsert, scheduleDelete }
-}
-
-async function defaultGetPool() {
-  const { getPool } = await import('../db/client.js')
-  return getPool()
-}
-
-export const novelMirror = createNovelWriteSync({
-  mode: config.novels.writeMode,
-  getPool: defaultGetPool,
-  orgId: config.novels.orgId,
-})

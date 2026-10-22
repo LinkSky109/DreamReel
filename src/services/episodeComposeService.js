@@ -3,8 +3,9 @@ import path from 'path'
 import config from '../config/index.js'
 import ffmpeg from '../utils/ffmpeg.js'
 import logger from '../utils/logger.js'
-import { storageService } from './storageService.js'
-import { getNovelProject, assertEditable } from './novelProjectService.js'
+import { getEpisode, updateEpisode } from './novelEpisodeStore.js'
+import { assertEditable } from './novelProjectService.js'
+import { getNovelProjectAsync } from './novelAsyncReadService.js'
 
 /**
  * 单集成片（Sprint 23 / S23-1）
@@ -73,9 +74,9 @@ async function stitchShotClips(episodeId, clips) {
 }
 
 export async function composeEpisode(novelId, episodeId, opts = {}) {
-  const project = getNovelProject(novelId)
+  const project = await getNovelProjectAsync(novelId)
   assertEditable(project, 'compose')
-  const ep = storageService.getEpisode(episodeId)
+  const ep = await getEpisode(novelId, episodeId)
   if (!ep || ep.novelId !== novelId) throw new Error(`episode not found: ${episodeId}`)
 
   const assets = ep.assets || {}
@@ -129,7 +130,7 @@ export async function composeEpisode(novelId, episodeId, opts = {}) {
     targetSeconds: target,
   }
   ep.status = 'composed'
-  storageService.updateEpisode(ep)
+  await updateEpisode(novelId, ep)
   logger.info(`单集成片完成：${episodeId} → ${outPath}（${duration}s）`)
   return ep.composition
 }
