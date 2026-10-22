@@ -1,15 +1,30 @@
+# 依赖与构建缓存
 node_modules
-*/node_modules
+**/node_modules
+coverage
+
+# 本地数据与密钥：绝不进入镜像构建上下文
 storage
-web/dist
-public/assets
-.git
-.gitignore
-*.md
-docs
-tests
 .env
 .env.*
 !.env.example
 *.log
 .DS_Store
+
+# 前端产物由构建阶段生成；避免把本地过期哈希带入上下文
+public/assets
+web/dist
+test-results
+playwright-report
+
+# 非运行时资源
+.git
+.github
+.gitignore
+*.md
+docs
+e2e
+tests
+.ai
+.opencode
+litellm
