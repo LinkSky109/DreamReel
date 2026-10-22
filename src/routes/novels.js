@@ -1,7 +1,7 @@
 import express, { Router } from 'express'
 import { novelReadService } from '../services/novelReadService.js'
 import { novelChildReadService } from '../services/novelChildReadService.js'
-import { getNovelProjectAsync, listChunksAsync, listCharactersAsync, listEntitiesAsync, listAssetsAsync } from '../services/novelAsyncReadService.js'
+import { getNovelProjectAsync, listChunksAsync, listCharactersAsync, listEntitiesAsync, listAssetsAsync, listStatesAsync } from '../services/novelAsyncReadService.js'
 import { writeChild, deleteChildStates } from '../services/novelChildStore.js'
 import {
   createNovelProject,
@@ -16,11 +16,9 @@ import { ensureCards, applyEdits, reviewStats } from '../services/characterCardS
 import { generateStyle } from '../services/novelStyleService.js'
 import {
   addState,
-  listStates,
   upsertState,
   buildTimelineFrom,
   generateEpisodeStates,
-  getCharacterStateAt,
 } from '../services/characterGrowthService.js'
 import {
   planSeries,
@@ -34,7 +32,7 @@ import { generateEpisodeAssets, getEpisodeAssets } from '../services/episodeAsse
 import { composeEpisode } from '../services/episodeComposeService.js'
 import { buildManifest, syncToQuark, syncToWebdav, syncNovel, getLedger, getSyncState, resolveScope, SYNC_SCOPES } from '../services/novelSyncService.js'
 import { exportHandoff, importHandoffResult, listHandoff } from '../services/episodeHandoffService.js'
-import { extractWorld, listRelationsAsync, summarizeAsync } from '../services/worldbuildingService.js'
+import { extractWorld, listRelations, summarize } from '../services/worldbuildingService.js'
 import { selectWorldSet } from '../services/worldbuildingService.js'
 import { CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
@@ -51,7 +49,7 @@ import { makeSpeakerId, registerVoiceAsset, deleteVoiceAsset, listVoiceAssets, r
 import { cloneVoice, designVoice } from '../services/volcVoiceApi.js'
 import { getTTSProvider } from '../providers/ttsProviderFactory.js'
 import { resolveLLMPreference, getLLMProviderByPref, getAvailableProviders as getAvailableLLMProviders } from '../providers/llmProviderFactory.js'
-import { createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStatsAsync, assetStatsFromRows, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
+import { createAsset, updateAsset, deleteAsset, generateAssetImage, suggestAssets, assetStats, assetStatsFromRows, bulkGenerateImages, normalizeAssets } from '../services/novelAssetService.js'
 import { beginRun, cancelRun, isCancelled, finishRun, getRunStatus } from '../services/bulkControl.js'
 import { validateBody } from '../middleware/validate.js'
 import { bulkGenerateAssetsSchema } from '../contracts/assets.js'
@@ -407,7 +405,7 @@ router.post('/:id/extract-all', async (req, res) => {
         degraded: /fallback/.test(result.provider),
         characters: await listCharactersAsync(req.params.id),
         entities: await listEntitiesAsync(req.params.id),
-        summary: await summarizeAsync(req.params.id),
+        summary: await summarize(req.params.id),
       },
     })
   } catch (error) {
@@ -620,11 +618,16 @@ router.get('/:id/episodes/:eid/states', async (req, res) => {
     if (!ep || ep.novelId !== req.params.id) throw new Error(`episode not found: ${req.params.eid}`)
     const episodeNo = Number(ep.episodeNo ?? (ep.chapterIndex ?? 0) + 1)
     const chars = (await listCharactersAsync(req.params.id)).filter((c) => c.name)
+    const states = await listStatesAsync(req.params.id)
     const items = chars
       .map((c) => {
-        const exact = listStates(req.params.id, c.id).find((s) => Number(s.episodeNo) === episodeNo)
-        const effective = getCharacterStateAt(req.params.id, c.id, episodeNo)
-        return exact || effective ? { characterId: c.id, name: c.name, exact: exact || null, effective: effective || null } : null
+        const own = states
+          .filter((s) => s.characterId === c.id)
+          .sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
+        const exact = own.find((s) => Number(s.episodeNo) === episodeNo) || null
+        const applicable = own.filter((s) => Number(s.episodeNo) <= episodeNo)
+        const effective = applicable[applicable.length - 1] || null
+        return exact || effective ? { characterId: c.id, name: c.name, exact, effective } : null
       })
       .filter(Boolean)
     res.json({ success: true, data: { episodeNo, items } })
@@ -1118,7 +1121,7 @@ router.post('/:id/world/extract', async (req, res) => {
 router.get('/:id/world', async (req, res) => {
   try {
     await getNovelProjectAsync(req.params.id)
-    res.json({ success: true, data: await summarizeAsync(req.params.id) })
+    res.json({ success: true, data: await summarize(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1140,7 +1143,7 @@ router.get('/:id/world/entities', async (req, res) => {
 router.get('/:id/world/relations', async (req, res) => {
   try {
     await getNovelProjectAsync(req.params.id)
-    res.json({ success: true, data: await listRelationsAsync(req.params.id) })
+    res.json({ success: true, data: await listRelations(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1291,7 +1294,7 @@ router.post('/:id/assets/suggest', async (req, res) => {
   try {
     const { categories, stages, maxStages } = req.body || {}
     const created = await suggestAssets(req.params.id, { categories, stages, maxStages })
-    res.json({ success: true, data: { created: created.length, assets: await listAssetsAsync(req.params.id), stats: await assetStatsAsync(req.params.id) } })
+    res.json({ success: true, data: { created: created.length, assets: await listAssetsAsync(req.params.id), stats: await assetStats(req.params.id) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }

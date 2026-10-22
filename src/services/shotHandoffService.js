@@ -8,7 +8,7 @@ import { novelDir } from './novelProjectService.js'
 import { generateEpisodeScript } from './episodeScriptService.js'
 import { ASSET_CATEGORY_LABELS } from '../models/NovelAssetImage.js'
 import { isGenericName } from '../utils/nameFilters.js'
-import { buildAppearanceDirectiveAsync } from './characterGrowthService.js'
+import { buildAppearanceDirective } from './characterGrowthService.js'
 import { getNovelProjectAsync, listAssetsAsync, listCharactersAsync, listEntitiesAsync } from './novelAsyncReadService.js'
 
 /**
@@ -102,7 +102,7 @@ export async function exportShotHandoff(novelId, episodeId, opts = {}) {
   const appearNames = (await listCharactersAsync(novelId))
     .filter((c) => c.name && shotText.includes(c.name))
     .map((c) => c.name)
-  const appearanceText = (await buildAppearanceDirectiveAsync(novelId, episodeNo, appearNames.length ? appearNames : null)).replace(/\n/g, '；')
+  const appearanceText = (await buildAppearanceDirective(novelId, episodeNo, appearNames.length ? appearNames : null)).replace(/\n/g, '；')
 
   const shots = (episode.screenplay.shots || []).map((s) => {
     const nn = String(s.index).padStart(2, '0')

@@ -2,7 +2,6 @@ import fs from 'fs'
 import path from 'path'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
-import { storageService } from './storageService.js'
 import { writeChild, writeChildren, deleteChild } from './novelChildStore.js'
 import { getImageProviderForProject } from '../providers/imageProviderFactory.js'
 import { NovelAssetImage, ASSET_CATEGORIES, ASSET_CATEGORY_LABELS } from '../models/NovelAssetImage.js'
@@ -12,7 +11,7 @@ import { listCharactersAsync, listEntitiesAsync } from './novelAsyncReadService.
 import { clampInt } from '../utils/coerce.js'
 import { runPool } from '../utils/pool.js'
 import { isGenericName } from '../utils/nameFilters.js'
-import { deriveCharacterStagesAsync } from './characterGrowthService.js'
+import { deriveCharacterStages } from './characterGrowthService.js'
 
 /**
  * 设定图集（Sprint 28）
@@ -56,10 +55,8 @@ function assetPrompt(project, { category, name, prompt }) {
   return parts.join('，').slice(0, 900)
 }
 
-export function listAssets(novelId, { category } = {}) {
-  const list = storageService.listNovelAssetImages(novelId)
-  const filtered = category ? list.filter((a) => a.category === category) : list
-  return filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+export async function listAssets(novelId, { category } = {}) {
+  return listAssetsAsync(novelId, { category })
 }
 
 export function assetStatsFromRows(list) {
@@ -75,11 +72,7 @@ export function assetStatsFromRows(list) {
   }
 }
 
-export function assetStats(novelId) {
-  return assetStatsFromRows(storageService.listNovelAssetImages(novelId))
-}
-
-export async function assetStatsAsync(novelId) {
+export async function assetStats(novelId) {
   return assetStatsFromRows(await listAssetsAsync(novelId))
 }
 
@@ -210,7 +203,6 @@ export async function bulkGenerateImages(novelId, opts = {}) {
     },
     concurrency
   )
-  storageService._flush() // 批量操作后立即落盘（save 为 debounce，避免调用方退出丢数据）
   const all = await listAssetsAsync(novelId)
   return {
     processed: todo.length,
@@ -276,7 +268,7 @@ export async function suggestAssets(novelId, opts = {}) {
   // 避免整个作品只有一张终态设定图。没有时间线时回退为静态角色卡。
   const withStages = opts.stages !== false
   for (const c of await listCharactersAsync(novelId)) {
-    const stages = withStages ? await deriveCharacterStagesAsync(novelId, c.id, { maxStages: opts.maxStages || 8 }) : []
+    const stages = withStages ? await deriveCharacterStages(novelId, c.id, { maxStages: opts.maxStages || 8 }) : []
     if (stages.length) {
       for (const st of stages) {
         const desc = [

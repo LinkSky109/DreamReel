@@ -1,21 +1,13 @@
-import config from '../config/index.js'
-import { getNovelProject } from './novelProjectService.js'
 import { novelReadService } from './novelReadService.js'
 
 /**
  * Phase 3c-2：核心生成链路的异步读门面。
  *
- * postgres：直接读 PG；legacy：退回现有同步实现（仅测试/回滚）。
- * 后续会逐步替换 admin/读模型，最终删除内存投影。
+ * PostgreSQL 是唯一读源。
  */
 
-export function isPgReadMode() {
-  return config.novels.writeMode === 'postgres'
-}
-
 export async function getNovelProjectAsync(id) {
-  if (isPgReadMode()) return novelReadService.get(id)
-  return getNovelProject(id)
+  return novelReadService.get(id)
 }
 
 export async function listChildrenAsync(kind, novelId, opts) {

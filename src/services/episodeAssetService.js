@@ -12,7 +12,7 @@ import { writeNovelFile, assertEditable } from './novelProjectService.js'
 import { generateEpisodeScript } from './episodeScriptService.js'
 import { ensureVoiceMap, voiceFor } from './voiceService.js'
 import { resourceIdFor } from './voiceLibraryService.js'
-import { buildAppearanceDirectiveAsync } from './characterGrowthService.js'
+import { buildAppearanceDirective } from './characterGrowthService.js'
 import { getNovelProjectAsync, listCharactersAsync } from './novelAsyncReadService.js'
 
 const execFileAsync = promisify(execFile)
@@ -87,7 +87,7 @@ async function buildVideoPrompt(project, episode, novelId = null) {
     const names = (await listCharactersAsync(novelId))
       .filter((c) => c.name && shotText.includes(c.name))
       .map((c) => c.name)
-    appearance = await buildAppearanceDirectiveAsync(novelId, episodeNo, names.length ? names : null)
+    appearance = await buildAppearanceDirective(novelId, episodeNo, names.length ? names : null)
   }
   return [styleName, visual, episode.title, shots, appearance].filter(Boolean).join('。').slice(0, 800)
 }
