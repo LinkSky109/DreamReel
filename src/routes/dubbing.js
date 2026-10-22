@@ -9,7 +9,7 @@ const router = Router()
 router.post('/generate', async (req, res) => {
   try {
     const { projectId, language, voiceId, speed, burnSubtitles, dialogueAssignments, pauseSeconds } = req.body
-    const uid = req.user?.id || 'default'
+    const uid = req.userId
 
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' })
@@ -82,7 +82,7 @@ router.post('/preview', async (req, res) => {
       voiceId: voiceId || 'zh_male_calm',
       speed: speed || 1.0,
       projectId: project?.id || null,
-      userId: project?.userId || req.user?.id || null,
+      userId: project?.userId || req.userId || null,
     })
     res.json(result)
   } catch (error) {

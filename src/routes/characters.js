@@ -15,7 +15,7 @@ async function assertCharacterProjectOwnership(req, res) {
     res.status(400).json({ error: 'projectId is required' })
     return null
   }
-  const userId = req.user?.id || 'default'
+  const userId = req.userId
   let project
   try {
     project = await projectService.getProject(projectId)

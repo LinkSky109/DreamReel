@@ -20,7 +20,7 @@ router.post('/generate', async (req, res) => {
 
     // 内容审核：检查用户输入
     const moderation = contentModerationService.moderate(idea, {
-      userId: req.user?.id,
+      userId: req.userId,
       projectId,
       context: 'script_generate_idea',
     })
@@ -32,12 +32,12 @@ router.post('/generate', async (req, res) => {
       })
     }
 
-    const script = await scriptService.generateScript({ idea, targetDuration, style, platform, projectId, userId: req.user?.id })
+    const script = await scriptService.generateScript({ idea, targetDuration, style, platform, projectId, userId: req.userId })
 
     // 内容审核：检查生成的剧本
     const scriptText = [script.synopsis, ...script.shots.map((s) => `${s.description} ${s.dialogue} ${s.narration}`)].join(' ')
     const scriptModeration = contentModerationService.moderate(scriptText, {
-      userId: req.user?.id,
+      userId: req.userId,
       projectId,
       context: 'script_generated',
     })
@@ -86,7 +86,7 @@ router.post('/generate', async (req, res) => {
 
         // 发送通知
         notificationService.create({
-          userId: req.user?.id || 'default',
+          userId: req.userId,
           type: NOTIFICATION_TYPE.SCRIPT_COMPLETED,
           title: '剧本生成完成',
           message: `项目「${project.name}」的剧本已生成，共 ${script.shots.length} 个分镜`,
@@ -103,7 +103,7 @@ router.post('/generate', async (req, res) => {
             shotCount: script.shots.length,
             idea,
           },
-          req.user?.id || 'default'
+          req.userId
         ).catch(() => {})
       } catch (projectError) {
         console.warn('Failed to update project with script:', projectError.message)
@@ -127,7 +127,7 @@ router.post('/revise', async (req, res) => {
     if (!script || !feedback) {
       return res.status(400).json({ error: 'script and feedback are required' })
     }
-    const revised = await scriptService.reviseScript({ script, feedback, projectId: req.body.projectId, userId: req.user?.id })
+    const revised = await scriptService.reviseScript({ script, feedback, projectId: req.body.projectId, userId: req.userId })
     res.json(revised)
   } catch (error) {
     res.status(400).json({ error: error.message })
@@ -144,7 +144,7 @@ router.post('/adapt', async (req, res) => {
     }
 
     const moderation = contentModerationService.moderate(sourceText, {
-      userId: req.user?.id,
+      userId: req.userId,
       projectId,
       context: 'script_adapt_source',
     })
@@ -160,7 +160,7 @@ router.post('/adapt', async (req, res) => {
       platform,
       focus,
       projectId,
-      userId: req.user?.id,
+      userId: req.userId,
     })
 
     if (projectId) {

@@ -1,6 +1,6 @@
 import path from 'path'
 import dotenv from 'dotenv'
-import { resolveAuthEnforce } from './authEnforce.js'
+import { resolveAuthEnforce, resolveAllowAnonymous } from './authEnforce.js'
 
 dotenv.config()
 
@@ -37,6 +37,8 @@ const config = {
   auth: {
     // 强制登录：生产默认开启，开发/测试默认关闭；REQUIRE_AUTH 显式覆盖
     enforce: resolveAuthEnforce(),
+    // 匿名使用 default 身份：生产默认关闭，开发/测试默认开启；ALLOW_ANONYMOUS 显式覆盖
+    allowAnonymous: resolveAllowAnonymous(),
   },
   // single | organization
   tenancyMode: process.env.TENANCY_MODE || 'single',

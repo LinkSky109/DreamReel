@@ -11,7 +11,7 @@ router.post('/check', (req, res) => {
       return res.status(400).json({ error: 'text is required' })
     }
     const result = contentModerationService.moderate(text, {
-      userId: req.user?.id,
+      userId: req.userId,
       context,
     })
     res.json(result)
@@ -28,7 +28,7 @@ router.post('/check-batch', (req, res) => {
       return res.status(400).json({ error: 'texts array is required' })
     }
     const result = contentModerationService.moderateBatch(texts, {
-      userId: req.user?.id,
+      userId: req.userId,
       context,
     })
     res.json(result)

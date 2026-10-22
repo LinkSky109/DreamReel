@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { ANONYMOUS_USER_ID } from '../middleware/identity.js'
 import { audioService } from '../services/audioService.js'
 import { projectService } from '../services/projectService.js'
 
@@ -98,8 +99,8 @@ router.post('/preview', async (req, res) => {
       return res.status(400).json({ error: 'projectId is required' })
     }
     const project = await projectService.getProject(projectId)
-    const userId = req.user?.id || 'default'
-    if ((project.userId || 'default') !== userId) {
+    const userId = req.userId
+    if ((project.userId ?? ANONYMOUS_USER_ID) !== userId) {
       return res.status(404).json({ error: `Project not found: ${projectId}` })
     }
     const result = await audioService.previewMix(project, { language, voiceId, speed, duration })

@@ -278,7 +278,7 @@ router.post('/:id/storyboard/import', async (req, res) => {
           targetDuration: drafts.reduce((sum, shot) => sum + (shot.duration || 5), 0),
           platform: 'landscape',
           style: novel.style?.name || '',
-          userId: req.user?.id,
+          userId: req.userId,
         })
     const existing = new Set(
       (target.shots || [])
@@ -382,7 +382,7 @@ router.post('/:id/extract', async (req, res) => {
       maxChars: optionalClampInt(body.maxChars, 200, 64000),
       minFreq: optionalClampInt(body.minFreq, 1, 1000),
       concurrency: optionalClampInt(body.concurrency, 1, 128),
-      userId: req.user?.id,
+      userId: req.userId,
     })
     await ensureCards(req.params.id)
     res.json({ success: true, data: { provider: result.provider, degraded: /fallback/.test(result.provider), characters: await listCharactersAsync(req.params.id) } })
@@ -419,7 +419,7 @@ router.post('/:id/extract-all', async (req, res) => {
       maxChars: optionalClampInt(body.maxChars, 200, 64000),
       minFreq: optionalClampInt(body.minFreq, 1, 1000),
       concurrency: optionalClampInt(body.concurrency, 1, 128),
-      userId: req.user?.id,
+      userId: req.userId,
     })
     await ensureCards(req.params.id)
     res.json({
@@ -841,7 +841,7 @@ router.post('/:id/seasons/:sid/assets/bulk-generate', validateBody(seasonAssetsB
     const r = await bulkGenerateSeasonAssets(req.params.id, req.params.sid, {
       limit: optionalClampInt(body.limit, 1, 12),
       concurrency: optionalClampInt(body.concurrency, 1, 4),
-      userId: req.user?.id,
+      userId: req.userId,
     })
     res.json({ success: true, data: r })
   } catch (error) {
@@ -858,7 +858,7 @@ router.post('/:id/seasons/:sid/bulk', validateBody(seasonBulkSchema), async (req
       limit: optionalClampInt(body.limit, 1, 50),
       concurrency: optionalClampInt(body.concurrency, 1, 8),
       onlyMissing: body.onlyMissing,
-      userId: req.user?.id,
+      userId: req.userId,
     })
     res.json({ success: true, data: r })
   } catch (error) {
@@ -1157,7 +1157,7 @@ router.post('/:id/world/extract', async (req, res) => {
       chunkSize: optionalClampInt(body.chunkSize, 1, 100),
       maxChars: optionalClampInt(body.maxChars, 200, 64000),
       concurrency: optionalClampInt(body.concurrency, 1, 128),
-      userId: req.user?.id,
+      userId: req.userId,
     })
     res.json({ success: true, data: { provider: result.provider, degraded: /fallback/.test(result.provider), entities: result.entities, summary: result.summary } })
   } catch (error) {
@@ -1207,7 +1207,7 @@ router.get('/:id/model-config', async (req, res) => {
     const pref = project.providerPreferences?.llm || null
     res.json({
       success: true,
-      data: { preferences: project.providerPreferences || { llm: null }, resolved: resolveLLMPreference(pref, req.user?.id) },
+      data: { preferences: project.providerPreferences || { llm: null }, resolved: resolveLLMPreference(pref, req.userId) },
     })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
@@ -1230,7 +1230,7 @@ router.put('/:id/model-config', async (req, res) => {
     }
     const providerPreferences = { ...((await getNovelProjectAsync(req.params.id)).providerPreferences || {}), llm: next, updatedAt: new Date().toISOString() }
     const updated = await updateNovelProject(req.params.id, { providerPreferences })
-    res.json({ success: true, data: { preferences: updated.providerPreferences, resolved: resolveLLMPreference(next, req.user?.id) } })
+    res.json({ success: true, data: { preferences: updated.providerPreferences, resolved: resolveLLMPreference(next, req.userId) } })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1252,7 +1252,7 @@ router.post('/:id/model-config/test', async (req, res) => {
         pref = { provider, model: body.llm.model ? String(body.llm.model) : null }
       }
     }
-    const llm = getLLMProviderByPref(pref, req.user?.id)
+    const llm = getLLMProviderByPref(pref, req.userId)
     const startedAt = Date.now()
     let ok = true
     let error = ''
@@ -1330,7 +1330,7 @@ router.post('/:id/assets/bulk-generate', validateBody(bulkGenerateAssetsSchema),
       limit: optionalClampInt(body.limit, 1, 24),
       concurrency: optionalClampInt(body.concurrency, 1, 6),
       categories: Array.isArray(body.categories) ? body.categories : undefined,
-      userId: req.user?.id,
+      userId: req.userId,
       shouldStop: () => isCancelled(novelId),
     })
     finishRun(novelId, { ok: r.ok, failed: r.failed })
@@ -1383,7 +1383,7 @@ router.delete('/:id/assets/:aid', async (req, res) => {
 router.post('/:id/assets/:aid/generate', async (req, res) => {
   try {
     const { aspectRatio } = req.body || {}
-    const asset = await generateAssetImage(req.params.id, req.params.aid, { userId: req.user?.id, aspectRatio })
+    const asset = await generateAssetImage(req.params.id, req.params.aid, { userId: req.userId, aspectRatio })
     res.json({ success: true, data: asset })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })

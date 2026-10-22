@@ -54,8 +54,9 @@ export function isPublicApiRequest(req) {
 }
 
 export function authGate(req, res, next) {
-  if (!config.auth.enforce) return next()
   if (isPublicApiRequest(req)) return next()
   if (req.auth) return next()
+  // 仅在允许匿名时才放行未登录请求；ALLOW_ANONYMOUS=false 等价于强制登录
+  if (!config.auth.enforce && config.auth.allowAnonymous) return next()
   return authRequired(req, res, next)
 }

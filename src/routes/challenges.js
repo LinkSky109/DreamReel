@@ -26,7 +26,7 @@ router.get('/:challengeId', async (req, res) => {
 router.post('/:challengeId/join', async (req, res) => {
   try {
     const r = await challengeService.joinChallenge(req.params.challengeId, {
-      userId: req.body.userId || req.user?.id,
+      userId: req.userId,
       name: req.body.name,
     })
     res.json(r)

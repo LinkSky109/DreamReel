@@ -22,7 +22,7 @@ router.post('/packs/:packId/purchase', (req, res) => {
   try {
     const r = marketplaceService.purchase(
       req.params.packId,
-      req.body.userId || req.user?.id || 'default'
+      req.userId
     )
     res.status(201).json(r)
   } catch (e) {
@@ -32,7 +32,7 @@ router.post('/packs/:packId/purchase', (req, res) => {
 
 // 我的资产
 router.get('/my-assets', (req, res) => {
-  res.json(marketplaceService.myAssets(req.query.userId || req.user?.id || 'default'))
+  res.json(marketplaceService.myAssets(req.userId))
 })
 
 export default router
