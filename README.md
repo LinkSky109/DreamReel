@@ -126,11 +126,16 @@ npm run typecheck   # React/TypeScript
 npm test            # 后端测试
 npm run test:web    # 前端测试
 
+# 发布冒烟（health/ready、鉴权 401/200、静态首页；需本地 PostgreSQL，不依赖 Docker）
+./scripts/agent/smoke.sh
+
 # 生成程序化 BGM/SFX 素材包（首次使用音频 tab 时执行一次）
 npm run seed:audio
 ```
 
-> **创意片头渲染依赖（可选）**：片头的片名/副标题上屏由 Python + Pillow 绘制标题卡（`scripts/render_title_card.py`），再由 ffmpeg 合成。本机需具备 `python3`、`pip install pillow` 及可渲染中文的字体（macOS 自带 Songti/STHeiti，开箱可用；Linux/容器需安装 CJK 字体，如 `fonts-noto-cjk`，也可用环境变量 `TITLE_CARD_FONT` 显式指定字体文件）。缺少该运行时，片头会自动回退为纯色氛围背景，并在接口返回中如实标记 `titleRendered:false`，不影响其余功能。Dockerfile 已预装 `python3` + `python3-pil` + `fonts-noto-cjk`。
+> **构建产物策略**：`public/assets/` 与 `public/index.html` 是入库的发布产物（`.gitignore` 不排除它们），单进程 `npm start` 直接托管。修改 `web/src/` 或构建配置后必须执行 `npm run build`，并把源码与生成的哈希产物放在同一个提交里；仅后端改动时不要重建 `public/`。前端 API 基址默认同源 `/api`，可通过运行时 `window.ENV_API_URL` 或构建期 `VITE_API_BASE_URL` 覆盖；`localStorage.dreamreel_api_url` 作为最后的本地覆盖。
+
+> **创意片头渲染依赖（可选）**：片头的片名/副标题上屏由 Python + Pillow 绘制标题卡（`scripts/render_title_card.py`），再由 ffmpeg 合成。本机需具备 `python3`、`pip install pillow` 及可渲染中文的字体（macOS 自带 Songti/STHeiti，开箱可用；Linux/容器需安装 CJK 字体，如 `font-noto-cjk`，也可用环境变量 `TITLE_CARD_FONT` 显式指定字体文件）。缺少该运行时，片头会自动回退为纯色氛围背景，并在接口返回中如实标记 `titleRendered:false`，不影响其余功能。Dockerfile 已预装 `python3` + Pillow + `font-noto-cjk`。
 
 > **图片生成 Provider**：`IMAGE_PROVIDER=mock` 时用 Python + Pillow 在本地渲染真实 PNG（可离线运行）；字体缺失时仍产出 PNG，并返回 `textRendered:false`。配置 `IMAGE_PROVIDER=openai` + `OPENAI_IMAGE_API_KEY` 后走 OpenAI Images 兼容接口，可用 `OPENAI_IMAGE_BASE_URL` 指向自建网关。
 
@@ -142,18 +147,23 @@ npm run seed:audio
 # 先准备 .env（NODE_ENV=production 时 JWT_SECRET 至少 32 字符）
 cp .env.example .env
 
-# 构建并启动
+# 构建并启动（compose 内含 PostgreSQL；应用等 DB healthy 后自动迁移再启动）
 docker compose up -d
 
 # 访问
 open http://localhost:3000
 
-# 查看日志
-docker compose logs -f
+# 就绪检查（包含 PostgreSQL 连通性）
+curl -s http://localhost:3000/health/ready
 
-# 停止
+# 查看日志
+docker compose logs -f dreamreel
+
+# 停止（加 -v 会同时删除数据卷）
 docker compose down
 ```
+
+> 根 compose 的 `dreamreel` 服务在容器内解析 `DATABASE_URL=postgres://…@postgres:5432/dreamreel`，不会沿用 `.env` 里指向宿主机的地址。入口脚本默认执行迁移（`AUTO_MIGRATE=true`），数据库未就绪时按 `DB_MIGRATE_RETRIES`/`DB_MIGRATE_DELAY` 重试，失败则以非 0 退出；镜像不包含 `.env` 或任何示例密钥。
 
 > **存储卷（macOS / Docker Desktop）**：根 compose 与 `deploy/docker-compose.dev.yml` 默认使用 named volume。首次启动时 `storage-init` 会把宿主 `storage/` 以只读方式复制进卷并修正权限，因此不依赖 File Sharing 的写权限，也不会出现 `/health/ready` 的 `EROFS`/`EACCES`。容器内新生成的文件保存在卷中；需要回写宿主时执行：
 >
@@ -177,9 +187,9 @@ SERVE_STATIC=false PORT=3000 CORS_ORIGINS=https://app.example.com npm run start:
 # 3) 用 Nginx 托管 web/dist，并把 /api、/storage 反代到 API
 #    配置示例见 deploy/nginx.conf
 
-# 一键本地验证（web + api，默认 web:8080 / api:3000）
-# JWT_SECRET 从仓库根 .env 注入；api 容器内小说域默认 legacy，
-# 需要 PostgreSQL 时显式把 DATABASE_URL 指向 postgres 服务。
+# 一键本地验证（web + api + postgres，默认 web:8080 / api:3000）
+# JWT_SECRET 从仓库根 .env 注入；api 连接 compose 内的 postgres，
+# 启动时自动迁移（小说域固定 PostgreSQL 单源）。
 docker compose -f deploy/docker-compose.dev.yml up --build
 
 # 端口被占用时用 override 换端口，例如 web:8180 / api:3102
