@@ -47,9 +47,16 @@ export function getNovelProject(id) {
   return project
 }
 
+/** 写路径读项目：postgres 直接读 PG，legacy 仍读内存投影。 */
+async function getNovelProjectForWrite(id) {
+  if (!isPgWriteMode()) return getNovelProject(id)
+  const { novelReadService } = await import('./novelReadService.js')
+  return novelReadService.get(id)
+}
+
 export async function updateNovelProject(id, patch = {}) {
   // 避免 PG 写失败时污染内存中的 JSON 缓存
-  const project = structuredClone(getNovelProject(id))
+  const project = structuredClone(await getNovelProjectForWrite(id))
   Object.assign(project, patch, { updatedAt: new Date().toISOString() })
   // PG 优先：项目主行直接更新；dual 保留 outbox 镜像。
   if (isPgWriteMode()) {
@@ -67,7 +74,7 @@ export async function updateNovelProject(id, patch = {}) {
  * 角色/实体按“当前选中集合”计数，避免历史集合虚高。
  */
 export async function recomputeNovelCounts(id) {
-  const project = getNovelProject(id)
+  const project = await getNovelProjectForWrite(id)
   const liveC = new Set(storageService.listNovelCharacters(id).map((c) => c.id))
   const liveW = new Set(storageService.listWorldEntities(id).map((e) => e.id))
   const setC = project.selectedCharacterSet ? storageService.getCharacterSet(project.selectedCharacterSet) : null
@@ -106,7 +113,7 @@ export function assertEditable(project, stage) {
 
 /** 推进到下一阶段（或指定阶段）；不可回退 */
 export async function advanceStage(id, toStage) {
-  const project = getNovelProject(id)
+  const project = await getNovelProjectForWrite(id)
   const cur = stageIndex(project.stage)
   const to = toStage ? stageIndex(toStage) : cur + 1
   if (to < 0 || to >= STAGES.length) throw new Error('无效阶段')
@@ -119,7 +126,7 @@ export async function advanceStage(id, toStage) {
  * 覆盖 novels/<id>、exports/novels/<id>、images|videos|audio/novels/<id>。
  */
 export async function deleteNovelProject(id) {
-  getNovelProject(id)
+  await getNovelProjectForWrite(id)
   // PG 优先：先软删小说及全部子集合，成功后再清理本地目录/JSON 缓存。
   if (isPgWriteMode()) {
     const { getPool } = await import('../db/client.js')

@@ -33,8 +33,8 @@ const ensuredNovels = new Set()
 /** 子记录写入前确保 novels 主行存在，避免 outbox/项目创建延迟导致外键失败。 */
 async function ensureNovelPg(pool, novelId) {
   if (ensuredNovels.has(novelId)) return
-  const { getNovelProject } = await import('./novelProjectService.js')
-  const project = getNovelProject(novelId)
+  const { novelReadService } = await import('./novelReadService.js')
+  const project = await novelReadService.get(novelId)
   await applyNovelUpsert(pool, project, config.novels.orgId)
   ensuredNovels.add(novelId)
 }
