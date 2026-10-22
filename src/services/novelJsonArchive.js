@@ -45,6 +45,27 @@ export function loadNovelArchive(file) {
   return { file, collections }
 }
 
+export function findNovelArchive(novelId, dir = archiveDir()) {
+  try {
+    const files = fs.readdirSync(dir)
+      .filter((name) => /^novels-from-db-.*\.json$/.test(name))
+      .map((name) => ({ name, mtime: fs.statSync(path.join(dir, name)).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime)
+    for (const { name } of files) {
+      const file = path.join(dir, name)
+      try {
+        const loaded = loadNovelArchive(file)
+        if (loaded.collections?.novelProjects?.[novelId]) return file
+      } catch {
+        // ignore corrupt archive and continue
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null
+}
+
 export function mergeNovelArchive(storage, file) {
   const loaded = loadNovelArchive(file)
   for (const key of NOVEL_ARCHIVE_KEYS) {
@@ -59,15 +80,20 @@ export function mergeNovelArchive(storage, file) {
  * - 否则 storage 里已有小说集合（db.json 旧格式）时直接用
  * - 否则自动使用最新归档
  */
-export function resolveNovelJsonSource(storage, explicit = null) {
+export function resolveNovelJsonSource(storage, explicit = null, novelId = null) {
   if (explicit) {
     const file = path.resolve(explicit)
     if (!fs.existsSync(file)) throw new Error(`找不到 JSON 归档：${file}`)
     return mergeNovelArchive(storage, file)
   }
-  const hasNovels = storage?.data?.novelProjects && Object.keys(storage.data.novelProjects).length > 0
-  if (hasNovels) return { file: null, collections: null }
-  const latest = findLatestNovelArchive()
-  if (!latest) throw new Error('db.json 中没有小说集合，且找不到 storage/archive/novels-from-db-*.json')
-  return mergeNovelArchive(storage, latest)
+  if (novelId && storage?.data?.novelProjects?.[novelId]) {
+    return { file: null, collections: null }
+  }
+  const target = novelId ? findNovelArchive(novelId) : findLatestNovelArchive()
+  if (!target) {
+    throw new Error(
+      `db.json/归档中不存在小说：${novelId || '(unknown)'}；找不到 storage/archive/novels-from-db-*.json`
+    )
+  }
+  return mergeNovelArchive(storage, target)
 }

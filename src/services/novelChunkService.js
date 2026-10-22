@@ -134,9 +134,8 @@ export async function ingestNovel(novelId, { sourceType = 'text', text, url, max
     cleanedHash,
   }))
 
-  // PG 优先：先提交正文/切片事务，成功后再更新本地 JSON 读缓存。
-  if (config.novels.writeMode === 'postgres') {
-    await withNovelTransaction(
+  // PG 单源：正文/切片始终提交 PostgreSQL 事务。
+  await withNovelTransaction(
       novelId,
       async (repos) => {
         await repos.sources.upsert(
@@ -168,7 +167,6 @@ export async function ingestNovel(novelId, { sourceType = 'text', text, url, max
       },
       { orgId: config.novels.orgId }
     )
-  }
 
   writeNovelFile(
     novelId,

@@ -36,7 +36,7 @@ if (!novelId) {
 }
 
 async function main() {
-  const source = resolveNovelJsonSource(storageService, value('from', process.env.NOVEL_JSON_ARCHIVE))
+  const source = resolveNovelJsonSource(storageService, value('from', process.env.NOVEL_JSON_ARCHIVE), novelId)
   if (source.file) console.log(`JSON 来源：${source.file}`)
   const pool = await getPool()
   await pool.query(
@@ -45,18 +45,19 @@ async function main() {
     [orgId]
   )
 
-  const project = storageService.getNovelProject(novelId)
+  const project = storageService.data.novelProjects?.[novelId]
   if (!project) throw new Error(`JSON 中不存在小说：${novelId}`)
   await applyNovelUpsert(pool, project, orgId)
   console.log(`项目已恢复：${project.title || novelId}`)
 
+  const values = (key) => Object.values(storageService.data[key] || {}).filter((d) => d.novelId === novelId)
   const children = [
-    ['characters', storageService.listNovelCharacters(novelId)],
-    ['entities', storageService.listWorldEntities(novelId)],
-    ['assets', storageService.listNovelAssetImages(novelId)],
-    ['states', storageService.listNovelCharacterStates(novelId)],
-    ['characterSets', Object.values(storageService.data.characterSets || {}).filter((s) => s.novelId === novelId)],
-    ['worldSets', Object.values(storageService.data.worldSets || {}).filter((s) => s.novelId === novelId)],
+    ['characters', values('novelCharacters')],
+    ['entities', values('novelWorldEntities')],
+    ['assets', values('novelAssetImages')],
+    ['states', values('novelCharacterStates')],
+    ['characterSets', values('characterSets')],
+    ['worldSets', values('worldSets')],
   ]
   for (const [kind, docs] of children) {
     for (const doc of docs) await applyChildUpsert(pool, kind, doc, orgId)
@@ -71,7 +72,6 @@ async function main() {
       stdio: 'inherit',
       env: {
         ...process.env,
-        NOVEL_WRITE_MODE: 'postgres',
         ...(source.file ? { NOVEL_JSON_ARCHIVE: source.file } : {}),
       },
     }

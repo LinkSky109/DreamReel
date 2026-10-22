@@ -21,8 +21,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import config from '../src/config/index.js'
 import { storageService } from '../src/services/storageService.js'
-import { listChunks } from '../src/services/novelChunkService.js'
-import { getNovelProject, readCleanedText, novelDir } from '../src/services/novelProjectService.js'
+import { getChunkText, readCleanedText, novelDir } from '../src/services/novelProjectService.js'
 import { resolveNovelJsonSource } from '../src/services/novelJsonArchive.js'
 import { withNovelTransaction, getNovelWriteRepositories } from '../src/repositories/unitOfWork.js'
 import { hashText, locateChapters } from '../src/utils/textOffsets.js'
@@ -51,19 +50,27 @@ function readJson(file) {
 }
 
 async function main() {
-  const jsonSource = resolveNovelJsonSource(storageService, process.env.NOVEL_JSON_ARCHIVE)
+  const jsonSource = resolveNovelJsonSource(storageService, process.env.NOVEL_JSON_ARCHIVE, novelId)
   if (jsonSource.file) console.log(`JSON 来源：${jsonSource.file}`)
-  const project = getNovelProject(novelId)
+  const project = storageService.data.novelProjects?.[novelId]
+  if (!project) throw new Error(`JSON/归档中不存在小说：${novelId}`)
   const cleaned = readCleanedText(novelId)
   if (!cleaned) throw new Error('缺少 source/cleaned.txt')
   const cleanedHash = hashText(cleaned)
 
-  let chunks = listChunks(novelId)
+  let chunks = Object.values(storageService.data.novelChunks || {})
+    .filter((c) => c.novelId === novelId)
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+    .map((c) => ({ ...c, text: c.text || getChunkText(novelId, c) }))
   if (chunks.some((c) => c.startOffset === null || c.startOffset === undefined)) {
     chunks = locateChapters(cleaned, chunks.map((c) => ({ ...c, text: c.text || '' })))
   }
-  const seasons = storageService.listSeasons(novelId).sort((a, b) => a.seasonNo - b.seasonNo)
-  const episodes = storageService.listEpisodes(novelId).sort((a, b) => a.episodeNo - b.episodeNo)
+  const seasons = Object.values(storageService.data.seriesSeasons || {})
+    .filter((s) => s.novelId === novelId)
+    .sort((a, b) => a.seasonNo - b.seasonNo)
+  const episodes = Object.values(storageService.data.seriesEpisodes || {})
+    .filter((e) => e.novelId === novelId)
+    .sort((a, b) => a.episodeNo - b.episodeNo)
   const seasonNoById = new Map(seasons.map((s) => [s.id, s.seasonNo]))
 
   const planDir = path.join(novelDir(novelId), 'plan')
