@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * 独立前端构建的静态资源补全：
- * 把仓库 `public/` 下"源码型"静态资源复制到构建产物，避免在 web/public 里维护第二份。
- * 由 `npm run build:web` 在 vite build 之后调用。
+ * 仅用于前后端分离构建（npm run build:web → web/dist）：
+ * 把仓库 `public/` 下的非 Vite 静态资源复制到独立产物，避免在 web/public 里维护第二份。
+ * 单进程构建（npm run build → public/）不需要本脚本，静态资源本来就在 public/。
  */
 import fs from 'node:fs'
 import path from 'node:path'

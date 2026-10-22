@@ -133,7 +133,17 @@ npm run test:web    # 前端测试
 npm run seed:audio
 ```
 
-> **构建产物策略**：`public/assets/` 与 `public/index.html` 是入库的发布产物（`.gitignore` 不排除它们），单进程 `npm start` 直接托管。修改 `web/src/` 或构建配置后必须执行 `npm run build`，并把源码与生成的哈希产物放在同一个提交里；仅后端改动时不要重建 `public/`。前端 API 基址默认同源 `/api`，可通过运行时 `window.ENV_API_URL` 或构建期 `VITE_API_BASE_URL` 覆盖；`localStorage.dreamreel_api_url` 作为最后的本地覆盖。
+> **构建产物策略（两个目标，互不覆盖）**：
+>
+> | 目标 | 命令 | 输出 | 用途 | 是否入库 |
+> |---|---|---|---|---|
+> | 单进程/发布 | `npm run build` | `public/` | `npm start`、根 `Dockerfile`、`docker compose` | **是**（`public/assets/`、`public/index.html`） |
+> | 前后端分离 | `npm run build:web` | `web/dist/` | `Dockerfile.web` + Nginx/CDN | 否（`.gitignore`） |
+>
+> - `npm run build` 由 `prebuild` 先清空 `public/assets/`，`npm run build:web` 由 `prebuild:web` 先清空 `web/dist/`；同一源码连续构建两次产物无 diff。
+> - 修改 `web/src/` 或构建配置后必须执行 `npm run build`，并把源码与生成的哈希产物放在同一个提交里；仅后端改动时不要重建 `public/`。
+> - `npm run check:web-build` 校验 `public/index.html` 引用的 hashed 资源存在、入口唯一；CI 与镜像构建都会执行。
+> - 前端 API 基址默认同源 `/api`，可通过运行时 `window.ENV_API_URL` 或构建期 `VITE_API_BASE_URL` 覆盖；`localStorage.dreamreel_api_url` 作为最后的本地覆盖。
 
 > **创意片头渲染依赖（可选）**：片头的片名/副标题上屏由 Python + Pillow 绘制标题卡（`scripts/render_title_card.py`），再由 ffmpeg 合成。本机需具备 `python3`、`pip install pillow` 及可渲染中文的字体（macOS 自带 Songti/STHeiti，开箱可用；Linux/容器需安装 CJK 字体，如 `font-noto-cjk`，也可用环境变量 `TITLE_CARD_FONT` 显式指定字体文件）。缺少该运行时，片头会自动回退为纯色氛围背景，并在接口返回中如实标记 `titleRendered:false`，不影响其余功能。Dockerfile 已预装 `python3` + Pillow + `font-noto-cjk`。
 
@@ -178,14 +188,14 @@ docker compose down
 后端默认仍可同时托管前端（`SERVE_STATIC=true`，保持旧行为）。前后端分离时：
 
 ```bash
-# 1) 前端独立构建到 web/dist（含 legacy 资源与静态素材）
+# 1) 前端独立构建到 web/dist（含 legacy 资源与静态素材；不会改动 public/）
 npm run build:web
 
 # 2) 只启动 API（不托管 SPA）
 SERVE_STATIC=false PORT=3000 CORS_ORIGINS=https://app.example.com npm run start:api
 
 # 3) 用 Nginx 托管 web/dist，并把 /api、/storage 反代到 API
-#    配置示例见 deploy/nginx.conf
+#    配置示例见 deploy/nginx.conf；Dockerfile.web 内部执行的就是 npm run build:web
 
 # 一键本地验证（web + api + postgres，默认 web:8080 / api:3000）
 # JWT_SECRET 从仓库根 .env 注入；api 连接 compose 内的 postgres，

@@ -13,9 +13,11 @@ RUN npm ci && npm cache clean --force
 COPY web/ ./web/
 COPY public/ ./public/
 COPY scripts/clean-web-build.js ./scripts/clean-web-build.js
+COPY scripts/check-web-build.js ./scripts/check-web-build.js
 
-# 输出到 /app/public（vite 配置默认 outDir，不含 WEB_OUT_DIR）
-RUN npm run build && rm -rf /app/node_modules /root/.npm
+# 输出到 /app/public（vite 配置默认 outDir，不含 WEB_OUT_DIR）；
+# check:web-build 作为镜像内守卫，确保入口 HTML 与 hashed 资源一致。
+RUN npm run build && npm run check:web-build && rm -rf /app/node_modules /root/.npm
 
 # ---------- runtime ----------
 FROM node:22-alpine

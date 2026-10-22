@@ -7,9 +7,10 @@ RUN npm ci && npm cache clean --force
 
 COPY web ./web
 COPY public ./public
+COPY scripts/clean-web-build.js ./scripts/clean-web-build.js
 COPY scripts/copy-web-assets.js ./scripts/copy-web-assets.js
-RUN WEB_OUT_DIR=dist npx vite build --config web/vite.config.ts \
-    && node scripts/copy-web-assets.js
+# 与本地/CI 完全同一条命令，避免镜像内联构建步骤与 package.json 漂移。
+RUN npm run build:web
 
 FROM nginx:1.27-alpine
 
