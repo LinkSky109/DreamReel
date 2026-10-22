@@ -30,6 +30,7 @@
     "start:api": "node src/server.js",
     "inventory": "node scripts/inventory.js",
     "check:docs": "node scripts/check-docs-endpoints.js",
+    "check:legacy": "node scripts/check-legacy-paths.js",
     "db:migrate": "node scripts/db-migrate.js",
     "db:status": "node scripts/db-migrate.js --status",
     "db:migrate:novels": "node scripts/migrate-novels-to-pg.js",

@@ -1,12 +1,12 @@
-# PostgreSQL 韧性演练清单（待执行）
+# PostgreSQL 韧性演练清单
 
-- 状态：**未执行**，2026-10-21 记录
-- 目的：关闭“多实例并发写”和“备份/PITR”两项上线前风险
+- 状态：**未执行**（2026-10-22 更新）
+- 目的：验证小说域单源后的多实例并发写、备份与 PITR 恢复能力
 - 原则：只在独立演练库执行，不触碰开发库与生产库；记录真实命令与结果，不预填通过结论
 
 ## 前置条件
 
-- PostgreSQL 16，迁移 `001`–`009` 已应用
+- PostgreSQL 16，迁移 `001`–`012` 已应用
 - 独立演练库：`dreamreel_drill`（从空库开始）
 - 演练机可启动 2–3 个 API 实例
 - 有权限执行 `pg_dump` / `pg_basebackup` / 修改 `postgresql.conf`
@@ -19,15 +19,13 @@ DATABASE_URL=postgres://dreamreel:dreamreel@localhost:5432/dreamreel_drill \
   npm run db:migrate
 ```
 
-## 演练一：多实例并发写
+## 演练一：多实例并发写（小说域）
 
 ### 目标
 
-验证多实例同时写同一组织的数据时：
-
-- 不出现整表覆盖或丢更新
+- 多实例同时写同一组织的小说数据时，不出现整表覆盖或丢更新
 - 唯一约束/版本冲突按预期返回 `409`
-- outbox 事件幂等，不重复应用、不产生 dead
+- advisory lock 使同一小说的规划/重建串行化
 - 读接口在并发写期间保持一致
 
 ### 步骤
@@ -39,33 +37,32 @@ for port in 3211 3212 3213; do
   PORT=$port \
   STORAGE_PATH=/tmp/dreamreel-drill-$port \
   DATABASE_URL=postgres://dreamreel:dreamreel@localhost:5432/dreamreel_drill \
-  NOVEL_WRITE_MODE=dual \
-  OUTBOX_ENABLED=true \
   node src/server.js > /tmp/drill-$port.log 2>&1 &
 done
 ```
 
 2. 并发创建不同小说（每个实例 50 条），再并发更新同一批小说。
 3. 并发更新同一条小说，验证 `expectedVersion` 冲突路径返回 `409`。
-4. 检查：
+4. 对同一小说并发触发规划/重建，验证 advisory lock 串行化且结果一致。
+5. 检查：
 
 ```bash
 psql "$DATABASE_URL" -c "select org_id, count(*) from novels group by org_id"
-psql "$DATABASE_URL" -c "select status, count(*) from outbox_events group by status"
+psql "$DATABASE_URL" -c "select count(*) from seasons"
+psql "$DATABASE_URL" -c "select count(*) from episodes"
 npm run db:verify:novels
 npm run db:verify:novel-children
-npm run outbox:stats:group
 ```
 
-5. 记录：错误率、p95 延迟、锁等待、连接池占用、outbox dead 数。
+6. 记录：错误率、p95 延迟、锁等待、连接池占用。
 
 ### 验收标准
 
 - 创建行数与请求数一致，无重复主键、无丢失
 - 冲突更新返回 `409`，非冲突更新 version 单调递增
-- `outbox_events` 无 dead；`done` 数与写入次数匹配
-- JSON 与 PostgreSQL 校验 `mismatches=0`
+- 并发规划被串行化，无半套季/集
 - 任一实例挂掉后，其余实例读仍正常
+- 小说域不产生 outbox 事件；若同时验证其它域，`outbox_events` 无异常 dead
 
 ### 回滚
 
@@ -97,7 +94,7 @@ pg_dump -h localhost -U dreamreel -Fc dreamreel_drill > /backup/drill.dump
 pg_basebackup -h localhost -U dreamreel -D /backup/base -Ft -z -P
 ```
 
-3. 写入带时间戳的标记数据（例如一部小说和一条 outbox 事件）。
+3. 写入带时间戳的标记数据（例如一部小说和一条季/集记录）。
 4. 记录删除前时间点，执行误删（`delete from novels where id = ...`）。
 5. 在独立实例上做 PITR：
 
@@ -111,10 +108,10 @@ recovery_target_action = 'promote'
 
 ```bash
 psql "$RESTORE_URL" -c "select count(*) from novels"
+psql "$RESTORE_URL" -c "select count(*) from episodes"
 psql "$RESTORE_URL" -c "select version from schema_migrations order by version"
-npm run db:verify:novels
-PORT=3299 DATABASE_URL="$RESTORE_URL" NOVEL_WRITE_MODE=postgres \
-  OUTBOX_ENABLED=false node src/server.js
+DATABASE_URL="$RESTORE_URL" npm run db:verify:novels
+PORT=3299 DATABASE_URL="$RESTORE_URL" node src/server.js
 curl -s http://localhost:3299/health/ready
 ```
 
@@ -129,8 +126,8 @@ curl -s http://localhost:3299/health/ready
 
 - 尚未配置 WAL 归档、自动全量备份与备份失败告警
 - 尚未验证备份文件加密、异地保存与恢复权限
-- 当前写路径是 `NOVEL_WRITE_MODE=dual`（JSON 为事实源）；写主库切换后必须重跑演练一
-- 未配置 outbox dead、连接池耗尽、复制延迟的监控告警
+- 小说域已切换 PG 单源；本清单必须在最终清理合并前后各跑一次
+- 未配置连接池耗尽、慢查询、复制延迟的监控告警
 
 ## 执行记录模板
 
@@ -141,7 +138,7 @@ curl -s http://localhost:3299/health/ready
 演练类型：并发写 / 备份恢复
 命令：
 结果（通过 / 失败 / 阻塞）：
-关键数字（RPO / RTO / 错误率 / p95 / dead）：
+关键数字（RPO / RTO / 错误率 / p95 / p99 / 锁等待）：
 异常与修复：
 结论：
 ```

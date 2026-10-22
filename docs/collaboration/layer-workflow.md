@@ -84,7 +84,7 @@ npm run outbox:stats
 - 新迁移编号递增，已应用迁移禁止修改（checksum 校验）；
 - 提供回滚步骤；
 - 大表变更遵循 expand → backfill → contract；
-- 写路径默认 `legacy`，用开关灰度。
+- 小说域固定 PostgreSQL 单源，不引入读写模式开关；迁移只增不改，回滚靠应用版本 + PG 备份/PITR。
 
 ### llm
 
@@ -103,7 +103,7 @@ npm run outbox:stats
 2. 改动范围（层、文件、接口）；
 3. 契约影响（新增/修改/废弃字段）；
 4. 验证证据（命令与结果）；
-5. 回滚方式（开关/迁移/备份）。
+5. 回滚方式（应用版本 / 迁移 / PG 备份）。
 
 合并：
 
@@ -116,12 +116,12 @@ npm run outbox:stats
 
 | 开关 | 安全值 | 用途 |
 |---|---|---|
-| `NOVEL_WRITE_MODE` | `legacy` | 关闭 PG 镜像 |
-| `OUTBOX_ENABLED` | `false` | 关闭事件投递 |
+| `OUTBOX_ENABLED` | `false` | 关闭非小说域事件投递 |
 | `REQUIRE_AUTH` | `false` | 关闭强制登录 |
 | `SERVE_STATIC` | `true` | 单进程托管前端 |
 
-回滚优先改开关，其次回滚代码，最后才动数据。
+小说域没有读写模式开关：数据回滚使用 `pg_dump`/PITR，应用回滚使用上一版本。
+其它域回滚优先改开关，其次回滚代码，最后才动数据。
 
 ## 7. 多 Agent 并行
 

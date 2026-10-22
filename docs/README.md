@@ -9,7 +9,7 @@ DreamReel（梦卷）是一个 AI 短片创作平台：从一句话想法到成�
 
 - **后端**：Node.js >= 20.19 + Express 5（ES Modules），源码在 `src/`
 - **前端**：React 19 + TypeScript + Vite，源码在 `web/`，构建产物输出到 `public/`
-- **存储**：默认 JSON 文件库（`storage/data/db.json`），可选 PostgreSQL（Kysely）
+- **存储**：小说域固定 PostgreSQL（Kysely）；用户/项目/社区等未迁移域暂用 JSON（`storage/data/db.json`）
 - **小说剧场**：书名/链接 → TXT 摄取 → 分章 → 分季分集 → 角色/世界观抽取 → 单集剧本/素材生成
 
 技术栈与快速开始见根目录 `README.md`；前端细节见 `FRONTEND-DEVELOPMENT.md`；架构决策见 `docs/adr/`。
@@ -90,7 +90,8 @@ DreamReel（梦卷）是一个 AI 短片创作平台：从一句话想法到成�
 
 | 路径 | 说明 |
 |---|---|
-| `storage/data/db.json` | 主 JSON 数据库（25 个集合） |
+| `storage/data/db.json` | 非小说集合的 JSON 数据库（小说集合已移出） |
+| `storage/archive/novels-from-db-*.json` | 小说旧 JSON 快照（只读归档，供离线恢复/审计） |
 | `storage/data/db.backup-*.json` | 自动备份 |
 | `storage/novels/<novelId>/` | 每部小说的落盘工作区（详见下节） |
 | `storage/images/novels/<id>/` | 小说生成的图片素材 |
@@ -130,19 +131,13 @@ DreamReel（梦卷）是一个 AI 短片创作平台：从一句话想法到成�
 - 该目录下是**按「集」切分并落盘的小说源文本片段**，每个 `.txt` 文件对应一集。
 - 文件名 = 该集的 `episode.id`（16 位十六进制，由 `src/utils/idGenerator.js` 的 FNV-1a 生成，如 `ef9ba1cac7c0ba45.txt`）。
 - 文件内容是这一集要改编的小说正文（来自 `source/cleaned.txt` 的对应片段）。
-- 当前《殖装》项目共有 **8402 个文件**（数据库登记 8378 集，41 季，1206 章）。
+- 旧版《殖装》工作区保留约 8400 个文件；当前 PG 基线为 **33 季 / 8496 集 / 1206 章**。
 
-### 生成方式
+### 生成方式（历史/兼容）
 
-`src/services/seriesPlannerService.js:111-113`：
-
-```js
-const rel = `episodes/${ep.id}.txt`
-writeNovelFile(novelId, rel, p.text)
-ep.sourceFile = rel
-```
-
-即：分季分集时，把每集的正文片段写入 `episodes/<episodeId>.txt`，并把相对路径记到 `episode.sourceFile`。后续剧本/一致性校验服务通过 `readNovelFile(novelId, ep.sourceFile)` 读取。
+旧版分季分集会写出 `episodes/<episodeId>.txt` 并记录 `episode.sourceFile`，服务再按文件读取正文。
+PG-only 后新数据不再依赖该文件：季/集写入 PostgreSQL，正文按 `start_offset/end_offset`
+从 `novel_sources.cleaned_text` 切片。`episodes/*.txt` 仅用于旧项目兼容，按移除计划 Phase 5 清理。
 
 ### 切分规则
 
@@ -152,13 +147,17 @@ ep.sourceFile = rel
 
 ### 命名与元数据
 
-文件名本身不携带语义，**集标题/序号需查数据库**：
+文件名本身不携带语义，**集标题/序号需查 PostgreSQL**：
 
-```
-db.json → seriesEpisodes[id] → { episodeNo, chapterTitle, title, targetSeconds, sourceFile, status }
+```sql
+SELECT id, episode_no, title, target_seconds, logical_key, status
+FROM episodes WHERE id = 'ef9ba1cac7c0ba45';
 ```
 
-例如 `ef9ba1cac7c0ba45` → `episodeNo: 1`、`title: "第一节 废墟中的男子（1/9）"`、`status: "composed"`。
+例如 `ef9ba1cac7c0ba45` → `episode_no: 1`、`title: "第一节 废墟中的男子（1/9）"`、`status: "composed"`。
+
+> PG-only 后正文按 `start_offset/end_offset` 从 `novel_sources.cleaned_text` 切片；
+> `episodes/*.txt` 是旧版兼容产物，不再作为事实源，按移除计划 Phase 5 清理。
 
 ## 7. 文档 `docs/`
 
@@ -197,8 +196,9 @@ db.json → seriesEpisodes[id] → { episodeNo, chapterTitle, title, targetSecon
 | `scripts/db-migrate.js` | 数据库迁移 |
 | `scripts/rebuild-series.js` | 重建小说分季分集（`npm run series:rebuild`） |
 | `scripts/verify-series.js` | 校验分集时长/覆盖/边界（`npm run series:verify`） |
-| `scripts/backfill-novel-write-model.js` | 回填小说 PG 写模型（`npm run db:backfill:novel-write`） |
-| `scripts/restore-novel-from-json.js` | 从 JSON 恢复小说 PG 数据（`npm run db:restore:novel`） |
+| `scripts/backfill-novel-write-model.js` | 离线回填小说 PG 新列（`npm run db:backfill:novel-write`；allowlist） |
+| `scripts/restore-novel-from-json.js` | 离线灾难恢复：从归档 JSON 重建小说 PG（`npm run db:restore:novel`；allowlist） |
+| `scripts/check-legacy-paths.js` | legacy 路径门禁（`npm run check:legacy`，离线工具 allowlist） |
 | `scripts/verify-*.js` | Provider / 媒体 / 指标校验 |
 
 ## 10. 部署 `deploy/`
@@ -214,12 +214,16 @@ db.json → seriesEpisodes[id] → { episodeNo, chapterTitle, title, targetSecon
 ```
 书名/URL
   → source/raw.txt → source/cleaned.txt        (novelChunkService: 摄取/清洗/分章)
-  → chunks/chunks.json + db.novelChunks
-  → characters/characters.json                (characterExtractionService)
-  → worldbuilding/entities.json                (worldbuildingService)
-  → episodes/<episodeId>.txt × N               (seriesPlannerService: 分季分集)
-  → 单集剧本 screenplay                         (episodeScriptService)
-  → assets/<episodeId>.json + images/videos/audio  (episodeAssetService)
-  → handoff/<episodeId>/                        (episodeHandoffService)
+  → PG novel_sources.cleaned_text              (正文唯一事实源)
+  → PG novel_chunks（偏移 + 摘要）
+  → PG novel_characters / character_sets       (characterExtractionService)
+  → PG novel_world_entities / world_sets       (worldbuildingService)
+  → PG seasons / episodes（logical_key + 偏移） (seriesPlannerService: 分季分集)
+  → PG episodes.outline / screenplay           (episodeScriptService)
+  → PG novel_asset_images + images/videos/audio 元数据 (episodeAssetService)
+  → storage/novels/<id>/handoff/<episodeId>/    (episodeHandoffService)
   → 云盘同步                                     (novelSyncService → sync/ledger.json)
+
+> `storage/novels/<id>/` 下的 chunks/characters/worldbuilding/episodes 文件是工作区派生产物；
+> 结构化数据以 PostgreSQL 为准。`db.json` 不参与小说域读写。
 ```
