@@ -7,6 +7,12 @@ export default app
 // Start server only when run directly (not when imported for testing)
 const isMainModule = import.meta.url === `file://${process.argv[1]}`
 if (isMainModule) {
+  if (config.env === 'production' && !config.auth.enforce) {
+    logger.error(
+      '[security] 生产环境未开启 REQUIRE_AUTH：所有 /api 端点可匿名访问。请设置 REQUIRE_AUTH=true 或确认已由网关统一鉴权。'
+    )
+  }
+
   const server = app.listen(config.port, () => {
     logger.info(`DreamReel API server running on port ${config.port}`)
     logger.info(`Environment: ${config.env}`)
