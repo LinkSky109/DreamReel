@@ -7,7 +7,7 @@ import { WorldEntity, WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES, WORLD_CO
 import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
 import { updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
-import { getNovelProjectAsync, listChunksAsync } from './novelAsyncReadService.js'
+import { getNovelProjectAsync, listChunksAsync, listEntitiesAsync } from './novelAsyncReadService.js'
 import { runGroups } from './extractionStatus.js'
 import { generateJSONWithRetry } from '../utils/llmRetry.js'
 
@@ -278,6 +278,41 @@ export function listRelations(novelId) {
     }
   }
   return out
+}
+
+export async function listEntitiesAsyncView(novelId, type) {
+  const list = await listEntitiesAsync(novelId)
+  const filtered = type ? list.filter((e) => e.type === type) : list
+  return filtered.sort((a, b) => (b.mentions || 0) - (a.mentions || 0))
+}
+
+export async function listRelationsAsync(novelId) {
+  const entities = await listEntitiesAsync(novelId)
+  const byName = new Map(entities.map((e) => [e.name, e.id]))
+  const out = []
+  for (const e of entities) {
+    for (const r of e.relations || []) {
+      out.push({ from: e.id, fromName: e.name, to: byName.get(r.target) || null, toName: r.target, kind: r.kind || '' })
+    }
+  }
+  return out
+}
+
+export async function summarizeAsync(novelId) {
+  const entities = await listEntitiesAsync(novelId)
+  const byType = {}
+  for (const t of WORLD_TYPES) byType[t] = 0
+  for (const e of entities) byType[e.type] = (byType[e.type] || 0) + 1
+  const missing = WORLD_CORE_TYPES.filter((t) => byType[t] === 0)
+  const relations = await listRelationsAsync(novelId)
+  return {
+    total: entities.length,
+    byType,
+    byTypeLabel: Object.fromEntries(Object.entries(byType).map(([k, v]) => [WORLD_TYPE_LABELS[k] || k, v])),
+    relations: relations.length,
+    missingCoreTypes: missing.map((t) => WORLD_TYPE_LABELS[t]),
+    provider: entities[0]?.provider || null,
+  }
 }
 
 export function summarize(novelId) {

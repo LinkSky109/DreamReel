@@ -1,5 +1,4 @@
 import express, { Router } from 'express'
-import { storageService } from '../services/storageService.js'
 import { novelReadService } from '../services/novelReadService.js'
 import { novelChildReadService } from '../services/novelChildReadService.js'
 import { getNovelProjectAsync, listChunksAsync, listCharactersAsync, listEntitiesAsync, listAssetsAsync } from '../services/novelAsyncReadService.js'
@@ -35,7 +34,7 @@ import { generateEpisodeAssets, getEpisodeAssets } from '../services/episodeAsse
 import { composeEpisode } from '../services/episodeComposeService.js'
 import { buildManifest, syncToQuark, syncToWebdav, syncNovel, getLedger, getSyncState, resolveScope, SYNC_SCOPES } from '../services/novelSyncService.js'
 import { exportHandoff, importHandoffResult, listHandoff } from '../services/episodeHandoffService.js'
-import { extractWorld, listRelations, summarize } from '../services/worldbuildingService.js'
+import { extractWorld, listRelationsAsync, summarizeAsync } from '../services/worldbuildingService.js'
 import { selectWorldSet } from '../services/worldbuildingService.js'
 import { CARD_SCHEMA, CARD_GROUPS } from '../models/NovelCharacter.js'
 import { WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES } from '../models/WorldEntity.js'
@@ -337,7 +336,7 @@ router.get('/:id/chunks', async (req, res) => {
 router.get('/:id/chunks/:chunkId', async (req, res) => {
   try {
     await getNovelProjectAsync(req.params.id)
-    const chunk = storageService.getNovelChunk(req.params.chunkId)
+    const chunk = (await listChunksAsync(req.params.id)).find((c) => c.id === req.params.chunkId)
     if (!chunk || chunk.novelId !== req.params.id) throw new Error('chunk not found')
     res.json({ success: true, data: chunk })
   } catch (error) {
@@ -408,7 +407,7 @@ router.post('/:id/extract-all', async (req, res) => {
         degraded: /fallback/.test(result.provider),
         characters: await listCharactersAsync(req.params.id),
         entities: await listEntitiesAsync(req.params.id),
-        summary: summarize(req.params.id),
+        summary: await summarizeAsync(req.params.id),
       },
     })
   } catch (error) {
@@ -457,7 +456,7 @@ router.patch('/:id/characters/:cid/review', async (req, res) => {
     if (status && !['pending', 'approved', 'revision'].includes(status)) {
       return res.status(400).json({ success: false, error: 'status 必须是 pending/approved/revision' })
     }
-    const character = storageService.getNovelCharacter(req.params.cid)
+    const character = (await listCharactersAsync(req.params.id)).find((c) => c.id === req.params.cid)
     if (!character || character.novelId !== req.params.id) throw new Error('character not found')
     if (status) character.status = status
     if (note !== undefined) character.note = String(note).slice(0, 2000)
@@ -504,7 +503,9 @@ router.post('/:id/review/bulk', async (req, res) => {
     }
     let updated = 0
     for (const id of ids) {
-      const item = isCharacter ? storageService.getNovelCharacter(id) : storageService.getWorldEntity(id)
+      const item = isCharacter
+        ? (await listCharactersAsync(req.params.id)).find((x) => x.id === id)
+        : (await listEntitiesAsync(req.params.id)).find((x) => x.id === id)
       if (!item || item.novelId !== req.params.id) continue
       item.status = status
       if (note !== undefined) item.note = String(note).slice(0, 2000)
@@ -930,6 +931,7 @@ router.post('/:id/episodes/:eid/compose', async (req, res) => {
 // 剧集包清单（?scope=deliverables|media|all）
 router.get('/:id/manifest', async (req, res) => {
   try {
+    await getNovelProjectAsync(req.params.id)
     const scope = resolveScope(req.query.scope)
     const files = buildManifest(req.params.id, { scope: scope.key }).map((f) => ({ rel: f.rel, size: f.size }))
     res.json({ success: true, data: { fileCount: files.length, scope: scope.key, scopeLabel: scope.label, files } })
@@ -1116,7 +1118,7 @@ router.post('/:id/world/extract', async (req, res) => {
 router.get('/:id/world', async (req, res) => {
   try {
     await getNovelProjectAsync(req.params.id)
-    res.json({ success: true, data: summarize(req.params.id) })
+    res.json({ success: true, data: await summarizeAsync(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1138,7 +1140,7 @@ router.get('/:id/world/entities', async (req, res) => {
 router.get('/:id/world/relations', async (req, res) => {
   try {
     await getNovelProjectAsync(req.params.id)
-    res.json({ success: true, data: listRelations(req.params.id) })
+    res.json({ success: true, data: await listRelationsAsync(req.params.id) })
   } catch (error) {
     res.status(statusFor(error)).json({ success: false, error: error.message })
   }
@@ -1394,7 +1396,7 @@ router.patch('/:id/world/entities/:eid/review', async (req, res) => {
     if (status && !['pending', 'confirmed', 'revision'].includes(status)) {
       return res.status(400).json({ success: false, error: 'status 必须是 pending/confirmed/revision' })
     }
-    const entity = storageService.getWorldEntity(req.params.eid)
+    const entity = (await listEntitiesAsync(req.params.id)).find((e) => e.id === req.params.eid)
     if (!entity || entity.novelId !== req.params.id) throw new Error('world entity not found')
     if (status) entity.status = status
     if (note !== undefined) entity.note = String(note).slice(0, 2000)

@@ -7,7 +7,7 @@ import { runPool } from '../utils/pool.js'
 import { WebdavClient, WebdavError, guessContentType } from './webdavClient.js'
 import { QuarkClient, QuarkError } from './quarkClient.js'
 import { loadCookie } from './quarkAuth.js'
-import { getNovelProject, novelDir } from './novelProjectService.js'
+import { novelDir } from './novelProjectService.js'
 
 /**
  * 剧集包清单 + 通用存储同步内核（Sprint 23 / S23-2，Sprint 30 增强）
@@ -94,7 +94,6 @@ function topSegment(rel) {
 }
 
 export function buildManifest(novelId, { scope } = {}) {
-  getNovelProject(novelId)
   const files = walk(novelDir(novelId)).filter((f) => !f.rel.startsWith(`sync${path.sep}`))
   const exportDir = path.join(config.storage.path, 'exports', 'novels', novelId)
   for (const f of walk(exportDir)) {
