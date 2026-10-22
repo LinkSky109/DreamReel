@@ -46,7 +46,9 @@ export function isPublicApiRequest(req) {
   const full = normalizeApiPath(`${req.baseUrl || ''}${req.path || ''}`)
   return PUBLIC_RULES.some((rule) => {
     if (rule.method !== 'ANY' && rule.method !== req.method) return false
-    return rule.path ? full === rule.path : full.startsWith(rule.prefix)
+    if (rule.path) return full === rule.path
+    // 前缀必须落在路径分段边界，避免 /api/galleryevil 命中 /api/gallery
+    return full === rule.prefix || full.startsWith(`${rule.prefix}/`)
   })
 }
 

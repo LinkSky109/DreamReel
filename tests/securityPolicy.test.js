@@ -106,6 +106,12 @@ describe('authGate 公开白名单', () => {
     )
   })
 
+  it('前缀匹配不会误放行相似路径', () => {
+    assert.equal(isPublicApiRequest({ method: 'GET', baseUrl: '/api', path: '/galleryevil' }), false)
+    assert.equal(isPublicApiRequest({ method: 'GET', baseUrl: '/api', path: '/storefront' }), false)
+    assert.equal(isPublicApiRequest({ method: 'GET', baseUrl: '/api', path: '/gallery' }), true)
+  })
+
   it('小说写接口不公开', () => {
     assert.equal(isPublicApiRequest({ method: 'DELETE', baseUrl: '/api', path: '/novels/1' }), false)
   })
