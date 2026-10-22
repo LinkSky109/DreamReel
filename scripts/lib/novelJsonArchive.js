@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import config from '../config/index.js'
+import config from '../../src/config/index.js'
 
 /**
  * Phase 3c：小说集合不再写回 storage/data/db.json。

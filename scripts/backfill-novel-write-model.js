@@ -22,7 +22,7 @@ import path from 'node:path'
 import config from '../src/config/index.js'
 import { storageService } from '../src/services/storageService.js'
 import { getChunkText, readCleanedText, novelDir } from '../src/services/novelProjectService.js'
-import { resolveNovelJsonSource } from '../src/services/novelJsonArchive.js'
+import { resolveNovelJsonSource } from './lib/novelJsonArchive.js'
 import { withNovelTransaction, getNovelWriteRepositories } from '../src/repositories/unitOfWork.js'
 import { hashText, locateChapters } from '../src/utils/textOffsets.js'
 

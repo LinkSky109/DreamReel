@@ -16,7 +16,7 @@ import pg from 'pg'
 import config from '../src/config/index.js'
 import { toChildPayload, CHILD_KINDS } from '../src/repositories/novelChildRepository.js'
 import { stableStringify } from '../src/utils/stableJson.js'
-import { findLatestNovelArchive, loadNovelArchive } from '../src/services/novelJsonArchive.js'
+import { findLatestNovelArchive, loadNovelArchive } from './lib/novelJsonArchive.js'
 
 const { Client } = pg
 const args = new Set(process.argv.slice(2))

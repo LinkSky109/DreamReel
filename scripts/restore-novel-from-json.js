@@ -19,7 +19,7 @@ import { getPool } from '../src/db/client.js'
 import { applyNovelUpsert } from '../src/services/novelWriteSync.js'
 import { applyChildUpsert } from '../src/services/novelChildWriteSync.js'
 import { storageService } from '../src/services/storageService.js'
-import { resolveNovelJsonSource } from '../src/services/novelJsonArchive.js'
+import { resolveNovelJsonSource } from './lib/novelJsonArchive.js'
 import config from '../src/config/index.js'
 
 const args = process.argv.slice(2)
