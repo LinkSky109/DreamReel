@@ -20,7 +20,7 @@ router.get('/', (req, res) => {
 // 获取用户创建的模板
 router.get('/user/mine', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     const templates = templateService.getUserTemplates(userId)
     res.json({ total: templates.length, items: templates })
   } catch (error) {
@@ -45,7 +45,7 @@ router.post('/user/create-from-project', async (req, res) => {
       category,
       icon,
       tags,
-      userId: userId || 'default',
+      userId,
     })
     logger.info(`Template created from project ${projectId}: ${template.id}`)
     res.status(201).json(template)
@@ -58,7 +58,7 @@ router.post('/user/create-from-project', async (req, res) => {
 // 删除用户模板
 router.delete('/user/:templateId', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     const result = templateService.deleteUserTemplate(req.params.templateId, userId)
     res.json(result)
   } catch (error) {
@@ -103,7 +103,7 @@ router.post('/:templateId/create', async (req, res) => {
       targetDuration: params.targetDuration,
       style: params.style,
       platform: params.platform,
-      userId: userId || 'default',
+      userId,
     })
 
     // 记录模板来源

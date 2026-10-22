@@ -68,7 +68,7 @@ const router = Router()
 
 // 辅助：获取当前用户 ID
 function getUserId(req) {
-  return req.user?.id || 'default'
+  return req.userId
 }
 
 // 创建项目
@@ -417,7 +417,7 @@ router.post('/import', async (req, res) => {
   try {
     // 支持两种格式：{ projectData: {...} } 或直接 {...}
     let projectData = req.body.projectData || req.body
-    const userId = req.body.userId || req.user?.id || 'default'
+    const userId = req.userId
 
     // 如果 body 本身就是项目数据（有 name 字段），直接使用
     if (!projectData.name && req.body.name) {
@@ -434,7 +434,7 @@ router.post('/import', async (req, res) => {
       description: projectData.description || '',
       platform: projectData.platform || 'landscape',
       style: projectData.style || 'none',
-      userId: userId || req.user?.id || 'default',
+      userId: userId || req.userId,
     })
 
     // 恢复剧本

@@ -25,7 +25,7 @@ router.post('/', async (req, res) => {
       stylePositioning: req.body.stylePositioning,
       curatorName: req.body.curatorName,
       // 已登录用户优先，避免 body 伪造厂牌所有权；匿名沿用显式 ownerId
-      ownerId: req.user?.id || req.body.ownerId || 'default',
+      ownerId: req.userId,
     })
     res.status(201).json(studio.toJSON())
   } catch (error) {

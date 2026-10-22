@@ -40,7 +40,7 @@ async function updateShotInProject(projectId, shotId, updates) {
 router.post('/generate', async (req, res) => {
   try {
     const { projectId, shotId, prompt, referenceImages, duration, resolution, aspectRatio, styleId } = req.body
-    const uid = req.user?.id || 'default'
+    const uid = req.userId
 
     if (!projectId || !prompt) {
       return res.status(400).json({ error: 'projectId and prompt are required' })
@@ -129,7 +129,7 @@ router.post('/generate', async (req, res) => {
 router.post('/generate-all/:projectId', async (req, res) => {
   try {
     const { styleId } = req.body
-    const uid = req.user?.id || 'default'
+    const uid = req.userId
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
     const project = guard.project
@@ -413,7 +413,7 @@ router.get('/queue/history', async (req, res) => {
 router.post('/regenerate', async (req, res) => {
   try {
     const { projectId, shotId, newPrompt, styleId } = req.body
-    const uid = req.user?.id || 'default'
+    const uid = req.userId
 
     if (!projectId || !shotId) {
       return res.status(400).json({ error: 'projectId and shotId are required' })
@@ -480,7 +480,7 @@ router.post('/regenerate', async (req, res) => {
 router.post('/candidates', async (req, res) => {
   try {
     const { projectId, shotId, count = 3, styleId } = req.body
-    const uid = req.user?.id || 'default'
+    const uid = req.userId
 
     if (!projectId || !shotId) {
       return res.status(400).json({ error: 'projectId and shotId are required' })

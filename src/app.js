@@ -13,6 +13,7 @@ import metaV1Router from './routes/v1/meta.js'
 import { apiVersion } from './middleware/apiVersion.js'
 import { authOptional } from './middleware/auth.js'
 import { authGate } from './middleware/authGate.js'
+import { identity } from './middleware/identity.js'
 import { auditWrites } from './middleware/audit.js'
 import { rateLimit } from './middleware/rateLimit.js'
 import { idempotency } from './middleware/idempotency.js'
@@ -113,7 +114,7 @@ app.get('/health/ready', async (_req, res) => {
 })
 
 // 认证解析 + 写操作审计 + 强制登录闸门（默认关闭）
-app.use('/api', authOptional, auditWrites, authGate)
+app.use('/api', authOptional, auditWrites, authGate, identity)
 
 // API 版本标记：/api 兼容期保留并提示弃用，/api/v1 为新客户端入口
 app.use('/api', apiVersion('legacy'))

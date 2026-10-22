@@ -20,7 +20,7 @@ router.get('/config', enterpriseOnly, (_req, res) => {
 
 router.put('/config', enterpriseOnly, (req, res) => {
   try {
-    const config = enterpriseService.updateConfig(req.body, req.user?.id || 'admin')
+    const config = enterpriseService.updateConfig(req.body, req.userId)
     res.json(config)
   } catch (e) {
     res.status(400).json({ error: e.message })

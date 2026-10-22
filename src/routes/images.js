@@ -34,7 +34,7 @@ router.post('/generate', async (req, res) => {
     const { projectId, prompt, aspectRatio, style, count = 1 } = req.body
     const result = await imageService.generateImages({
       projectId,
-      userId: req.user?.id || 'default',
+      userId: req.userId,
       prompt,
       aspectRatio,
       style,
@@ -52,7 +52,7 @@ router.get('/assets', (req, res) => {
     const { projectId, status } = req.query
     const result = imageService.listAssets({
       projectId: projectId || null,
-      userId: req.user?.id || 'default',
+      userId: req.userId,
       status: status || null,
     })
     res.json({ ...result, items: result.items.map(publicAsset) })
@@ -64,7 +64,7 @@ router.get('/assets', (req, res) => {
 // 单个资产
 router.get('/assets/:id', (req, res) => {
   try {
-    res.json(publicAsset(imageService.getAsset(req.params.id, req.user?.id || 'default')))
+    res.json(publicAsset(imageService.getAsset(req.params.id, req.userId)))
   } catch (error) {
     sendError(res, error)
   }
@@ -73,7 +73,7 @@ router.get('/assets/:id', (req, res) => {
 // 删除资产
 router.delete('/assets/:id', (req, res) => {
   try {
-    res.json(imageService.deleteAsset(req.params.id, req.user?.id || 'default'))
+    res.json(imageService.deleteAsset(req.params.id, req.userId))
   } catch (error) {
     sendError(res, error)
   }
@@ -84,7 +84,7 @@ router.post('/assets/:id/apply', async (req, res) => {
   try {
     const result = await imageService.applyAsset(req.params.id, {
       ...req.body,
-      userId: req.user?.id || 'default',
+      userId: req.userId,
     })
     res.json(publicResult(result))
   } catch (error) {

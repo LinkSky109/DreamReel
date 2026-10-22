@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import request from 'supertest'
 import app from '../src/server.js'
 import { storageService } from '../src/services/storageService.js'
-import { User } from '../src/models/user.js'
+import { authService } from '../src/services/authService.js'
 
-const U = 'usr_comm_review_test'
+let U
+let token
 const created = []
 
 function cleanup() {
@@ -17,42 +18,47 @@ function cleanup() {
 
 describe('影评社区 /api/community/reviews', () => {
   before(() => {
-    storageService.createUser(
-      new User({
-        id: U,
-        name: 'ReviewAuthor',
-        preferenceTags: ['sci-fi'],
-        scoreStyle: { story: 7, visual: 7, performance: 7, soundtrack: 7 },
-      })
-    )
+    const reg = authService.register({
+      username: `review${Date.now()}`,
+      email: `review-${Date.now()}@example.com`,
+      password: 'secret-123',
+    })
+    U = reg.user.id
+    token = reg.token
+    storageService.data.users[U].preferenceTags = ['sci-fi']
+    storageService.data.users[U].scoreStyle = { story: 7, visual: 7, performance: 7, soundtrack: 7 }
   })
 
   after(cleanup)
 
-  it('POST /reviews 缺 title/userId 返回 400', async () => {
-    let res = await request(app).post('/api/community/reviews').send({ userId: U })
-    assert.equal(res.status, 400)
-    res = await request(app).post('/api/community/reviews').send({ title: 'no user' })
+  it('POST /reviews 缺 title 返回 400', async () => {
+    const res = await request(app)
+      .post('/api/community/reviews')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ userId: U })
     assert.equal(res.status, 400)
   })
 
   it('POST /reviews 创建 201，四维评分与 movieTags 正确落库', async () => {
-    const res = await request(app).post('/api/community/reviews').send({
-      userId: U,
-      title: 'Dune - 沙漠史诗',
-      movieId: 'mov_dune',
-      content: 'sand and spice',
-      storyScore: 8,
-      visualScore: 10,
-      performanceScore: 7,
-      soundtrackScore: 9,
-      movieTags: ['sci-fi', 'epic'],
-    })
+    const res = await request(app)
+      .post('/api/community/reviews')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        userId: 'spoofed-user',
+        title: 'Dune - 沙漠史诗',
+        movieId: 'mov_dune',
+        content: 'sand and spice',
+        storyScore: 8,
+        visualScore: 10,
+        performanceScore: 7,
+        soundtrackScore: 9,
+        movieTags: ['sci-fi', 'epic'],
+      })
     assert.equal(res.status, 201)
     assert.equal(res.body.success, true)
+    assert.equal(res.body.data.userId, U)
     assert.ok(res.body.data.id)
     created.push(res.body.data.id)
-    // overallScore = (8+10+7+9)/4 = 8.5
     assert.equal(res.body.data.overallScore, 8.5)
     assert.deepEqual(res.body.data.movieTags, ['sci-fi', 'epic'])
   })
@@ -76,7 +82,10 @@ describe('影评社区 /api/community/reviews', () => {
   it('POST /reviews/:id/like 点赞 +1', async () => {
     const id = created[0]
     const before = await request(app).get(`/api/community/reviews/${id}`)
-    const liked = await request(app).post(`/api/community/reviews/${id}/like`).send({})
+    const liked = await request(app)
+      .post(`/api/community/reviews/${id}/like`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({})
     assert.equal(liked.status, 200)
     assert.equal(liked.body.data.likeCount, (before.body.data.likeCount || 0) + 1)
   })

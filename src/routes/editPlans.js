@@ -18,7 +18,7 @@ router.post('/generate', async (req, res) => {
     const plan = await editPlanService.generatePlan(
       projectId,
       { profile, targetDuration, bgmId },
-      req.user?.id || 'default'
+      req.userId
     )
     res.status(201).json(plan)
   } catch (error) {
@@ -28,7 +28,7 @@ router.post('/generate', async (req, res) => {
 
 router.get('/:projectId', async (req, res) => {
   try {
-    const plan = await editPlanService.getPlan(req.params.projectId, req.user?.id || 'default')
+    const plan = await editPlanService.getPlan(req.params.projectId, req.userId)
     if (!plan) return res.status(404).json({ error: '尚未生成剪辑方案' })
     res.json(plan)
   } catch (error) {
@@ -38,7 +38,7 @@ router.get('/:projectId', async (req, res) => {
 
 router.delete('/:projectId', async (req, res) => {
   try {
-    res.json(await editPlanService.clearPlan(req.params.projectId, req.user?.id || 'default'))
+    res.json(await editPlanService.clearPlan(req.params.projectId, req.userId))
   } catch (error) {
     sendError(res, error)
   }
@@ -46,7 +46,7 @@ router.delete('/:projectId', async (req, res) => {
 
 router.post('/:projectId/render', async (req, res) => {
   try {
-    const result = await editPlanService.renderPlan(req.params.projectId, req.user?.id || 'default')
+    const result = await editPlanService.renderPlan(req.params.projectId, req.userId)
     res.json(result)
   } catch (error) {
     sendError(res, error)

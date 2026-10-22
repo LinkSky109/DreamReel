@@ -1,4 +1,5 @@
 import { projectService } from '../services/projectService.js'
+import { ANONYMOUS_USER_ID } from './identity.js'
 
 /**
  * 项目所有权校验基础机制（R36 / T16-001 / R3-T3.1）
@@ -20,7 +21,7 @@ import { projectService } from '../services/projectService.js'
  * @returns {Promise<{project: object, userId: string}|null>} 校验通过返回项目与用户 ID；失败时已发送 404/403 响应，返回 null
  */
 export async function requireProjectAccess(req, res, projectId) {
-  const userId = req.user?.id || 'default'
+  const userId = req.userId
 
   if (!projectId) {
     res.status(400).json({ error: '缺少项目 ID' })
@@ -35,7 +36,7 @@ export async function requireProjectAccess(req, res, projectId) {
     return null
   }
 
-  if (project.userId !== userId) {
+  if ((project.userId ?? ANONYMOUS_USER_ID) !== userId) {
     res.status(403).json({ error: '无权操作该项目' })
     return null
   }
@@ -61,7 +62,7 @@ export async function requireProjectOwnership(req, res, { projectIdParam = 'proj
  * @returns {{item: object, userId: string}|null} 校验通过返回回收站条目；失败时已发送 404/403 响应，返回 null
  */
 export function requireRecycleBinOwnership(req, res, { projectIdParam = 'projectId' } = {}) {
-  const userId = req.user?.id || 'default'
+  const userId = req.userId
 
   const item = projectService.recycleBin.get(req.params[projectIdParam])
   if (!item) {
@@ -69,7 +70,7 @@ export function requireRecycleBinOwnership(req, res, { projectIdParam = 'project
     return null
   }
 
-  if ((item.project.userId || 'default') !== userId) {
+  if ((item.project.userId ?? ANONYMOUS_USER_ID) !== userId) {
     res.status(403).json({ error: '无权操作该项目' })
     return null
   }

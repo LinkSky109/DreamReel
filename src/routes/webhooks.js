@@ -5,7 +5,7 @@ const router = Router()
 
 /** 身份只来自 req.auth/req.user；无登录态时保持旧行为（default），生产由 authGate 拦截。 */
 function currentUserId(req) {
-  return req.user?.id || req.auth?.userId || 'default'
+  return req.userId
 }
 
 /**

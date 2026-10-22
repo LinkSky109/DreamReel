@@ -9,7 +9,7 @@ const router = Router()
  */
 router.get('/dashboard', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     const dashboard = statsService.getDashboard(userId)
     res.json(dashboard)
   } catch (error) {
@@ -23,7 +23,7 @@ router.get('/dashboard', (req, res) => {
  */
 router.get('/overview', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     res.json(statsService.getOverview(userId))
   } catch (error) {
     res.status(400).json({ error: error.message })
@@ -36,7 +36,7 @@ router.get('/overview', (req, res) => {
  */
 router.get('/trend', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     const days = parseInt(req.query.days, 10) || 14
     res.json(statsService.getTrend(userId, days))
   } catch (error) {
@@ -50,7 +50,7 @@ router.get('/trend', (req, res) => {
  */
 router.get('/styles', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     res.json(statsService.getStyleDistribution(userId))
   } catch (error) {
     res.status(400).json({ error: error.message })
@@ -63,7 +63,7 @@ router.get('/styles', (req, res) => {
  */
 router.get('/quota', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     res.json(statsService.getQuotaUsage(userId))
   } catch (error) {
     res.status(400).json({ error: error.message })

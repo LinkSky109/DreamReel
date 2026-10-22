@@ -56,7 +56,7 @@ router.post('/:projectId/view', async (req, res) => {
 // 点赞
 router.post('/:projectId/like', async (req, res) => {
   try {
-    const r = await galleryService.toggleLike(req.params.projectId, req.body.userId || req.user?.id)
+    const r = await galleryService.toggleLike(req.params.projectId, req.userId)
     res.json(r)
   } catch (e) {
     res.status(400).json({ error: e.message })
@@ -67,7 +67,7 @@ router.post('/:projectId/like', async (req, res) => {
 router.post('/:projectId/remix', async (req, res) => {
   try {
     const result = await galleryService.remix(req.params.projectId, {
-      userId: req.body.userId || req.user?.id || 'default',
+      userId: req.userId,
       newName: req.body.newName,
     })
     res.json({ success: true, ...result })

@@ -6,7 +6,7 @@ const router = Router()
 // 获取通知列表
 router.get('/', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     const { unread, limit } = req.query
     const notifications = notificationService.getByUser(userId, {
       unreadOnly: unread === 'true',
@@ -22,7 +22,7 @@ router.get('/', (req, res) => {
 // 获取未读数量
 router.get('/unread-count', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     const count = notificationService.getUnreadCount(userId)
     res.json({ count })
   } catch (error) {
@@ -46,7 +46,7 @@ router.post('/:id/read', (req, res) => {
 // 标记全部已读
 router.post('/read-all', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     const result = notificationService.markAllAsRead(userId)
     res.json(result)
   } catch (error) {
@@ -70,7 +70,7 @@ router.delete('/:id', (req, res) => {
 // 清除所有通知
 router.delete('/', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     const result = notificationService.clearAll(userId)
     res.json(result)
   } catch (error) {
@@ -81,7 +81,7 @@ router.delete('/', (req, res) => {
 // 获取通知偏好
 router.get('/preferences', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     const preferences = notificationService.getPreferences(userId)
     res.json({ preferences })
   } catch (error) {
@@ -92,7 +92,7 @@ router.get('/preferences', (req, res) => {
 // 更新通知偏好
 router.patch('/preferences', (req, res) => {
   try {
-    const userId = req.user?.id || 'default'
+    const userId = req.userId
     const updates = req.body || {}
     const preferences = notificationService.updatePreferences(userId, updates)
     res.json({ preferences })

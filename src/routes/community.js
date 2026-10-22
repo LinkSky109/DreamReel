@@ -16,6 +16,7 @@ import {
   markAsRead as markCommunityNotificationRead,
   markAllAsRead as markAllCommunityRead,
 } from '../services/communityNotificationService.js'
+import { storageService } from '../services/storageService.js'
 
 /**
  * 影评社区（Wave 2）路由，挂载于 /api/community。
@@ -34,7 +35,7 @@ import {
 const router = Router()
 
 function resolveUserId(req) {
-  return req.user?.id || req.query?.userId || req.body?.userId || null
+  return req.userId
 }
 
 // 热评榜单
@@ -69,7 +70,7 @@ router.get('/recommendations', async (req, res) => {
 router.post('/reviews', async (req, res) => {
   try {
     const body = req.body || {}
-    const userId = req.user?.id || body.userId
+    const userId = req.userId
     if (!body.title || !userId) {
       return res.status(400).json({ success: false, error: 'userId and title required' })
     }
@@ -113,7 +114,7 @@ router.get('/reviews/:id', async (req, res) => {
 router.post('/reviews/:id/like', async (req, res) => {
   try {
     const review = likeReview(req.params.id)
-    const actor = req.user?.id || req.body?.userId
+    const actor = req.userId
     if (actor && review.userId && actor !== review.userId) {
       createNotification({
         userId: review.userId,
@@ -160,7 +161,7 @@ router.get('/notifications/unread-count', async (req, res) => {
 // 全部已读
 router.post('/notifications/read-all', async (req, res) => {
   try {
-    const userId = req.user?.id || req.body?.userId
+    const userId = req.userId
     if (!userId) return res.status(400).json({ success: false, error: 'userId required' })
     res.json({ success: true, data: markAllCommunityRead(userId) })
   } catch (error) {
@@ -171,6 +172,11 @@ router.post('/notifications/read-all', async (req, res) => {
 // 单条已读
 router.post('/notifications/:id/read', async (req, res) => {
   try {
+    const notification = storageService.getNotificationById(req.params.id)
+    if (!notification) return res.status(404).json({ success: false, error: 'Notification not found' })
+    if (notification.userId !== req.userId) {
+      return res.status(403).json({ success: false, error: '无权操作该通知' })
+    }
     const result = markCommunityNotificationRead(req.params.id)
     if (!result) return res.status(404).json({ success: false, error: 'Notification not found' })
     res.json({ success: true, data: result })
@@ -183,7 +189,7 @@ router.post('/notifications/:id/read', async (req, res) => {
 router.post('/reports', async (req, res) => {
   try {
     const { reviewId, reason } = req.body || {}
-    const reporterId = req.user?.id || req.body?.reporterId
+    const reporterId = req.userId
     if (!reviewId || !reporterId || !reason) {
       return res.status(400).json({ success: false, error: 'reviewId, reporterId, reason required' })
     }
@@ -236,7 +242,7 @@ router.get('/reports/:id', async (req, res) => {
 router.post('/reports/:id/process', async (req, res) => {
   try {
     const { decision, adminNote } = req.body || {}
-    const adminId = req.user?.id || req.body?.adminId
+    const adminId = req.userId
     if (!decision || !adminId) {
       return res.status(400).json({ success: false, error: 'decision and adminId required' })
     }
