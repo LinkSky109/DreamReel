@@ -4,12 +4,32 @@ import crypto from 'crypto'
  * 用户模型
  */
 export class User {
-  constructor({ id, username, email, passwordHash, salt, defaultProviderPreferences, preferenceTags, scoreStyle, createdAt, updatedAt }) {
+  constructor({
+    id,
+    username,
+    email,
+    passwordHash,
+    salt,
+    roles,
+    role,
+    orgId,
+    scopes,
+    defaultProviderPreferences,
+    preferenceTags,
+    scoreStyle,
+    createdAt,
+    updatedAt,
+  }) {
     this.id = id
     this.username = username
     this.email = email
     this.passwordHash = passwordHash
     this.salt = salt
+    // 鉴权上下文（RBAC）：角色/组织/scope 必须随用户一起还原，否则 requirePermission 永远无权限
+    this.roles = Array.isArray(roles) ? roles : role ? [role] : []
+    this.role = role || this.roles[0] || null
+    this.orgId = orgId || 'default'
+    this.scopes = Array.isArray(scopes) ? scopes : []
     // Phase 1: 全局默认 Provider 偏好
     this.defaultProviderPreferences = defaultProviderPreferences || {
       video: null,
@@ -45,6 +65,10 @@ export class User {
       id: this.id,
       username: this.username,
       email: this.email,
+      roles: this.roles,
+      role: this.role,
+      orgId: this.orgId,
+      scopes: this.scopes,
       defaultProviderPreferences: this.defaultProviderPreferences,
       preferenceTags: this.preferenceTags,
       scoreStyle: this.scoreStyle,
