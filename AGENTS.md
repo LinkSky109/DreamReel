@@ -15,7 +15,7 @@
 3. 迁移只增不改；已应用迁移由 checksum 保护。
 4. 新接口默认鉴权；公开接口显式加入 `src/middleware/authGate.js` 白名单。
 5. 交付必须带验证证据；`npm run check` 通过才算完成。
-6. 小说域只走 PostgreSQL：不存在读/写模式开关；`db.json` 仅保留非小说集合。回滚优先改 `OUTBOX_ENABLED`、`REQUIRE_AUTH` 等非小说开关；小说数据回滚只用 `pg_dump`/PITR。
+6. 小说域只走 PostgreSQL：不存在读/写模式开关；`db.json` 仅保留非小说集合。回滚优先改 `REQUIRE_AUTH` 等非小说开关；小说数据回滚只用 `pg_dump`/PITR。
 7. 不提交 `.env`、密钥、构建缓存。
 
 ## 常用命令
@@ -27,7 +27,6 @@ npm run db:status
 npm run db:verify:novels
 npm run db:verify:novel-children
 npm run series:verify -- <novelId>
-npm run outbox:stats
 ```
 
 > `npm run check:legacy` 已接入 `npm run check`；当前必须保持 0 违规。

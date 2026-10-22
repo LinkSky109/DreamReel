@@ -83,5 +83,5 @@ grep -E "novel-child-write|novel-write|回退" /tmp/dreamreel-dev.log || true
 ## 6. 已知边界
 
 - 测试使用独立 `_test` 库，结束后删除；不得写开发库。
-- `npm run outbox:stats` 仅用于非小说域；小说域不产生 outbox 事件。
+- 小说域 outbox worker/store 与 `outbox_events` 已删除；不再需要 outbox 运维。
 - 媒体仍在本地/网盘/NAS；PG 只存元数据。

@@ -62,7 +62,6 @@ npm run db:verify:novel-children
 - 冲突更新返回 `409`，非冲突更新 version 单调递增
 - 并发规划被串行化，无半套季/集
 - 任一实例挂掉后，其余实例读仍正常
-- 小说域不产生 outbox 事件；若同时验证其它域，`outbox_events` 无异常 dead
 
 ### 回滚
 

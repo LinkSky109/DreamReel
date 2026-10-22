@@ -46,7 +46,7 @@ npm run db:status
 | 小说 | `novels`、`novel_sources`、`novel_chunks`、`novel_characters`、`novel_character_states`、`novel_world_entities`、`seasons`、`episodes`、`novel_asset_images`、`character_sets`、`world_sets` |
 | 小说规划 | `novel_plan_runs`、`novel_plan_artifacts` |
 | 媒体 | `media_objects`、`media_sync_jobs` |
-| 运维 | `outbox_events`（仅非小说域使用）、`audit_logs`、`idempotency_keys` |
+| 运维 | `audit_logs`、`idempotency_keys` |
 | 迁移 | `schema_migrations` |
 
 约定：
@@ -62,7 +62,7 @@ npm run db:status
 - `novel_sources.cleaned_text` 存清洗稿；`novel_chunks.content` 停止写入，正文按偏移读取。
 - 偏移是 UTF-16 code unit，只在 JS 侧 `slice(start, end)`。
 - `episodes.logical_key` + 部分唯一索引保证重排稳定；季使用 `(novel_id, season_no)`。
-- 小说域不产生 outbox 事件。
+- 小说域不产生 outbox 事件；`outbox_events` 已于迁移 013 删除。
 
 ## 4. Repository 契约
 
@@ -130,4 +130,4 @@ npm run series:verify -- <novelId>   # 季/集时长、覆盖、偏移
 4. 切读写；
 5. 删除旧存储调用，归档该域 JSON 集合。
 
-全站迁移完成后归档 `db.json`，停用 outbox worker，再删除过渡设施。
+全站迁移完成后归档 `db.json`，再删除过渡设施；小说域 outbox worker/store 已删除。

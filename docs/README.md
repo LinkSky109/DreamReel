@@ -113,51 +113,16 @@ DreamReel（梦卷）是一个 AI 短片创作平台：从一句话想法到成�
 |---|---|
 | `source/raw.txt` | 原始正文（GB18030 解码后） |
 | `source/cleaned.txt` | 清洗后正文（去水印/广告/重复标题，**以此为准**） |
-| `chunks/chunks.json` | 分章索引（`index` / `chapterTitle` / `wordCount`） |
-| `characters/characters.json` | 角色抽取结果（含别名与角色卡） |
-| `worldbuilding/entities.json` | 世界观实体 |
-| `art/assets.json` | 设定图集元数据 |
-| `episodes/<episodeId>.txt` | **每集源文本片段**（详见下节） |
-| `assets/<episodeId>.json` | 每集素材产物（图/音/视频） |
 | `handoff/<episodeId>/` | 单集生成提示交接包（`prompt.txt` + `spec.json` + `refs/`） |
 | `sync/ledger.json` | 云盘同步台账 |
 
-## 6. `episodes/` 目录说明（重点）
+## 6. 集正文与媒体（旧 JSON 产物已移除）
 
-路径：`storage/novels/<novelId>/episodes/`
-
-### 内容
-
-- 该目录下是**按「集」切分并落盘的小说源文本片段**，每个 `.txt` 文件对应一集。
-- 文件名 = 该集的 `episode.id`（16 位十六进制，由 `src/utils/idGenerator.js` 的 FNV-1a 生成，如 `ef9ba1cac7c0ba45.txt`）。
-- 文件内容是这一集要改编的小说正文（来自 `source/cleaned.txt` 的对应片段）。
-- 旧版《殖装》工作区保留约 8400 个文件；当前 PG 基线为 **33 季 / 8496 集 / 1206 章**。
-
-### 生成方式（历史/兼容）
-
-旧版分季分集会写出 `episodes/<episodeId>.txt` 并记录 `episode.sourceFile`，服务再按文件读取正文。
-PG-only 后新数据不再依赖该文件：季/集写入 PostgreSQL，正文按 `start_offset/end_offset`
-从 `novel_sources.cleaned_text` 切片。`episodes/*.txt` 仅用于旧项目兼容，按移除计划 Phase 5 清理。
-
-### 切分规则
-
-- **1 章 ≥ 1 集**：短章直接对应 1 集；长章按目标时长切成多集（如「第一节 废墟中的男子」被切成 1/9 … 9/9）。
-- 正常文件约 1–1.3 KB，即该集的正文片段。
-- **极小文件（约 43–52 字节）**：如 `f9b54723037b5c92.txt` 内容为 `第二卷宇宙佣兵]第四二二节抵达`。这类是集内片段为空、只剩章节标题的占位文件，属于切分产生的边界情况，不是损坏。
-
-### 命名与元数据
-
-文件名本身不携带语义，**集标题/序号需查 PostgreSQL**：
-
-```sql
-SELECT id, episode_no, title, target_seconds, logical_key, status
-FROM episodes WHERE id = 'ef9ba1cac7c0ba45';
-```
-
-例如 `ef9ba1cac7c0ba45` → `episode_no: 1`、`title: "第一节 废墟中的男子（1/9）"`、`status: "composed"`。
-
-> PG-only 后正文按 `start_offset/end_offset` 从 `novel_sources.cleaned_text` 切片；
-> `episodes/*.txt` 是旧版兼容产物，不再作为事实源，按移除计划 Phase 5 清理。
+- 季/集/正文/角色/世界观/资产/状态均在 PostgreSQL；正文按 `start_offset/end_offset`
+  从 `novel_sources.cleaned_text` 切片。
+- 不再生成 `episodes/<id>.txt`、`assets/<id>.json`、`chunks.json`、`characters.json`、
+  `entities.json`、`art/assets.json`。
+- 媒体文件在 `storage/images|videos|audio/novels/<id>/`；PG 只存元数据与 URL。
 
 ## 7. 文档 `docs/`
 

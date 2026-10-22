@@ -127,7 +127,7 @@ await withNovelTransaction(novelId, async (tx) => {
 - 批量插入使用多值 `INSERT ... ON CONFLICT`；8–9k 行在单事务内可接受。
 - 单条编辑（剧本、大纲、状态）用 `version` 乐观锁，不抢占小说级 advisory lock。
 - 多实例安全：advisory lock 是数据库级，跨进程生效。
-- 小说域**不产生 outbox 事件**；outbox 仅服务尚未迁移的其它域。
+- 小说域**不产生 outbox 事件**；outbox worker/store 与 `outbox_events` 已删除。
 
 ## 8. 读路径与 API 兼容
 
@@ -166,7 +166,7 @@ await withNovelTransaction(novelId, async (tx) => {
 | Phase 0 | 冻结基线、`pg_dump` + 归档备份、恢复演练可执行 | ✅ |
 | Phase 1 | 测试迁 PG：移除测试编排的 JSON 小说模式，fixture 全部写 PG | ✅ |
 | Phase 2 | 删除读适配器与同步导出：读服务统一 PG，`getNovelProject` 异步 | ✅ |
-| Phase 3 | 删除写模式与 outbox 镜像：配置、健康检查、镜像调度、小说 outbox | ✅ |
+| Phase 3 | 删除写模式与 outbox 镜像/worker/store/outbox_events | ✅ |
 | Phase 4 | 删除 JSON 投影与 `db.json` 小说集合：启动水合、归档运行时、JSON CRUD | ✅ |
 | Phase 5 | 删除同步生成/规划/资产残留，CLI 全部异步 PG | ✅ |
 | Phase 6 | 文档与门禁收口：本文件、database、runbook、AGENTS、`check:legacy` | ✅ 文档与门禁已落地 |
