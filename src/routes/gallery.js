@@ -1,5 +1,8 @@
 import { Router } from 'express'
 import { galleryService } from '../services/galleryService.js'
+import { validateBody } from '../middleware/validate.js'
+import { requireProjectOwnership } from '../middleware/projectAccess.js'
+import { galleryPublishSchema, galleryRemixSchema, galleryLikeSchema } from '../contracts/gallery.js'
 
 const router = Router()
 
@@ -22,10 +25,12 @@ router.get('/', async (req, res) => {
 })
 
 // 发布
-router.post('/:projectId/publish', async (req, res) => {
+router.post('/:projectId/publish', validateBody(galleryPublishSchema), async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const project = await galleryService.publish(req.params.projectId, {
-      category: req.body.category,
+      category: req.validated.body.category,
     })
     res.json({ success: true, project })
   } catch (e) {
@@ -36,6 +41,8 @@ router.post('/:projectId/publish', async (req, res) => {
 // 下架
 router.post('/:projectId/unpublish', async (req, res) => {
   try {
+    const guard = await requireProjectOwnership(req, res)
+    if (!guard) return
     const r = await galleryService.unpublish(req.params.projectId)
     res.json(r)
   } catch (e) {
@@ -54,7 +61,7 @@ router.post('/:projectId/view', async (req, res) => {
 })
 
 // 点赞
-router.post('/:projectId/like', async (req, res) => {
+router.post('/:projectId/like', validateBody(galleryLikeSchema), async (req, res) => {
   try {
     const r = await galleryService.toggleLike(req.params.projectId, req.userId)
     res.json(r)
@@ -64,11 +71,11 @@ router.post('/:projectId/like', async (req, res) => {
 })
 
 // R25: 一键复刻广场作品
-router.post('/:projectId/remix', async (req, res) => {
+router.post('/:projectId/remix', validateBody(galleryRemixSchema), async (req, res) => {
   try {
     const result = await galleryService.remix(req.params.projectId, {
       userId: req.userId,
-      newName: req.body.newName,
+      newName: req.validated.body.newName,
     })
     res.json({ success: true, ...result })
   } catch (e) {

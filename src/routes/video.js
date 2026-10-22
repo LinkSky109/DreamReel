@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { z } from 'zod'
 import { videoService } from '../services/videoService.js'
 import { projectService } from '../services/projectService.js'
 import { requireProjectAccess, requireProjectOwnership } from '../middleware/projectAccess.js'
@@ -10,6 +11,16 @@ import { notificationService, NOTIFICATION_TYPE } from '../services/notification
 import { webhookService } from '../services/webhookService.js'
 import { generationHistoryService } from '../services/generationHistoryService.js'
 import { SHOT_STATUS } from '../models/shot.js'
+import { validateBody, validateQuery } from '../middleware/validate.js'
+import {
+  videoGenerateSchema,
+  videoRegenerateSchema,
+  videoCandidatesSchema,
+  shotLockSchema,
+  shotUpdateSchema,
+  shotVersionSchema,
+  continuityQuerySchema,
+} from '../contracts/video.js'
 import logger from '../utils/logger.js'
 
 const router = Router()
@@ -37,9 +48,9 @@ async function updateShotInProject(projectId, shotId, updates) {
 }
 
 // 生成单个镜头
-router.post('/generate', async (req, res) => {
+router.post('/generate', validateBody(videoGenerateSchema), async (req, res) => {
   try {
-    const { projectId, shotId, prompt, referenceImages, duration, resolution, aspectRatio, styleId } = req.body
+    const { projectId, shotId, prompt, referenceImages, duration, resolution, aspectRatio, styleId } = req.validated.body
     const uid = req.userId
 
     if (!projectId || !prompt) {
@@ -126,9 +137,9 @@ router.post('/generate', async (req, res) => {
 })
 
 // 批量生成项目所有镜头
-router.post('/generate-all/:projectId', async (req, res) => {
+router.post('/generate-all/:projectId', validateBody(z.object({ styleId: z.string().trim().max(64).optional() })), async (req, res) => {
   try {
-    const { styleId } = req.body
+    const { styleId } = req.validated.body
     const uid = req.userId
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
@@ -410,9 +421,9 @@ router.get('/queue/history', async (req, res) => {
 /**
  * 单镜头重新生成
  */
-router.post('/regenerate', async (req, res) => {
+router.post('/regenerate', validateBody(videoRegenerateSchema), async (req, res) => {
   try {
-    const { projectId, shotId, newPrompt, styleId } = req.body
+    const { projectId, shotId, newPrompt, styleId } = req.validated.body
     const uid = req.userId
 
     if (!projectId || !shotId) {
@@ -477,9 +488,9 @@ router.post('/regenerate', async (req, res) => {
 /**
  * 生成多个候选版本
  */
-router.post('/candidates', async (req, res) => {
+router.post('/candidates', validateBody(videoCandidatesSchema), async (req, res) => {
   try {
-    const { projectId, shotId, count = 3, styleId } = req.body
+    const { projectId, shotId, count = 3, styleId } = req.validated.body
     const uid = req.userId
 
     if (!projectId || !shotId) {
@@ -537,9 +548,9 @@ router.post('/candidates', async (req, res) => {
 /**
  * 锁定/解锁镜头
  */
-router.put('/shots/:shotId/lock', async (req, res) => {
+router.put('/shots/:shotId/lock', validateBody(shotLockSchema), async (req, res) => {
   try {
-    const { projectId, locked } = req.body
+    const { projectId, locked } = req.validated.body
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' })
     }
@@ -562,9 +573,9 @@ router.put('/shots/:shotId/lock', async (req, res) => {
 /**
  * 更新镜头描述
  */
-router.put('/shots/:shotId', async (req, res) => {
+router.put('/shots/:shotId', validateBody(shotUpdateSchema), async (req, res) => {
   try {
-    const { projectId, description, duration, dialogue, narration, sceneId, characterActions } = req.body
+    const { projectId, description, duration, dialogue, narration, sceneId, characterActions } = req.validated.body
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' })
     }
@@ -595,9 +606,9 @@ router.put('/shots/:shotId', async (req, res) => {
 /**
  * 切换到历史版本
  */
-router.post('/shots/:shotId/version/:versionIndex', async (req, res) => {
+router.post('/shots/:shotId/version/:versionIndex', validateBody(shotVersionSchema), async (req, res) => {
   try {
-    const { projectId } = req.body
+    const { projectId } = req.validated.body
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' })
     }
@@ -620,9 +631,9 @@ router.post('/shots/:shotId/version/:versionIndex', async (req, res) => {
 /**
  * R08：场景与角色连续性检查
  */
-router.get('/continuity/check', async (req, res) => {
+router.get('/continuity/check', validateQuery(continuityQuerySchema), async (req, res) => {
   try {
-    const { projectId } = req.query
+    const { projectId } = req.validated.query
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' })
     }

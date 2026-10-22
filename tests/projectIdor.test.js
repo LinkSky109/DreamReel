@@ -75,6 +75,8 @@ describe('项目读取/写入越权', () => {
     ['get', (id) => `/api/projects/${id}/export`],
     ['get', (id) => `/api/projects/${id}/model-config`],
     ['put', (id) => `/api/projects/${id}/model-config`],
+    ['post', (id) => `/api/gallery/${id}/publish`],
+    ['post', (id) => `/api/gallery/${id}/unpublish`],
   ]
 
   for (const [method, build] of cases) {
