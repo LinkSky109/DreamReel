@@ -61,9 +61,8 @@ const config = {
     maxAttempts: parseInt(process.env.OUTBOX_MAX_ATTEMPTS, 10) || 8,
     lockTimeoutSeconds: parseInt(process.env.OUTBOX_LOCK_TIMEOUT_SECONDS, 10) || 120,
   },
-  // novels 写模式：legacy(测试) | dual(回滚) | postgres(生产)
+  // 小说域固定使用 PostgreSQL（无 legacy/dual 写模式）
   novels: {
-    writeMode: process.env.NOVEL_WRITE_MODE || 'legacy',
     orgId: process.env.DEFAULT_ORG_ID || 'default',
   },
 

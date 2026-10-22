@@ -2,25 +2,9 @@ import fs from 'fs'
 import path from 'path'
 import config from '../config/index.js'
 import logger from '../utils/logger.js'
-import { novelChildMirror } from './novelChildWriteSync.js'
 
 const DATA_DIR = path.resolve(config.storage.path, 'data')
 const DATA_FILE = path.join(DATA_DIR, 'db.json')
-const ARCHIVE_DIR = path.resolve(config.storage.path, 'archive')
-
-/** 小说域集合：postgres 模式下只存在于 PG 与内存投影，不写 db.json。 */
-const NOVEL_COLLECTIONS = [
-  'novelProjects',
-  'novelChunks',
-  'novelCharacters',
-  'novelCharacterStates',
-  'seriesSeasons',
-  'seriesEpisodes',
-  'novelWorldEntities',
-  'novelAssetImages',
-  'characterSets',
-  'worldSets',
-]
 
 // 确保目录存在
 if (!fs.existsSync(DATA_DIR)) {
@@ -28,11 +12,13 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 /**
- * 简单 JSON 文件持久化层
+ * 简单 JSON 文件持久化层（仅非小说域）
  * - 内存中维护完整数据快照
  * - 写入时异步落盘（debounce）
  * - 启动时自动加载
  * - 原子写入（tmp + rename）
+ *
+ * 小说域已固定 PostgreSQL 单源，本文件不再持有/读写任何小说集合。
  */
 class StorageService {
   constructor() {
@@ -44,130 +30,7 @@ class StorageService {
     }
     this.saveTimer = null
     this.saveDelay = 500 // ms debounce
-    this.novelsHydrated = false
     this.load()
-  }
-
-  _novelsUsePg() {
-    return config.novels.writeMode === 'postgres'
-  }
-
-  _skipPgHydrate() {
-    return (
-      process.env.NOVEL_SKIP_PG_HYDRATE === '1' ||
-      /restore-novel-from-json|backfill-novel-write-model|migrate-novel-children-to-pg/.test(
-        process.argv[1] || ''
-      )
-    )
-  }
-
-  /**
-   * Phase 3c：启动时从 PG 水合小说集合到内存投影。
-   * - 不再把小说集合写回 db.json；
-   * - 首次运行把 db.json 里的小说集合归档到 storage/archive/ 后移除。
-   */
-  async hydrateNovelsFromPg() {
-    this.novelsHydrated = false
-    if (!this._novelsUsePg() || this._skipPgHydrate()) return { skipped: true }
-    const { getPool } = await import('../db/client.js')
-    const { getSpec } = await import('../repositories/novelChildRepository.js')
-    const pool = await getPool()
-    const orgId = config.novels.orgId
-
-    const novelRows = (
-      await pool.query(
-        'SELECT * FROM novels WHERE org_id = $1 AND deleted_at IS NULL ORDER BY updated_at DESC',
-        [orgId]
-      )
-    ).rows
-    const localNovels = Object.keys(this.data.novelProjects || {}).length
-    if (!novelRows.length && localNovels) {
-      throw new Error(
-        `PostgreSQL 中没有任何小说，但本地 JSON 有 ${localNovels} 部；` +
-          '拒绝水合/归档以免误删。请先恢复/回填 PostgreSQL，或设置 NOVEL_SKIP_PG_HYDRATE=1 使用 JSON。'
-      )
-    }
-    const childSpecs = [
-      ['novelChunks', 'chunks', 'novel_chunks'],
-      ['novelCharacters', 'characters', 'novel_characters'],
-      ['novelWorldEntities', 'entities', 'novel_world_entities'],
-      ['seriesSeasons', 'seasons', 'seasons'],
-      ['seriesEpisodes', 'episodes', 'episodes'],
-      ['novelCharacterStates', 'states', 'novel_character_states'],
-      ['novelAssetImages', 'assets', 'novel_asset_images'],
-      ['characterSets', 'characterSets', 'character_sets'],
-      ['worldSets', 'worldSets', 'world_sets'],
-    ]
-    const collections = {}
-    collections.novelProjects = Object.fromEntries(
-      novelRows.map((row) => {
-        const doc = {
-          ...(row.payload || {}),
-          id: row.id,
-          orgId: row.org_id,
-          ownerId: row.owner_id || undefined,
-          title: row.title,
-          status: row.status,
-          version: row.version,
-          createdAt: row.created_at?.toISOString?.() || row.created_at,
-          updatedAt: row.updated_at?.toISOString?.() || row.updated_at,
-        }
-        return [doc.id, doc]
-      })
-    )
-    for (const [key, kind, table] of childSpecs) {
-      const spec = getSpec(kind)
-      const rows = (
-        await pool.query(
-          `SELECT * FROM ${table} WHERE org_id = $1 AND deleted_at IS NULL ORDER BY ${spec.order[0]} ${spec.order[1]}`,
-          [orgId]
-        )
-      ).rows
-      collections[key] = Object.fromEntries(rows.map((row) => [row.id, spec.toDoc(row)]))
-    }
-
-    // 查询成功后再归档/移除旧 JSON，避免 PG 不可用时丢数据。
-    this._archiveNovelCollections()
-    for (const key of NOVEL_COLLECTIONS) this.data[key] = collections[key] || {}
-    this.novelsHydrated = true
-    this._flush()
-    logger.info('[storage] 小说集合已从 PostgreSQL 水合', {
-      novels: Object.keys(this.data.novelProjects).length,
-      chunks: Object.keys(this.data.novelChunks).length,
-      characters: Object.keys(this.data.novelCharacters).length,
-      episodes: Object.keys(this.data.seriesEpisodes).length,
-    })
-    return { ok: true }
-  }
-
-  _archiveNovelCollections() {
-    const collections = {}
-    let count = 0
-    for (const key of NOVEL_COLLECTIONS) {
-      const bucket = this.data[key]
-      if (bucket && typeof bucket === 'object' && Object.keys(bucket).length) {
-        collections[key] = bucket
-        count += Object.keys(bucket).length
-      }
-    }
-    if (!count) return
-    try {
-      fs.mkdirSync(ARCHIVE_DIR, { recursive: true })
-      const file = path.join(ARCHIVE_DIR, `novels-from-db-${Date.now()}.json`)
-      fs.writeFileSync(file, JSON.stringify({ archivedAt: new Date().toISOString(), source: DATA_FILE, collections }, null, 2))
-      logger.info(`[storage] 旧小说 JSON 已归档：${file}`)
-    } catch (error) {
-      logger.error('[storage] 旧小说 JSON 归档失败，保留 db.json 原样', { message: error.message })
-      throw error
-    }
-    for (const key of NOVEL_COLLECTIONS) delete this.data[key]
-  }
-
-  _persistedSnapshot() {
-    if (!this.novelsHydrated) return this.data
-    const out = { ...this.data }
-    for (const key of NOVEL_COLLECTIONS) delete out[key]
-    return out
   }
 
   /**
@@ -236,7 +99,7 @@ class StorageService {
   _flush() {
     try {
       const tmpFile = `${DATA_FILE}.tmp`
-      fs.writeFileSync(tmpFile, JSON.stringify(this._persistedSnapshot(), null, 2), 'utf-8')
+      fs.writeFileSync(tmpFile, JSON.stringify(this.data, null, 2), 'utf-8')
       fs.renameSync(tmpFile, DATA_FILE)
       logger.debug(`Storage flushed: ${Object.keys(this.data.projects).length} projects`)
     } catch (error) {
@@ -258,16 +121,6 @@ class StorageService {
       comments: {},
       notifications: {},
       reports: {},
-      novelProjects: {},
-      novelChunks: {},
-      novelCharacters: {},
-      novelCharacterStates: {},
-      seriesSeasons: {},
-      seriesEpisodes: {},
-      novelWorldEntities: {},
-      novelAssetImages: {},
-      characterSets: {},
-      worldSets: {},
       voiceAssets: {},
       meta: { version: 1, createdAt: new Date().toISOString() },
     }
@@ -472,302 +325,6 @@ class StorageService {
     return notification
   }
 
-  // ============ Novel series（小说→剧集） ============
-
-  createNovelProject(project) {
-    if (!this.data.novelProjects) this.data.novelProjects = {}
-    this.data.novelProjects[project.id] = project
-    this.save()
-    return project
-  }
-
-  getNovelProject(id) {
-    if (!this.data.novelProjects) return null
-    return this.data.novelProjects[id] || null
-  }
-
-  listNovelProjects() {
-    if (!this.data.novelProjects) return []
-    return Object.values(this.data.novelProjects)
-  }
-
-  updateNovelProject(project) {
-    if (!this.data.novelProjects) this.data.novelProjects = {}
-    this.data.novelProjects[project.id] = project
-    this.save()
-    return project
-  }
-
-  /**
-   * 删除小说项目及其所有关联记录（db 层）。
-   * 只删除 novelId 匹配的记录，不触碰其它项目；文件目录由上层服务清理。
-   */
-  deleteNovelProjectCascade(id) {
-    const exists = Boolean(this.data.novelProjects && this.data.novelProjects[id])
-    if (!exists) return { deleted: false, removed: {} }
-
-    const removed = {}
-    const purge = (key, predicate) => {
-      const bucket = this.data[key]
-      if (!bucket || typeof bucket !== 'object') return 0
-      let n = 0
-      for (const [rid, rec] of Object.entries(bucket)) {
-        if (predicate(rec, rid)) {
-          delete bucket[rid]
-          n += 1
-        }
-      }
-      if (n) removed[key] = n
-      return n
-    }
-
-    const belongs = (rec) => rec && rec.novelId === id
-    purge('novelChunks', belongs)
-    purge('novelCharacters', belongs)
-    purge('novelCharacterStates', belongs)
-    purge('seriesSeasons', belongs)
-    purge('seriesEpisodes', belongs)
-    purge('novelWorldEntities', belongs)
-    purge('novelAssetImages', belongs)
-    purge('characterSets', belongs)
-    purge('worldSets', belongs)
-    purge('versions', belongs)
-
-    delete this.data.novelProjects[id]
-    removed.novelProjects = 1
-    novelChildMirror.scheduleDeleteByNovel(id)
-    this.save()
-    return { deleted: true, removed }
-  }
-
-  createNovelChunk(chunk) {
-    if (!this.data.novelChunks) this.data.novelChunks = {}
-    this.data.novelChunks[chunk.id] = chunk
-    this.save()
-    novelChildMirror.scheduleUpsert('chunks', chunk)
-    return chunk
-  }
-
-  getNovelChunk(id) {
-    if (!this.data.novelChunks) return null
-    return this.data.novelChunks[id] || null
-  }
-
-  listNovelChunks(novelId) {
-    if (!this.data.novelChunks) return []
-    return Object.values(this.data.novelChunks).filter((c) => c.novelId === novelId)
-  }
-
-  updateNovelChunk(chunk) {
-    if (!this.data.novelChunks) this.data.novelChunks = {}
-    this.data.novelChunks[chunk.id] = chunk
-    this.save()
-    novelChildMirror.scheduleUpsert('chunks', chunk)
-    return chunk
-  }
-
-  createNovelCharacter(character) {
-    if (!this.data.novelCharacters) this.data.novelCharacters = {}
-    this.data.novelCharacters[character.id] = character
-    this.save()
-    novelChildMirror.scheduleUpsert('characters', character)
-    return character
-  }
-
-  getNovelCharacter(id) {
-    if (!this.data.novelCharacters) return null
-    return this.data.novelCharacters[id] || null
-  }
-
-  listNovelCharacters(novelId) {
-    if (!this.data.novelCharacters) return []
-    return Object.values(this.data.novelCharacters).filter((c) => c.novelId === novelId)
-  }
-
-  updateNovelCharacter(character) {
-    if (!this.data.novelCharacters) this.data.novelCharacters = {}
-    this.data.novelCharacters[character.id] = character
-    this.save()
-    novelChildMirror.scheduleUpsert('characters', character)
-    return character
-  }
-
-  createNovelCharacterState(state) {
-    if (!this.data.novelCharacterStates) this.data.novelCharacterStates = {}
-    this.data.novelCharacterStates[state.id] = state
-    this.save()
-    novelChildMirror.scheduleUpsert('states', state)
-    return state
-  }
-
-  listNovelCharacterStates(novelId, characterId) {
-    if (!this.data.novelCharacterStates) return []
-    return Object.values(this.data.novelCharacterStates).filter(
-      (s) => s.novelId === novelId && (!characterId || s.characterId === characterId)
-    )
-  }
-
-  getNovelCharacterState(id) {
-    if (!this.data.novelCharacterStates) return null
-    return this.data.novelCharacterStates[id] || null
-  }
-
-  updateNovelCharacterState(state) {
-    if (!this.data.novelCharacterStates) this.data.novelCharacterStates = {}
-    this.data.novelCharacterStates[state.id] = state
-    this.save()
-    novelChildMirror.scheduleUpsert('states', state)
-    return state
-  }
-
-  /** 删除某角色（或整部）在某集（或不限集）的状态记录 */
-  deleteNovelCharacterStates(novelId, characterId = null, episodeNo = null) {
-    if (!this.data.novelCharacterStates) return 0
-    let n = 0
-    for (const [id, s] of Object.entries(this.data.novelCharacterStates)) {
-      if (s.novelId !== novelId) continue
-      if (characterId && s.characterId !== characterId) continue
-      if (episodeNo !== null && episodeNo !== undefined && Number(s.episodeNo) !== Number(episodeNo)) continue
-      delete this.data.novelCharacterStates[id]
-      n += 1
-    }
-    if (n) {
-      this.save()
-      novelChildMirror.scheduleDeleteStates(novelId, characterId, episodeNo)
-    }
-    return n
-  }
-
-  // ============ Seasons / Episodes（分季分集） ============
-
-  createSeason(season) {
-    if (!this.data.seriesSeasons) this.data.seriesSeasons = {}
-    this.data.seriesSeasons[season.id] = season
-    this.save()
-    novelChildMirror.scheduleUpsert('seasons', season)
-    return season
-  }
-
-  listSeasons(novelId) {
-    if (!this.data.seriesSeasons) return []
-    return Object.values(this.data.seriesSeasons).filter((s) => s.novelId === novelId)
-  }
-
-  getSeason(id) {
-    if (!this.data.seriesSeasons) return null
-    return this.data.seriesSeasons[id] || null
-  }
-
-  deleteSeason(id) {
-    if (!this.data.seriesSeasons || !this.data.seriesSeasons[id]) return false
-    delete this.data.seriesSeasons[id]
-    this.save()
-    novelChildMirror.scheduleDelete('seasons', id)
-    return true
-  }
-
-  createEpisode(episode) {
-    if (!this.data.seriesEpisodes) this.data.seriesEpisodes = {}
-    this.data.seriesEpisodes[episode.id] = episode
-    this.save()
-    novelChildMirror.scheduleUpsert('episodes', episode)
-    return episode
-  }
-
-  listEpisodes(novelId, seasonId) {
-    if (!this.data.seriesEpisodes) return []
-    return Object.values(this.data.seriesEpisodes).filter(
-      (e) => e.novelId === novelId && (!seasonId || e.seasonId === seasonId)
-    )
-  }
-
-  getEpisode(id) {
-    if (!this.data.seriesEpisodes) return null
-    return this.data.seriesEpisodes[id] || null
-  }
-
-  updateEpisode(episode) {
-    if (!this.data.seriesEpisodes) this.data.seriesEpisodes = {}
-    this.data.seriesEpisodes[episode.id] = episode
-    this.save()
-    novelChildMirror.scheduleUpsert('episodes', episode)
-    return episode
-  }
-
-  deleteEpisode(id) {
-    if (!this.data.seriesEpisodes || !this.data.seriesEpisodes[id]) return false
-    delete this.data.seriesEpisodes[id]
-    this.save()
-    novelChildMirror.scheduleDelete('episodes', id)
-    return true
-  }
-
-  // ============ Worldbuilding（世界观实体） ============
-
-  createWorldEntity(entity) {
-    if (!this.data.novelWorldEntities) this.data.novelWorldEntities = {}
-    this.data.novelWorldEntities[entity.id] = entity
-    this.save()
-    novelChildMirror.scheduleUpsert('entities', entity)
-    return entity
-  }
-
-  getWorldEntity(id) {
-    if (!this.data.novelWorldEntities) return null
-    return this.data.novelWorldEntities[id] || null
-  }
-
-  listWorldEntities(novelId) {
-    if (!this.data.novelWorldEntities) return []
-    return Object.values(this.data.novelWorldEntities).filter((e) => e.novelId === novelId)
-  }
-
-  updateWorldEntity(entity) {
-    if (!this.data.novelWorldEntities) this.data.novelWorldEntities = {}
-    this.data.novelWorldEntities[entity.id] = entity
-    this.save()
-    novelChildMirror.scheduleUpsert('entities', entity)
-    return entity
-  }
-
-  // ============ 设定图集（Sprint 28） ============
-
-  createNovelAssetImage(asset) {
-    if (!this.data.novelAssetImages) this.data.novelAssetImages = {}
-    this.data.novelAssetImages[asset.id] = asset
-    this.save()
-    novelChildMirror.scheduleUpsert('assets', asset)
-    return asset
-  }
-
-  getNovelAssetImage(id) {
-    if (!this.data.novelAssetImages) return null
-    return this.data.novelAssetImages[id] || null
-  }
-
-  listNovelAssetImages(novelId) {
-    if (!this.data.novelAssetImages) return []
-    return Object.values(this.data.novelAssetImages).filter((a) => a.novelId === novelId)
-  }
-
-  updateNovelAssetImage(asset) {
-    if (!this.data.novelAssetImages) this.data.novelAssetImages = {}
-    this.data.novelAssetImages[asset.id] = asset
-    this.save()
-    novelChildMirror.scheduleUpsert('assets', asset)
-    return asset
-  }
-
-  deleteNovelAssetImage(id) {
-    if (!this.data.novelAssetImages || !this.data.novelAssetImages[id]) return false
-    delete this.data.novelAssetImages[id]
-    this.save()
-    novelChildMirror.scheduleDelete('assets', id)
-    return true
-  }
-
-  // ============ 备选集合（角色/世界观多次生成） ============
-
   // ============ 自建音色库（声音复刻 / 音色设计） ============
 
   createVoiceAsset(asset) {
@@ -795,34 +352,7 @@ class StorageService {
     this.save()
     return true
   }
-
-  createCharacterSet(set) {
-    if (!this.data.characterSets) this.data.characterSets = {}
-    this.data.characterSets[set.id] = set
-    this.save()
-    novelChildMirror.scheduleUpsert('characterSets', set)
-    return set
-  }
-
-  getCharacterSet(id) {
-    if (!this.data.characterSets) return null
-    return this.data.characterSets[id] || null
-  }
-
-  createWorldSet(set) {
-    if (!this.data.worldSets) this.data.worldSets = {}
-    this.data.worldSets[set.id] = set
-    this.save()
-    novelChildMirror.scheduleUpsert('worldSets', set)
-    return set
-  }
-
-  getWorldSet(id) {
-    if (!this.data.worldSets) return null
-    return this.data.worldSets[id] || null
-  }
 }
 
 export const storageService = new StorageService()
-await storageService.hydrateNovelsFromPg()
 export default storageService

@@ -10,7 +10,7 @@
 import 'dotenv/config'
 import { readCleanedText } from '../src/services/novelProjectService.js'
 import { getNovelProjectAsync, listChunksAsync } from '../src/services/novelAsyncReadService.js'
-import { listEpisodes, listSeasons, getEpisodeText, isPgWriteMode } from '../src/services/novelEpisodeStore.js'
+import { listEpisodes, listSeasons, getEpisodeText } from '../src/services/novelEpisodeStore.js'
 import { getNovelWriteRepositories } from '../src/repositories/unitOfWork.js'
 import config from '../src/config/index.js'
 
@@ -33,9 +33,7 @@ const cleaned = readCleanedText(novelId)
 const chunks = await listChunksAsync(novelId)
 const episodes = (await listEpisodes(novelId)).sort((a, b) => (a.episodeNo ?? 0) - (b.episodeNo ?? 0))
 const seasons = (await listSeasons(novelId)).sort((a, b) => (a.seasonNo ?? 0) - (b.seasonNo ?? 0))
-const pgSource = isPgWriteMode()
-  ? await getNovelWriteRepositories().sources.get(novelId, { orgId: config.novels.orgId })
-  : null
+const pgSource = await getNovelWriteRepositories().sources.get(novelId, { orgId: config.novels.orgId })
 
 const BOUNDARY = new Set(['。', '！', '？', '…', '；', '!', '?', ';', '\n', '，', ',', '、', '：', ':', '”', '」', '』', ')', '）'])
 const HEADING_RE = /^第[0-9零一二三四五六七八九十百千万两]+[章节回][^\n]{0,50}$/

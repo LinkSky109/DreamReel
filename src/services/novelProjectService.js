@@ -1,11 +1,10 @@
 import fs from 'fs'
 import path from 'path'
 import config from '../config/index.js'
-import { storageService } from './storageService.js'
 import { NovelProject } from '../models/NovelProject.js'
 import { STAGES } from '../models/NovelProject.js'
-import { novelMirror, applyNovelDelete, applyNovelUpsert } from './novelWriteSync.js'
-import { deleteChildrenByNovel, isPgWriteMode, forgetNovelPg } from './novelChildStore.js'
+import { applyNovelDelete, applyNovelUpsert } from './novelWriteSync.js'
+import { deleteChildrenByNovel, forgetNovelPg } from './novelChildStore.js'
 
 const NOVELS_ROOT = path.resolve(config.storage.path, 'novels')
 
@@ -19,78 +18,55 @@ export function novelDir(novelId) {
   return path.join(NOVELS_ROOT, novelId)
 }
 
+async function defaultPool() {
+  const { getPool } = await import('../db/client.js')
+  return getPool()
+}
+
+/** 创建小说项目：文件目录 + PostgreSQL 主行（唯一事实源）。 */
 export async function createNovelProject(data = {}) {
   if (!data.title) throw new Error('title is required')
   const project = new NovelProject(data)
   project.dir = novelDir(project.id)
   ensureDir(project.dir)
   for (const sub of SUB_DIRS) ensureDir(path.join(project.dir, sub))
-  // PG 优先：先创建主行，再做后续角色/章节等子记录写入。
-  if (isPgWriteMode()) {
-    const { getPool } = await import('../db/client.js')
-    await applyNovelUpsert(await getPool(), project, config.novels.orgId)
-  }
-  const saved = storageService.createNovelProject(project)
-  if (config.novels.writeMode === 'dual') novelMirror.scheduleUpsert(saved)
-  return saved
-}
-
-export function listNovelProjects() {
-  return storageService
-    .listNovelProjects()
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-}
-
-export function getNovelProject(id) {
-  const project = storageService.getNovelProject(id)
-  if (!project) throw new Error(`Novel project not found: ${id}`)
+  await applyNovelUpsert(await defaultPool(), project, config.novels.orgId)
   return project
 }
 
-/** 写路径读项目：postgres 直接读 PG，legacy 仍读内存投影。 */
-async function getNovelProjectForWrite(id) {
-  if (!isPgWriteMode()) return getNovelProject(id)
+/** 读取小说项目（PostgreSQL）。 */
+export async function getNovelProject(id) {
   const { novelReadService } = await import('./novelReadService.js')
   return novelReadService.get(id)
 }
 
 export async function updateNovelProject(id, patch = {}) {
-  // 避免 PG 写失败时污染内存中的 JSON 缓存
-  const project = structuredClone(await getNovelProjectForWrite(id))
+  const project = structuredClone(await getNovelProject(id))
   Object.assign(project, patch, { updatedAt: new Date().toISOString() })
-  // PG 优先：项目主行直接更新；dual 保留 outbox 镜像。
-  if (isPgWriteMode()) {
-    const { getPool } = await import('../db/client.js')
-    await applyNovelUpsert(await getPool(), project, config.novels.orgId)
-  }
-  const saved = storageService.updateNovelProject(project)
-  if (config.novels.writeMode === 'dual') novelMirror.scheduleUpsert(saved)
-  return saved
+  await applyNovelUpsert(await defaultPool(), project, config.novels.orgId)
+  return project
 }
 
 /**
- * 从实际数据重算 counts（章节/角色/实体/季/集）。
+ * 从实际数据重算 counts（章节/角色/实体）。
  * 增量更新一旦被覆盖（如数据清理）就会漂移，导致页面显示「章 0」等；用本函数纠正。
- * 角色/实体按“当前选中集合”计数，避免历史集合虚高。
+ * 角色/实体按“当前选中集合”计数，避免历史集合虚高；
+ * 季/集计数由分季规划写入，这里保留既有值。
  */
 export async function recomputeNovelCounts(id) {
-  const project = await getNovelProjectForWrite(id)
+  const project = await getNovelProject(id)
   const { novelChildReadService } = await import('./novelChildReadService.js')
   const [characters, worldEntities, chunks] = await Promise.all([
     novelChildReadService.list('characters', id),
     novelChildReadService.list('entities', id),
     novelChildReadService.list('chunks', id),
   ])
-  // PG 写模式下季/集不再写 JSON；保留项目上已有计数，避免被 JSON 的 0 覆盖。
-  const pgWrite = config.novels.writeMode === 'postgres'
   return updateNovelProject(id, {
     counts: {
       ...project.counts,
       chapters: chunks.length,
       characters: characters.length,
       worldEntities: worldEntities.length,
-      seasons: pgWrite ? project.counts?.seasons ?? 0 : storageService.listSeasons(id).length,
-      episodes: pgWrite ? project.counts?.episodes ?? 0 : storageService.listEpisodes(id).length,
     },
   })
 }
@@ -113,7 +89,7 @@ export function assertEditable(project, stage) {
 
 /** 推进到下一阶段（或指定阶段）；不可回退 */
 export async function advanceStage(id, toStage) {
-  const project = await getNovelProjectForWrite(id)
+  const project = await getNovelProject(id)
   const cur = stageIndex(project.stage)
   const to = toStage ? stageIndex(toStage) : cur + 1
   if (to < 0 || to >= STAGES.length) throw new Error('无效阶段')
@@ -122,17 +98,15 @@ export async function advanceStage(id, toStage) {
 }
 
 /**
- * 删除小说项目：db 级联清理 + 全部落盘目录清理（不可恢复）。
+ * 删除小说项目：PG 软删主行 + 子集合，并落盘目录清理（不可恢复）。
  * 覆盖 novels/<id>、exports/novels/<id>、images|videos|audio/novels/<id>。
  */
 export async function deleteNovelProject(id) {
-  await getNovelProjectForWrite(id)
-  // PG 优先：先软删小说及全部子集合，成功后再清理本地目录/JSON 缓存。
-  if (isPgWriteMode()) {
-    const { getPool } = await import('../db/client.js')
-    await applyNovelDelete(await getPool(), id, config.novels.orgId)
-    await deleteChildrenByNovel(id)
-  }
+  // 不存在时抛错，避免脚本静默成功
+  await getNovelProject(id)
+  const pool = await defaultPool()
+  await applyNovelDelete(pool, id, config.novels.orgId)
+  const removedRecords = await deleteChildrenByNovel(id, { pool })
   const root = path.resolve(config.storage.path)
   const dirs = [
     novelDir(id),
@@ -149,9 +123,7 @@ export async function deleteNovelProject(id) {
     }
   }
   forgetNovelPg(id)
-  const db = storageService.deleteNovelProjectCascade(id)
-  if (config.novels.writeMode === 'dual') novelMirror.scheduleDelete(id)
-  return { id, deleted: db.deleted, removedDirs, removedRecords: db.removed }
+  return { id, deleted: true, removedDirs, removedRecords }
 }
 
 export function writeNovelFile(novelId, relativePath, content) {

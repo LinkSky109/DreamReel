@@ -94,15 +94,14 @@ app.get('/health/live', (_req, res) => {
   res.json({ status: 'ok' })
 })
 
-// 就绪探针：存储可用；只要运行时依赖 PostgreSQL（DB_DRIVER 或小说域开关）就检查连接
+// 就绪探针：存储可用 + PostgreSQL 可用（小说域固定 PG 单源）
 app.get('/health/ready', async (_req, res) => {
   try {
     fs.accessSync(STORAGE_DIR, fs.constants.R_OK | fs.constants.W_OK)
   } catch (error) {
     return res.status(503).json({ status: 'not_ready', storage: 'error', message: error.message })
   }
-  const postgresRequired = isPostgresEnabled()
-  if (postgresRequired) {
+  if (isPostgresEnabled()) {
     try {
       const { healthCheck } = await import('./db/client.js')
       await healthCheck()
@@ -110,12 +109,7 @@ app.get('/health/ready', async (_req, res) => {
       return res.status(503).json({ status: 'not_ready', storage: 'ok', db: 'error', message: error.message })
     }
   }
-  return res.json({
-    status: 'ready',
-    storage: 'ok',
-    db: postgresRequired ? 'postgres' : config.db.driver,
-    novelsRepo: config.novels.writeMode === 'postgres' ? 'postgres' : 'json',
-  })
+  return res.json({ status: 'ready', storage: 'ok', db: 'postgres', novelsRepo: 'postgres' })
 })
 
 // 认证解析 + 写操作审计 + 强制登录闸门（默认关闭）

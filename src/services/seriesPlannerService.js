@@ -1,24 +1,18 @@
 import fs from 'fs'
 import path from 'path'
-import { storageService } from './storageService.js'
 import { writeChild } from './novelChildStore.js'
-import { Season } from '../models/Season.js'
-import { Episode } from '../models/Episode.js'
 import {
   updateNovelProject,
-  getEpisodeText,
   readCleanedText,
   novelDir,
   assertEditable,
   stageIndex,
-  recomputeNovelCounts,
 } from './novelProjectService.js'
-import { listChunks } from './novelChunkService.js'
 import { getNovelProjectAsync, listChunksAsync, listCharactersAsync } from './novelAsyncReadService.js'
 import { hashText, locateChapters } from '../utils/textOffsets.js'
 import { planEpisodesInRange } from './episodePlanService.js'
 import { planSeasonStructure } from './seasonPlanService.js'
-import { isPgWriteMode, getEpisodeText as getEpisodeTextAsync } from './novelEpisodeStore.js'
+import { getEpisodeText as getEpisodeTextAsync } from './novelEpisodeStore.js'
 import { withNovelTransaction, getNovelWriteRepositories } from '../repositories/unitOfWork.js'
 import { generateId } from '../utils/idGenerator.js'
 import config from '../config/index.js'
@@ -29,7 +23,7 @@ import logger from '../utils/logger.js'
  *
  * - 分季：LLM 按大事件/剧情弧划分，相邻弧合并至每季 ≥ N 集（默认 200）；无 LLM 回退启发式。
  * - 分集：按故事边界切分，内容支撑 90s ± 5s（85–95s）。
- * - NOVEL_WRITE_MODE=postgres：写 PG（事务 + advisory lock）；否则保持 JSON 旧行为。
+ * - 季/集写 PostgreSQL（事务 + advisory lock）。
  */
 
 const DEFAULT_EPISODE_SECONDS = 90
@@ -69,23 +63,6 @@ async function ensureChunkOffsets(novelId, chunks, cleanedText) {
     out.push(next)
   }
   return out
-}
-
-function cleanupOldEpisodesJson(novelId, { cleanupFiles = true } = {}) {
-  const oldEpisodes = storageService.listEpisodes(novelId)
-  const root = novelDir(novelId)
-  for (const ep of oldEpisodes) {
-    if (cleanupFiles && ep.sourceFile) {
-      try {
-        fs.rmSync(path.join(root, ep.sourceFile), { force: true })
-      } catch {
-        /* ignore */
-      }
-    }
-    storageService.deleteEpisode(ep.id)
-  }
-  for (const season of storageService.listSeasons(novelId)) storageService.deleteSeason(season.id)
-  return oldEpisodes.length
 }
 
 function durationBuckets(episodes, lo = DEFAULT_EPISODE_SECONDS - DEFAULT_TOLERANCE_SECONDS, hi = DEFAULT_EPISODE_SECONDS + DEFAULT_TOLERANCE_SECONDS) {
@@ -358,7 +335,6 @@ async function planSeriesPg({
   await updateNovelProject(novelId, {
     counts: { ...project.counts, seasons: seasonsCount, episodes: episodesCount },
   })
-  storageService._flush()
   if (opts.advanceTo && stageIndex(String(opts.advanceTo)) > stageIndex('series')) {
     await updateNovelProject(novelId, { stage: String(opts.advanceTo) })
   }
@@ -407,149 +383,22 @@ export async function planSeries(novelId, opts = {}) {
   chunks = await ensureChunkOffsets(novelId, chunks, cleanedText)
 
   const cleanedHash = hashText(cleanedText)
-  const chapterBounds = chunks.map((c) => ({
-    index: c.index,
-    chapterTitle: c.chapterTitle,
-    startOffset: c.startOffset,
-    endOffset: c.endOffset,
-  }))
 
-  if (isPgWriteMode()) {
-    return planSeriesPg({
-      novelId,
-      project,
-      chunks,
-      cleanedText,
-      cleanedHash,
-      episodeSeconds,
-      episodesPerSeason,
-      charsPerSecond,
-      tolerance,
-      opts,
-    })
-  }
-
-  // ---------- legacy JSON 路径（测试/回滚） ----------
-  const { seasons: plannedSeasons, provider } = await planSeasonStructure(novelId, chunks, {
+  return planSeriesPg({
+    novelId,
     project,
+    chunks,
+    cleanedText,
     cleanedHash,
     episodeSeconds,
-    charsPerSecond,
     episodesPerSeason,
-    force: opts.forceSeasons === true,
-    useLLM: opts.useLLM,
-    provider: opts.provider,
-    model: opts.model,
-  })
-
-  cleanupOldEpisodesJson(novelId, { cleanupFiles: opts.cleanupFiles !== false })
-
-  const finals = buildFinalEpisodePlan({
-    plannedSeasons,
-    chapterBounds,
-    cleanedText,
-    charsPerSecond,
-    episodeSeconds,
-    tolerance,
-    episodesPerSeason,
-  })
-
-  const allEpisodes = []
-  const allExceptions = []
-  let episodeNo = 1
-  let seasonNo = 1
-  for (const { group, planned } of finals) {
-    if (!planned.episodes.length) continue
-    const no = seasonNo++
-    const season = storageService.createSeason(
-      new Season({
-        novelId,
-        seasonNo: no,
-        title: group.merged ? `第${no}季` : group.title,
-        synopsis: group.synopsis,
-        episodeCount: planned.episodes.length,
-        chapterStart: group.chapterStart,
-        chapterEnd: group.chapterEnd,
-        arcName: group.arcName,
-        goal: group.goal,
-        acts: group.acts,
-        endingHook: group.endingHook,
-        estimatedEpisodes: planned.episodes.length,
-        planProvider: provider,
-      })
-    )
-    for (const p of planned.episodes) {
-      const startChapter = p.startChapter?.index ?? group.chapterStart
-      const endChapter = p.endChapter?.index ?? group.chapterEnd
-      const ep = storageService.createEpisode(
-        new Episode({
-          novelId,
-          seasonId: season.id,
-          episodeNo: episodeNo++,
-          chapterIndex: startChapter,
-          chapterTitle: p.startChapter?.chapterTitle || '',
-          title: p.title,
-          targetSeconds: episodeSeconds,
-          chapterStart: startChapter,
-          chapterEnd: endChapter,
-          startOffset: p.startOffset,
-          endOffset: p.endOffset,
-          estimatedSeconds: p.estimatedSeconds,
-          cleanedHash,
-          shortSource: p.shortSource,
-          status: 'planned',
-        })
-      )
-      allEpisodes.push(ep)
-    }
-    allExceptions.push(...planned.exceptions.map((e) => ({ ...e, seasonNo: no })))
-  }
-
-  await updateNovelProject(novelId, {
-    counts: { ...project.counts, seasons: storageService.listSeasons(novelId).length, episodes: allEpisodes.length },
-  })
-  await recomputeNovelCounts(novelId)
-  storageService._flush()
-
-  if (opts.advanceTo && stageIndex(String(opts.advanceTo)) > stageIndex('series')) {
-    await updateNovelProject(novelId, { stage: String(opts.advanceTo) })
-  }
-
-  const buckets = durationBuckets(allEpisodes)
-  logger.info(
-    `分季分集完成：${storageService.listSeasons(novelId).length} 季 / ${allEpisodes.length} 集，` +
-      `85–95s 命中 ${buckets.inRange}（${((buckets.inRange / Math.max(1, buckets.total)) * 100).toFixed(2)}%），` +
-      `provider=${provider}`
-  )
-  return {
-    seasons: storageService.listSeasons(novelId).length,
-    episodes: allEpisodes.length,
-    episodesPerSeason,
-    episodeSeconds,
     charsPerSecond,
     tolerance,
-    provider,
-    buckets,
-    exceptions: allExceptions.length,
-    exceptionSamples: allExceptions.slice(0, 10),
-  }
+    opts,
+  })
 }
 
-export function listSeasons(novelId) {
-  return storageService.listSeasons(novelId).sort((a, b) => a.seasonNo - b.seasonNo)
-}
-
-export function listEpisodes(novelId, seasonId) {
-  return storageService
-    .listEpisodes(novelId, seasonId)
-    .sort((a, b) => a.episodeNo - b.episodeNo)
-}
-
-export function getEpisode(id) {
-  return storageService.getEpisode(id)
-}
-
-/** PG 模式下的异步估算（JSON 模式保持原同步函数）。 */
+/** 估算章节/季/集规模（PostgreSQL）。 */
 export async function seriesEstimateAsync(novelId, opts = {}) {
   const chunks = await listChunksAsync(novelId)
   const repos = getNovelWriteRepositories()
@@ -575,33 +424,8 @@ export async function seriesEstimateAsync(novelId, opts = {}) {
   }
 }
 
-/** 兼容旧路由：JSON 模式用同步估算，PG 模式走异步。 */
-export async function seriesEstimateOrAsync(novelId, opts = {}) {
-  if (isPgWriteMode()) return seriesEstimateAsync(novelId, opts)
-  return seriesEstimate(novelId, opts)
-}
-
-export function seriesEstimate(novelId, opts = {}) {
-  const chunks = listChunks(novelId)
-  const totalChars = chunks.reduce((a, c) => a + (c.wordCount || (c.text || '').length), 0)
-  const eps = storageService.listEpisodes(novelId)
-  const plannedSeconds = eps.reduce((a, e) => a + (e.targetSeconds || DEFAULT_EPISODE_SECONDS), 0)
-  const charsPerSecond = opts.charsPerSecond || DEFAULT_CHARS_PER_SECOND
-  const episodeSeconds = opts.episodeSeconds || DEFAULT_EPISODE_SECONDS
-  const supportSeconds = {}
-  for (const cps of [4, 4.5, 5]) supportSeconds[cps] = Math.round(totalChars / cps)
-  return {
-    chapters: chunks.length,
-    totalChars,
-    seasons: storageService.listSeasons(novelId).length,
-    episodes: eps.length,
-    episodeSeconds,
-    charsPerSecond,
-    plannedSeconds,
-    supportSeconds,
-    supportEpisodes: Math.round(totalChars / charsPerSecond / episodeSeconds),
-  }
-}
+/** 兼容旧路由命名：实现只剩 PostgreSQL 异步路径。 */
+export const seriesEstimateOrAsync = seriesEstimateAsync
 
 export async function checkConsistencyAsync(novelId) {
   const names = (await listCharactersAsync(novelId)).map((c) => c.name).filter(Boolean)
@@ -629,26 +453,8 @@ export async function checkConsistencyAsync(novelId) {
   }
 }
 
-export async function checkConsistencyOrAsync(novelId) {
-  if (isPgWriteMode()) return checkConsistencyAsync(novelId)
-  return checkConsistency(novelId)
-}
+/** 兼容旧路由命名：实现只剩 PostgreSQL 异步路径。 */
+export const checkConsistencyOrAsync = checkConsistencyAsync
 
-export function checkConsistency(novelId) {
-  const names = storageService.listNovelCharacters(novelId).map((c) => c.name).filter(Boolean)
-  const episodes = storageService.listEpisodes(novelId)
-  let withKnown = 0
-  const emptyEpisodes = []
-  for (const ep of episodes) {
-    const text = getEpisodeText(novelId, ep)
-    const hit = names.some((n) => text.includes(n))
-    if (hit) withKnown++
-    else emptyEpisodes.push(ep.id)
-  }
-  return {
-    characters: names.length,
-    episodes: episodes.length,
-    episodesWithKnownCharacter: withKnown,
-    episodesWithoutKnownCharacter: emptyEpisodes.length,
-  }
-}
+/** 兼容旧导入：季/集列表直连 PostgreSQL（异步）。 */
+export { listSeasons, listEpisodes } from './novelEpisodeStore.js'
