@@ -8,11 +8,11 @@
 
 | 项 | 值 |
 |---|---|
-| 阶段 | **R1 止血完成（R1-T1B.6 媒体严格开关 deferred）｜main 本地已合并，未推送** |
-| 轮次 | R1 完成；下一步 R2 收口/E2E 与发布 |
-| 目标 | 更新交接源 → E2E → 推送 main → R2 契约/交付 |
-| 阻塞 | 推送需用户确认；生产管理员角色分配与 API Key 惰性迁移需运维确认 |
-| 下一步 | 1) 提交 STATE/JOURNAL；2) 跑 E2E；3) 推送 main；4) R2 契约与交付报告 |
+| 阶段 | **R2 收口完成（R1-T1B.6 deferred）｜main 本地已合并，未推送** |
+| 轮次 | R2 完成；待推送 + tag `r2-cutover`，随后 R3 |
+| 目标 | 推送 R2 → tag `r2-cutover` → 进入 R3 |
+| 阻塞 | 推送/tag 需用户确认；生产管理员角色分配与 API Key 惰性迁移需运维确认 |
+| 下一步 | 1) 提交交付报告/STATE；2) 推送 main + tag `r2-cutover`；3) R3-T3.1 IDOR/鉴权还债 |
 
 ## 2. 事实基线
 
@@ -20,11 +20,11 @@
 |---|---|
 | 仓库 | `/Users/link/myApp/DreamReel` |
 | 当前分支 | `main`（本地已合并三轨，未推送） |
-| HEAD | 以 `git log --oneline -1` 为准（三轨 merge：`0b1318a` / `8662944` / `c00ca6c`） |
-| main | 本地 `c00ca6c` + 文档提交；origin/main 仍为 `840dd54` |
+| HEAD | 以 `git log --oneline -1` 为准（R2 merge：`fcf0b3e` 契约 / `0684c81` 构建门禁） |
+| main | 本地 R2 合并 + 文档提交；origin/main 仍为 `3185c9a` |
 | PostgreSQL | 迁移 `001`–`014` 已应用；`outbox_events` 已由 013 删除；014 已删旧 episodes 唯一约束 |
 | 小说数据 | 1 部《殖装》/1206 章/33 季/8496 集；角色 559/实体 725/资产 1621 |
-| 测试基线 | 后端 **869**、前端 **143**、`check:legacy` **0**；`db:verify:novels` mismatches=0；smoke 通过 |
+| 测试基线 | 后端 **878**、前端 **143**、`check:legacy` **0**；E2E 1 passed；smoke 通过 |
 | 运行时 | 小说域 PG-only；`db.json` 仅非小说集合；无 JSON 导出快照、无 outbox |
 | 恢复 | `pg_dump`/PITR 为唯一数据回滚；归档 JSON 仅离线应急 |
 
@@ -60,12 +60,12 @@
 
 | ID | 任务 | 状态 | 备注 |
 |---|---|---|---|
-| R2-T2.1 | 契约补齐（novels + api/v1.md） | review | 现有 API 文档缺失 0；novels 契约仍需补 |
+| R2-T2.1 | 契约补齐（novels + api/v1.md） | done | 8 端点契约 + 422 测试 |
 | R2-T2.2 | 移除 storageService 顶层 await/水合 | done | 投影/水合已删除 |
 | R2-T2.3 | Phase 3c-2 路由去投影读 | done | 生产/测试 PG-only |
 | R2-T2.4 | 文档/清单刷新 | done | `check:docs` 缺失 0 |
-| R2-T2.5 | 全量门禁 + 交付报告 + tag | review | `npm run check` 869/143 绿；E2E 未复跑 |
-| R2-T2.6 | 收敛双构建链 | pending | — |
+| R2-T2.5 | 全量门禁 + 交付报告 + tag | review | gate full 878/143 + E2E 通过；报告已写；tag 待推送 |
+| R2-T2.6 | 收敛双构建链 | done | `build`→public；`build:web`→web/dist；产物守卫/CI |
 | R2-T2.7 | 已知边界收尾（outbox/JSON 导出/死代码） | done | outbox/worker/store/表与 JSON 导出已删 |
 
 ### R3 还债
@@ -80,6 +80,8 @@
 |---|---|---|---|
 | 2026-10-22 15:17 | `npm run check` | 后端 817 / 前端 138 / lint/typecheck/docs/legacy 全绿 | lead |
 | 2026-10-22 19:51 | `npm run check` | 后端 869 / 前端 143 / legacy 0 | lead |
+| 2026-10-22 20:13 | `gate.sh full` | 后端 878 / 前端 143 / legacy 0 | lead |
+| 2026-10-22 20:13 | `test:e2e` / `smoke.sh` / `gate.sh build` | E2E 1 passed；smoke 通过；public 零 diff | lead |
 | 2026-10-22 19:5x | `db:verify:novels` / `smoke.sh` | mismatches=0；401/200/静态首页通过 | lead |
 | 2026-10-22 15:17 | `npm run check:legacy` | 0 违规 | lead |
 | 2026-10-22 15:12 | `npm run db:migrate` / `db:status` | 013 已应用，pending 0 | lead |
@@ -94,7 +96,7 @@
 |---|---|---|---|
 | 生产管理员无角色分配流程 | 管理面 403 | 上线前补角色/运维初始化 | 待处理 |
 | API Key 旧明文惰性迁移 | 旧 key 首次使用才哈希 | 上线前触发一次或跑一次性迁移 | 待处理 |
-| 未合并 main | 基线未发布 | T0.1 备份 → T0.3 合并 | 待用户批准 |
+| R2 未推送 | 基线未发布 | 用户确认后 push + tag `r2-cutover` | 待处理 |
 | E2E 未复跑 | 发布回归未知 | `npm run test:e2e` + 冒烟 | 待执行 |
 | 迁移 013 已用于 outbox | T1A.3 使用 014 | 已应用 014 | 已缓解 |
 | 归档 JSON 误用 | 回退到旧数据 | 只允许离线工具 + `check:legacy` | 已控制 |

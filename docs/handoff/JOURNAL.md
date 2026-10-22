@@ -143,3 +143,20 @@
   - 生产管理员角色分配流程缺失；API Key 旧明文仍惰性迁移。
   - R1-T1B.6 媒体严格访问开关 deferred 到 R3。
 - 下一步：提交 STATE/JOURNAL → `npm run test:e2e` → 推送 main（需用户批准）→ R2 契约/交付报告。
+
+## 2026-10-22 20:15 (+08:00) · lead · R2 收口完成
+
+- 动作：R2 契约与构建链并行开发、合并、全量门禁与 E2E。
+- 合并：
+  - `fcf0b3e merge: R2 契约补齐`
+  - `0684c81 merge: R2 构建链与门禁`
+- 结果：
+  - `gate.sh full` → 后端 878 / 前端 143 / legacy 0
+  - `npm run test:e2e` → 1 passed
+  - `gate.sh build` → public/web-dist 通过，`git diff public` 0
+  - `scripts/agent/smoke.sh` → 通过
+  - 交付报告：`docs/delivery/2026-10-22-r2-cutover.md`
+- 未完成/风险：
+  - main 本地领先 origin，R2 未推送/tag。
+  - 管理员角色初始化、API Key 惰性迁移、媒体严格开关仍待 R3/运维。
+- 下一步：提交报告/STATE → 用户确认后 push + tag `r2-cutover` → R3-T3.1。
