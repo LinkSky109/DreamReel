@@ -12,7 +12,7 @@ import { WorldEntity } from '../models/WorldEntity.js'
 import { getLLMProviderByPref } from '../providers/llmProviderFactory.js'
 import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
-import { updateNovelProject, writeNovelFile, assertEditable, recomputeNovelCounts } from './novelProjectService.js'
+import { updateNovelProject, assertEditable, recomputeNovelCounts } from './novelProjectService.js'
 import { getNovelProjectAsync, listChunksAsync } from './novelAsyncReadService.js'
 import { runGroups } from './extractionStatus.js'
 import { generateJSONWithRetry } from '../utils/llmRetry.js'
@@ -143,7 +143,6 @@ export async function extractAll(novelId, opts = {}) {
         new NovelCharacter({ novelId, name: c.name, kind: c.kind, aliases: c.aliases, description: c.description, card: c.card, provider })
     )
   )
-  writeNovelFile(novelId, 'characters/characters.json', JSON.stringify(savedChars, null, 2))
   const charSet = await writeChild('characterSets', {
     id: generateId(),
     novelId,
@@ -160,7 +159,6 @@ export async function extractAll(novelId, opts = {}) {
         new WorldEntity({ novelId, type: e.type, name: e.name, aliases: e.aliases, description: e.description, attributes: e.attributes, relations: e.relations, mentions: e.mentions, provider })
     )
   )
-  writeNovelFile(novelId, 'worldbuilding/entities.json', JSON.stringify(savedEntities, null, 2))
   const worldSet = await writeChild('worldSets', {
     id: generateId(),
     novelId,

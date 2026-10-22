@@ -168,23 +168,6 @@ export async function ingestNovel(novelId, { sourceType = 'text', text, url, max
       { orgId: config.novels.orgId }
     )
 
-  writeNovelFile(
-    novelId,
-    'chunks/chunks.json',
-    JSON.stringify(
-      chunks.map((c) => ({
-        index: c.index,
-        chapterTitle: c.chapterTitle,
-        wordCount: c.wordCount,
-        startOffset: c.startOffset,
-        endOffset: c.endOffset,
-        cleanedHash: c.cleanedHash,
-      })),
-      null,
-      2
-    )
-  )
-
   const updated = await updateNovelProject(novelId, {
     sourceType,
     sourceRef: url || project.sourceRef,

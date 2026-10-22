@@ -54,13 +54,6 @@ const config = {
   audit: {
     enabled: process.env.AUDIT_ENABLED !== 'false',
   },
-  outbox: {
-    enabled: process.env.OUTBOX_ENABLED === 'true',
-    intervalMs: parseInt(process.env.OUTBOX_INTERVAL_MS, 10) || 2000,
-    batchSize: parseInt(process.env.OUTBOX_BATCH_SIZE, 10) || 20,
-    maxAttempts: parseInt(process.env.OUTBOX_MAX_ATTEMPTS, 10) || 8,
-    lockTimeoutSeconds: parseInt(process.env.OUTBOX_LOCK_TIMEOUT_SECONDS, 10) || 120,
-  },
   // 小说域固定使用 PostgreSQL（无 legacy/dual 写模式）
   novels: {
     orgId: process.env.DEFAULT_ORG_ID || 'default',

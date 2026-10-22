@@ -9,7 +9,6 @@
  * - novels.id = 'n-sync-1'（双写测试固定 id）
  * - novels.payload.dir 指向 storage/test-run/...
  * - 测试 org 前缀 / 固定测试 org
- * - outbox 中属于测试 org、指向测试小说、或父小说已不存在的 dead 子集合事件
  *
  * 不删除 default org，也不删除无法确认来源的数据。
  */
@@ -48,53 +47,19 @@ try {
     [TEST_ORGS, TEST_ORG_PATTERN]
   )
 
-  const outbox = await client.query(
-    `SELECT id, org_id, kind, status, payload->>'novelId' AS novel_id
-       FROM outbox_events
-      WHERE org_id = ANY($2::text[])
-         OR org_id ~ $3
-         OR payload->>'novelId' = ANY($1::text[])
-         OR (
-              status = 'dead'
-              AND kind <> 'novel'
-              AND payload ? 'novelId'
-              AND NOT EXISTS (
-                SELECT 1 FROM novels n WHERE n.id = outbox_events.payload->>'novelId'
-              )
-            )
-      ORDER BY id`,
-    [TEST_NOVEL_IDS, TEST_ORGS, TEST_ORG_PATTERN]
-  )
+
 
   console.log(`[cleanup] mode=${apply ? 'APPLY' : 'DRY-RUN'}`)
   console.log(`[cleanup] novels=${novels.rowCount}`)
   for (const row of novels.rows) console.log(`  - ${row.id}  ${row.title}  org=${row.org_id}  dir=${row.dir || '-'}`)
   console.log(`[cleanup] organizations=${orgs.rowCount}`)
   for (const row of orgs.rows) console.log(`  - ${row.id}`)
-  console.log(`[cleanup] outbox_events=${outbox.rowCount}`)
-  for (const row of outbox.rows) {
-    console.log(`  - #${row.id} ${row.kind}/${row.status} org=${row.org_id} novel=${row.novel_id || '-'}`)
-  }
 
   if (!apply) {
     await client.query('ROLLBACK')
     console.log('[cleanup] dry-run 结束，未修改数据；加 --apply 执行')
   } else {
-  const deletedOutbox = await client.query(
-    `DELETE FROM outbox_events
-      WHERE org_id = ANY($2::text[])
-         OR org_id ~ $3
-         OR payload->>'novelId' = ANY($1::text[])
-         OR (
-              status = 'dead'
-              AND kind <> 'novel'
-              AND payload ? 'novelId'
-              AND NOT EXISTS (
-                SELECT 1 FROM novels n WHERE n.id = outbox_events.payload->>'novelId'
-              )
-            )`,
-    [TEST_NOVEL_IDS, TEST_ORGS, TEST_ORG_PATTERN]
-  )
+
 
   // novels 的子表都有 ON DELETE CASCADE
   const deletedNovels = await client.query(
@@ -109,7 +74,7 @@ try {
 
   await client.query('COMMIT')
   console.log(
-    `[cleanup] 完成：outbox=${deletedOutbox.rowCount} novels=${deletedNovels.rowCount} organizations=${deletedOrgs.rowCount}`
+    `[cleanup] 完成：novels=${deletedNovels.rowCount} organizations=${deletedOrgs.rowCount}`
   )
   }
 } catch (error) {

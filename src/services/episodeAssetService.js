@@ -8,7 +8,7 @@ import { getImageProvider } from '../providers/imageProviderFactory.js'
 import { getTTSProvider } from '../providers/ttsProviderFactory.js'
 import { getVideoProvider } from '../providers/videoProviderFactory.js'
 import { getEpisode, updateEpisode } from './novelEpisodeStore.js'
-import { writeNovelFile, assertEditable } from './novelProjectService.js'
+import { assertEditable } from './novelProjectService.js'
 import { generateEpisodeScript } from './episodeScriptService.js'
 import { ensureVoiceMap, voiceFor } from './voiceService.js'
 import { resourceIdFor } from './voiceLibraryService.js'
@@ -321,7 +321,6 @@ export async function generateEpisodeAssets(novelId, episodeId, opts = {}) {
   episode.status = 'assets'
   await updateEpisode(novelId, episode)
 
-  writeNovelFile(novelId, `assets/${episodeId}.json`, JSON.stringify(assets, null, 2))
 
   return episode
 }

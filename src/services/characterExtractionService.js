@@ -5,7 +5,7 @@ import { NovelCharacter, CARD_SCHEMA, CARD_FIELDS, CARD_GROUPS, CHARACTER_KINDS 
 import { getLLMProviderByPref } from '../providers/llmProviderFactory.js'
 import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
-import { updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
+import { updateNovelProject, assertEditable } from './novelProjectService.js'
 import { getNovelProjectAsync, listChunksAsync, listCharactersAsync } from './novelAsyncReadService.js'
 import { novelChildReadService } from './novelChildReadService.js'
 import { runGroups } from './extractionStatus.js'
@@ -257,8 +257,6 @@ export async function extractCharacters(novelId, opts = {}) {
         })
     )
   )
-
-  writeNovelFile(novelId, 'characters/characters.json', JSON.stringify(saved, null, 2))
 
   // 备选集合：每次抽取生成一个候选集合，默认选中最新
   const set = await writeChild('characterSets', {

@@ -5,7 +5,6 @@ import logger from '../utils/logger.js'
 import { writeChild, writeChildren, deleteChild } from './novelChildStore.js'
 import { getImageProviderForProject } from '../providers/imageProviderFactory.js'
 import { NovelAssetImage, ASSET_CATEGORIES, ASSET_CATEGORY_LABELS } from '../models/NovelAssetImage.js'
-import { writeNovelFile } from './novelProjectService.js'
 import { getNovelProjectAsync, listAssetsAsync } from './novelAsyncReadService.js'
 import { listCharactersAsync, listEntitiesAsync } from './novelAsyncReadService.js'
 import { clampInt } from '../utils/coerce.js'
@@ -81,13 +80,6 @@ export async function getAssetAsync(novelId, assetId) {
   return assets.find((a) => a.id === assetId) || null
 }
 
-async function persistIndex(novelId) {
-  try {
-    writeNovelFile(novelId, 'art/assets.json', JSON.stringify(await listAssetsAsync(novelId), null, 2))
-  } catch (error) {
-    logger.warn(`写设定图索引失败：${error.message}`)
-  }
-}
 
 export async function createAsset(novelId, data = {}) {
   await assertNovelAsync(novelId)
@@ -101,7 +93,6 @@ export async function createAsset(novelId, data = {}) {
   })
   if (!asset.name) throw new Error('name is required')
   const saved = await writeChild('assets', asset)
-  await persistIndex(novelId)
   return saved
 }
 
@@ -114,7 +105,6 @@ export async function updateAsset(novelId, assetId, patch = {}) {
   if (patch.category !== undefined && !ASSET_CATEGORIES.includes(patch.category)) asset.category = 'other'
   asset.updatedAt = new Date().toISOString()
   const saved = await writeChild('assets', asset)
-  await persistIndex(novelId)
   return saved
 }
 
@@ -125,7 +115,6 @@ export async function deleteAsset(novelId, assetId) {
     try { fs.rmSync(asset.filePath, { force: true }) } catch { /* ignore */ }
   }
   await deleteChild('assets', assetId)
-  await persistIndex(novelId)
   return { id: assetId, deleted: true }
 }
 
@@ -161,7 +150,6 @@ export async function generateAssetImage(novelId, assetId, opts = {}) {
   }
   asset.updatedAt = new Date().toISOString()
   const saved = await writeChild('assets', asset)
-  await persistIndex(novelId)
   return saved
 }
 
@@ -249,7 +237,6 @@ export async function normalizeAssets(novelId) {
     a.updatedAt = new Date().toISOString()
     await writeChild('assets', a)
   }
-  await persistIndex(novelId)
   return { total: assets.length, relinked, renamed }
 }
 
@@ -300,6 +287,5 @@ export async function suggestAssets(novelId, opts = {}) {
   }
 
   const saved = await writeChildren('assets', drafts.map((d) => new NovelAssetImage({ novelId, ...d })))
-  await persistIndex(novelId)
   return saved
 }

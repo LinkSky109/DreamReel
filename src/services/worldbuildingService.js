@@ -5,7 +5,7 @@ import { writeChild, writeChildren } from './novelChildStore.js'
 import { WorldEntity, WORLD_TYPES, WORLD_TYPE_LABELS, WORLD_ATTRIBUTES, WORLD_CORE_TYPES, attributeKeysFor } from '../models/WorldEntity.js'
 import { groupChunks } from '../utils/textChunking.js'
 import { clampInt, optionalClampInt } from '../utils/coerce.js'
-import { updateNovelProject, writeNovelFile, assertEditable } from './novelProjectService.js'
+import { updateNovelProject, assertEditable } from './novelProjectService.js'
 import { getNovelProjectAsync, listChunksAsync, listEntitiesAsync } from './novelAsyncReadService.js'
 import { novelChildReadService } from './novelChildReadService.js'
 import { runGroups } from './extractionStatus.js'
@@ -203,8 +203,6 @@ export async function extractWorld(novelId, opts = {}) {
         })
     )
   )
-
-  writeNovelFile(novelId, 'worldbuilding/entities.json', JSON.stringify(saved, null, 2))
 
   // 备选集合：每次抽取生成一个候选集合，默认选中最新
   const set = await writeChild('worldSets', {
