@@ -54,10 +54,10 @@ export default defineConfig(({ mode }) => {
         exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts', 'src/main.tsx'],
         // R3-T3.7：先把基线锁住，避免覆盖率回退；目标 80% 逐步抬升。
         thresholds: {
-          statements: 46,
-          branches: 43,
-          functions: 32,
-          lines: 47,
+          statements: 50,
+          branches: 46,
+          functions: 35,
+          lines: 51,
         },
       },
     },
