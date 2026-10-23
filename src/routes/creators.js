@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { creatorService } from '../services/creatorService.js'
 
 const router = Router()
@@ -10,7 +11,7 @@ router.get('/:userId', async (req, res) => {
     // 非公开主页仅本人可看（半自动化：返回数据，前端控制）
     res.json(page)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -20,7 +21,7 @@ router.put('/:userId', async (req, res) => {
     const profile = await creatorService.updateProfile(req.params.userId, req.body)
     res.json({ success: true, profile })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

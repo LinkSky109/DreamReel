@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { webhookService } from '../services/webhookService.js'
 
 const router = Router()
@@ -34,7 +35,7 @@ router.get('/', (req, res) => {
     const webhooks = webhookService.listWebhooks(userId)
     res.json({ webhooks })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -46,7 +47,7 @@ router.get('/events', (req, res) => {
     const events = webhookService.getSupportedEvents()
     res.json({ events })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -62,7 +63,7 @@ router.post('/', (req, res) => {
     delete safeWebhook.secret
     res.status(201).json(safeWebhook)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -75,7 +76,7 @@ router.get('/:webhookId', (req, res) => {
     if (!webhook) return
     res.json(webhook)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -90,7 +91,7 @@ router.put('/:webhookId', (req, res) => {
     delete safeWebhook.secret
     res.json(safeWebhook)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -103,7 +104,7 @@ router.delete('/:webhookId', (req, res) => {
     const result = webhookService.deleteWebhook(req.params.webhookId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -116,7 +117,7 @@ router.post('/:webhookId/test', async (req, res) => {
     const result = await webhookService.testWebhook(req.params.webhookId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -130,7 +131,7 @@ router.get('/:webhookId/deliveries', (req, res) => {
     const logs = webhookService.getDeliveryLogs(req.params.webhookId, limit)
     res.json({ deliveries: logs })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

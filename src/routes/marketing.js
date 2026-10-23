@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { posterService } from '../services/posterService.js'
 import { trailerService } from '../services/trailerService.js'
 import { projectService } from '../services/projectService.js'
@@ -19,7 +20,7 @@ router.post('/poster/generate', async (req, res) => {
     const poster = await posterService.generatePoster({ project, format, style })
     res.json({ success: true, poster })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -35,7 +36,7 @@ router.post('/trailer/generate', async (req, res) => {
     })
     res.json(trailer)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

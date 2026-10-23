@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { styleService } from '../services/styleService.js'
 
 const router = Router()
@@ -10,7 +11,7 @@ router.get('/', (req, res) => {
     const styles = styleService.listStyles({ search })
     res.json({ total: styles.length, items: styles })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -20,7 +21,7 @@ router.get('/:styleId', (req, res) => {
     const style = styleService.getStyleSummary(req.params.styleId)
     res.json(style)
   } catch (error) {
-    res.status(404).json({ error: error.message })
+    throw AppError.notFound(error.message, { cause: error })
   }
 })
 
@@ -39,7 +40,7 @@ router.post('/preview', (req, res) => {
       style: style ? { id: style.id, name: style.name } : null,
     })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

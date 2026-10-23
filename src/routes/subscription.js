@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { subscriptionService } from '../services/subscriptionService.js'
 import { authRequired } from '../middleware/auth.js'
 
@@ -22,7 +23,7 @@ router.get('/current', authRequired, (req, res) => {
     const features = subscriptionService.getUserFeatures(req.user.id)
     res.json(features)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -40,7 +41,7 @@ router.post('/subscribe', authRequired, (req, res) => {
     const result = subscriptionService.subscribe(req.user.id, planId, billingCycle, paymentInfo)
     res.status(201).json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -53,7 +54,7 @@ router.post('/cancel', authRequired, (req, res) => {
     const subscription = subscriptionService.cancelSubscription(req.user.id)
     res.json({ subscription, message: '已取消订阅，将在当前周期结束后生效' })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -66,7 +67,7 @@ router.post('/reactivate', authRequired, (req, res) => {
     const subscription = subscriptionService.reactivateSubscription(req.user.id)
     res.json({ subscription, message: '订阅已恢复' })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

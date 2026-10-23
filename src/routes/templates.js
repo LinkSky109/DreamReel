@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { templateService } from '../services/templateService.js'
 import { projectService } from '../services/projectService.js'
 import { scriptService } from '../services/scriptService.js'
@@ -13,7 +14,7 @@ router.get('/', (req, res) => {
     const templates = templateService.listTemplates({ category, search, type })
     res.json({ total: templates.length, items: templates })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -24,7 +25,7 @@ router.get('/user/mine', (req, res) => {
     const templates = templateService.getUserTemplates(userId)
     res.json({ total: templates.length, items: templates })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -51,7 +52,7 @@ router.post('/user/create-from-project', async (req, res) => {
     res.status(201).json(template)
   } catch (error) {
     logger.error('Failed to create template from project:', error.message)
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -62,7 +63,7 @@ router.delete('/user/:templateId', (req, res) => {
     const result = templateService.deleteUserTemplate(req.params.templateId, userId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -72,7 +73,7 @@ router.get('/categories', (req, res) => {
     const categories = templateService.listCategories()
     res.json({ items: categories })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -82,7 +83,7 @@ router.get('/:templateId', (req, res) => {
     const template = templateService.getTemplate(req.params.templateId)
     res.json(template)
   } catch (error) {
-    res.status(404).json({ error: error.message })
+    throw AppError.notFound(error.message, { cause: error })
   }
 })
 
@@ -157,7 +158,7 @@ router.post('/:templateId/create', async (req, res) => {
     })
   } catch (error) {
     logger.error('Failed to create project from template:', error.message)
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

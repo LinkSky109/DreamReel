@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { contentModerationService } from '../services/contentModerationService.js'
 
 const router = Router()
@@ -16,7 +17,7 @@ router.post('/check', (req, res) => {
     })
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -33,7 +34,7 @@ router.post('/check-batch', (req, res) => {
     })
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -43,7 +44,7 @@ router.get('/stats', (_req, res) => {
     const stats = contentModerationService.getStats()
     res.json(stats)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -54,7 +55,7 @@ router.get('/logs', (req, res) => {
     const logs = contentModerationService.getAuditLog(limit)
     res.json({ logs, total: logs.length })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

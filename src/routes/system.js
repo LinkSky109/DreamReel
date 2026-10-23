@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import os from 'os'
 import fs from 'fs'
 import path from 'path'
@@ -77,7 +78,7 @@ router.get('/info', adminOnly, (req, res) => {
     }
     res.json(info)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 
@@ -117,7 +118,7 @@ router.get('/performance', adminOnly, (req, res) => {
     const report = performanceMonitor.getFullReport()
     res.json(report)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 
@@ -129,7 +130,7 @@ router.get('/performance/resources', adminOnly, (req, res) => {
     const resources = performanceMonitor.getSystemResources()
     res.json(resources)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 
@@ -141,7 +142,7 @@ router.get('/performance/requests', adminOnly, (req, res) => {
     const stats = performanceMonitor.getRequestStats()
     res.json(stats)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 
@@ -153,7 +154,7 @@ router.get('/performance/history', adminOnly, (req, res) => {
     const history = performanceMonitor.getHistory()
     res.json(history)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 
@@ -165,7 +166,7 @@ router.post('/performance/reset', adminOnly, (req, res) => {
     performanceMonitor.reset()
     res.json({ success: true })
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 

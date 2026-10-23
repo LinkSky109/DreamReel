@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { aiAssistantService } from '../services/aiAssistantService.js'
 
 const router = Router()
@@ -11,7 +12,7 @@ router.get('/quick-actions', (req, res) => {
     const actions = aiAssistantService.getQuickActions()
     res.json({ actions })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -23,7 +24,7 @@ router.get('/conversation/:projectId', (req, res) => {
     const conversation = aiAssistantService.getConversation(req.params.projectId)
     res.json({ conversation, total: conversation.length })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -39,7 +40,7 @@ router.post('/chat/:projectId', async (req, res) => {
     const response = await aiAssistantService.sendMessage(req.params.projectId, message, { userId })
     res.json(response)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -55,7 +56,7 @@ router.post('/quick-action/:projectId', async (req, res) => {
     const response = await aiAssistantService.runQuickAction(req.params.projectId, actionId, { userId })
     res.json(response)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -67,7 +68,7 @@ router.delete('/conversation/:projectId', (req, res) => {
     const result = aiAssistantService.clearConversation(req.params.projectId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

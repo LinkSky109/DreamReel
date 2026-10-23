@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import fs from 'fs'
 import path from 'path'
 import { projectService } from '../services/projectService.js'
@@ -88,7 +89,7 @@ router.post('/', async (req, res) => {
     })
     res.status(201).json(project.toJSON())
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -112,7 +113,7 @@ router.get('/', async (req, res) => {
     })
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -124,7 +125,7 @@ router.get('/recent', async (req, res) => {
     const projects = await projectService.getRecentProjects(userId, limit)
     res.json({ projects })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -139,7 +140,7 @@ router.post('/batch/delete', async (req, res) => {
     const result = await projectService.batchDelete(projectIds, userId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -154,7 +155,7 @@ router.post('/batch/archive', async (req, res) => {
     const result = await projectService.batchArchive(projectIds, archive === true, userId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -169,7 +170,7 @@ router.post('/batch/favorite', async (req, res) => {
     const result = await projectService.batchFavorite(projectIds, favorite === true, userId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -183,7 +184,7 @@ router.get('/recycle-bin/list', (req, res) => {
     const result = projectService.listRecycleBin({ userId, limit: parseInt(limit), offset: parseInt(offset) })
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -194,7 +195,7 @@ router.get('/recycle-bin/stats', (req, res) => {
     const stats = projectService.getRecycleBinStats({ userId })
     res.json(stats)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -206,7 +207,7 @@ router.post('/recycle-bin/:projectId/restore', async (req, res) => {
     const result = projectService.restoreProject(req.params.projectId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -218,7 +219,7 @@ router.delete('/recycle-bin/:projectId', (req, res) => {
     const result = projectService.permanentlyDeleteProject(req.params.projectId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -229,7 +230,7 @@ router.delete('/recycle-bin', (req, res) => {
     const result = projectService.emptyRecycleBin({ userId })
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -241,7 +242,7 @@ router.post('/:projectId/favorite', async (req, res) => {
     const result = await projectService.toggleFavorite(req.params.projectId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -253,7 +254,7 @@ router.post('/:projectId/archive', async (req, res) => {
     const result = await projectService.toggleArchive(req.params.projectId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -270,7 +271,7 @@ router.post('/:projectId/duplicate', async (req, res) => {
     })
     res.status(201).json(duplicated.toJSON())
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -281,7 +282,7 @@ router.get('/tags', (req, res) => {
     const tags = projectService.getAllTags(userId)
     res.json({ tags })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -295,7 +296,7 @@ router.get('/:projectId', async (req, res) => {
     projectService.recordAccess(req.params.projectId).catch(() => {})
     res.json(project.toJSON())
   } catch (error) {
-    res.status(404).json({ error: error.message })
+    throw AppError.notFound(error.message, { cause: error })
   }
 })
 
@@ -307,7 +308,7 @@ router.put('/:projectId', validateBody(projectUpdateSchema), async (req, res) =>
     const project = await projectService.updateProject(req.params.projectId, req.validated.body)
     res.json(project.toJSON())
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -325,7 +326,7 @@ router.post('/:projectId/thumbnail', async (req, res) => {
       res.status(400).json({ error: '没有可提取封面的已完成视频' })
     }
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -379,7 +380,7 @@ router.post('/:projectId/cover', async (req, res) => {
     logger.info(`Custom cover uploaded: ${filename} for project ${projectId}`)
     res.json({ success: true, coverUrl })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -394,7 +395,7 @@ router.delete('/:projectId', requirePermission(PERMISSIONS.PROJECT_DELETE), asyn
     logger.info(`Project deleted: ${req.params.projectId}, cleaned ${deletedFiles.length} files`)
     res.json({ success: true, deletedFiles: deletedFiles.length })
   } catch (error) {
-    res.status(404).json({ error: error.message })
+    throw AppError.notFound(error.message, { cause: error })
   }
 })
 
@@ -410,7 +411,7 @@ router.get('/:projectId/export', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`)
     res.json(data)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -495,7 +496,7 @@ router.post('/import', async (req, res) => {
       message: `项目已导入为「${project.name}」`,
     })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -511,7 +512,7 @@ router.put('/:id/shots/order', async (req, res) => {
     const project = await projectService.updateShotOrder(req.params.id, shotIds)
     res.json({ success: true, shots: project.shots.map((s) => s.toJSON ? s.toJSON() : s) })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -527,7 +528,7 @@ router.put('/:id/shots/:shotId/duration', async (req, res) => {
     const shot = await projectService.updateShotDuration(req.params.id, req.params.shotId, duration)
     res.json({ success: true, shot: shot.toJSON ? shot.toJSON() : shot })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -571,7 +572,7 @@ router.get('/:projectId/model-config', async (req, res) => {
       },
     })
   } catch (error) {
-    res.status(404).json({ error: error.message })
+    throw AppError.notFound(error.message, { cause: error })
   }
 })
 
@@ -632,7 +633,7 @@ router.put('/:projectId/model-config', async (req, res) => {
       },
     })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

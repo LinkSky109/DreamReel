@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { characterService } from '../services/characterService.js'
 import { projectService } from '../services/projectService.js'
 import { authRequired } from '../middleware/auth.js'
@@ -20,7 +21,7 @@ async function assertCharacterProjectOwnership(req, res) {
   try {
     project = await projectService.getProject(projectId)
   } catch (error) {
-    res.status(404).json({ error: error.message })
+    throw AppError.notFound(error.message, { cause: error })
     return null
   }
   if (project.userId !== userId) {
@@ -58,7 +59,7 @@ router.post('/', authRequired, async (req, res) => {
 
     res.status(201).json(character.toJSON())
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -83,7 +84,7 @@ router.post('/:characterId/lock', authRequired, async (req, res) => {
     const locked = await characterService.lockCharacter(character, referenceImages)
     res.json(locked.toJSON())
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -104,7 +105,7 @@ router.post('/:characterId/evaluate', authRequired, async (req, res) => {
     const result = await characterService.evaluateConsistency(videoUrl, character)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -121,7 +122,7 @@ router.get('/', async (req, res) => {
       items: project.characters.map((c) => (c.toJSON ? c.toJSON() : c)),
     })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -148,7 +149,7 @@ router.patch('/:characterId/styling', authRequired, async (req, res) => {
       stylingPrompt: character.buildStylingPrompt(),
     })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

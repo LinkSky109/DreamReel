@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { notificationService } from '../services/notificationService.js'
 
 const router = Router()
@@ -15,7 +16,7 @@ router.get('/', (req, res) => {
     const unreadCount = notificationService.getUnreadCount(userId)
     res.json({ items: notifications, unreadCount, total: notifications.length })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -26,7 +27,7 @@ router.get('/unread-count', (req, res) => {
     const count = notificationService.getUnreadCount(userId)
     res.json({ count })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -39,7 +40,7 @@ router.post('/:id/read', (req, res) => {
     }
     res.json(notification)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -50,7 +51,7 @@ router.post('/read-all', (req, res) => {
     const result = notificationService.markAllAsRead(userId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -63,7 +64,7 @@ router.delete('/:id', (req, res) => {
     }
     res.json({ success: true })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -74,7 +75,7 @@ router.delete('/', (req, res) => {
     const result = notificationService.clearAll(userId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -85,7 +86,7 @@ router.get('/preferences', (req, res) => {
     const preferences = notificationService.getPreferences(userId)
     res.json({ preferences })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -97,7 +98,7 @@ router.patch('/preferences', (req, res) => {
     const preferences = notificationService.updatePreferences(userId, updates)
     res.json({ preferences })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

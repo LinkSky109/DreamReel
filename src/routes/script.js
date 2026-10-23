@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { scriptService } from '../services/scriptService.js'
 import { projectService } from '../services/projectService.js'
 import { versionService } from '../services/versionService.js'
@@ -116,7 +117,7 @@ router.post('/generate', async (req, res) => {
       moderation: scriptModeration,
     })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -130,7 +131,7 @@ router.post('/revise', async (req, res) => {
     const revised = await scriptService.reviseScript({ script, feedback, projectId: req.body.projectId, userId: req.userId })
     res.json(revised)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -199,7 +200,7 @@ router.post('/adapt', async (req, res) => {
 
     res.json(script)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
