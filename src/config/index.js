@@ -40,6 +40,13 @@ const config = {
     // 匿名使用 default 身份：生产默认关闭，开发/测试默认开启；ALLOW_ANONYMOUS 显式覆盖
     allowAnonymous: resolveAllowAnonymous(),
   },
+  // R3-T3.5：视频长任务
+  videoJobs: {
+    workerEnabled: process.env.VIDEO_JOB_WORKER_ENABLED !== 'false',
+    intervalMs: parseInt(process.env.VIDEO_JOB_WORKER_INTERVAL_MS, 10) || 1000,
+    leaseMs: parseInt(process.env.VIDEO_JOB_LEASE_MS, 10) || 60_000,
+    maxAttempts: parseInt(process.env.VIDEO_JOB_MAX_ATTEMPTS, 10) || 3,
+  },
   // single | organization
   tenancyMode: process.env.TENANCY_MODE || 'single',
   // 反向代理层数；Nginx 后置为 1，直接暴露时为 false

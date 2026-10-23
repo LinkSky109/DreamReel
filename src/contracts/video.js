@@ -58,3 +58,14 @@ export const shotVersionSchema = z.object({
 export const continuityQuerySchema = z.object({
   projectId,
 })
+
+export const videoJobCreateSchema = z.object({
+  projectId,
+  shotIds: z.array(shotId).max(200).optional(),
+  styleId,
+})
+
+export const videoJobListQuerySchema = z.object({
+  projectId,
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+})
