@@ -160,3 +160,25 @@
   - main 本地领先 origin，R2 未推送/tag。
   - 管理员角色初始化、API Key 惰性迁移、媒体严格开关仍待 R3/运维。
 - 下一步：提交报告/STATE → 用户确认后 push + tag `r2-cutover` → R3-T3.1。
+
+## 2026-10-23 10:30 (+08:00) · lead · R3 还债完成
+
+- 动作：按计划完成 R3-T3.1–T3.9，逐组分支、验收、合并并推送 main。
+- 关键交付：
+  - IDOR 全覆盖、`req.userId` 单一身份、`ALLOW_ANONYMOUS`
+  - zod 写接口校验、LLM 配额与匿名 mock
+  - ADR-0005 + 迁移 015 + video jobs API/worker
+  - AppError 集中错误映射（4xx/5xx 兜底清零）
+  - 401 跳转、Editor smoke、删 legacy `public/js`、StrictMode、ESLint web、覆盖率门槛
+  - Redis 限流/幂等、CSP/HSTS、连接池指标、备份恢复演练
+  - `check:api` 契约比对入 CI
+- 结果：
+  - `npm run check` → 后端 946（944 pass / 2 skip）/ 前端 148 / 死链 0
+  - `gate.sh e2e`、`gate.sh build`、`gate.sh smoke` 全通过
+  - 备份恢复演练行数一致；Redis 双实例集成 2/2
+  - 交付报告：`docs/delivery/2026-10-23-r3-debt.md`
+- 未完成/风险：
+  - 覆盖率仅锁基线，目标 80% 未达。
+  - 真实 WAL PITR 未演练；type-aware ESLint 受 TS7 阻塞。
+  - `R1-T1B.6` 媒体严格访问开关仍 deferred。
+- 下一步：覆盖率增量提升 → PITR 演练 → 发布评审/tag。
