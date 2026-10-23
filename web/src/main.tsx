@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
@@ -70,8 +71,8 @@ const rootElement = document.getElementById('root')
 if (!rootElement) throw new Error('#root not found')
 
 createRoot(rootElement).render(
-  // 不使用 StrictMode：legacy 桥接视图会在双次 effect 中重复挂载监听器
-  <ErrorBoundary>
+  <StrictMode>
+    <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ThemeProvider>
@@ -84,5 +85,6 @@ createRoot(rootElement).render(
         </ThemeProvider>
       </BrowserRouter>
     </QueryClientProvider>
-  </ErrorBoundary>
+    </ErrorBoundary>
+  </StrictMode>
 )
