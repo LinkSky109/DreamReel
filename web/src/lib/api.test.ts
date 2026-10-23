@@ -35,7 +35,7 @@ describe('api 请求契约', () => {
     expect(lastCall(fetchMock).url).toBe('/api/auth/me')
 
     await api.login({ email: 'a@b.com', password: 'x' })
-    let call = lastCall(fetchMock)
+    const call = lastCall(fetchMock)
     expect(call.url).toBe('/api/auth/login')
     expect(call.init.method).toBe('POST')
     expect(JSON.parse(String(call.init.body))).toEqual({ email: 'a@b.com', password: 'x' })
@@ -84,7 +84,7 @@ describe('api 请求契约', () => {
     expect(lastCall(fetchMock).url).toBe('/api/novels/n1')
 
     await api.createNovel({ title: '长夜', author: '林' })
-    let call = lastCall(fetchMock)
+    const call = lastCall(fetchMock)
     expect(call.url).toBe('/api/novels')
     expect(JSON.parse(String(call.init.body)).title).toBe('长夜')
 
