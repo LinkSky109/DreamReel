@@ -35,7 +35,6 @@ export default defineConfig(({ mode }) => {
         '^/api/': apiProxy,
         '/storage': apiProxy,
         // 过渡期兼容旧路径
-        '/js': apiProxy,
         '/css': apiProxy,
         '/icons': apiProxy,
         '/manifest.webmanifest': apiProxy,

@@ -171,6 +171,13 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     message?: string
   }
 
+  if (response.status === 401) {
+    localStorage.removeItem(TOKEN_KEY)
+    if (!path.startsWith('/auth/')) {
+      window.dispatchEvent(new Event('dreamreel:unauthorized'))
+    }
+  }
+
   if (!response.ok) {
     const message =
       typeof payload.error === 'string'
