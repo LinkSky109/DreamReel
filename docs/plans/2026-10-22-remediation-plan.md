@@ -1,3 +1,5 @@
+> **状态更新 2026-10-23 12:00**：R0–R3 全部收口，main `74ff3af` 已推送；总结见 `docs/delivery/2026-10-23-remediation-closeout.md`。
+>
 > **状态更新 2026-10-22 15:20**：小说域 PG-only/legacy removal 已完成；R2-T2.2/T2.3/T2.7 完成；
 > outbox/JSON 导出已删除；测试 817/138，`check:legacy` 0。本文中 `NOVEL_REPO_MODE`、`dual`、
 > outbox、JSON 投影相关任务均为历史，不再执行；当前事实以 `docs/handoff/STATE.md` 为准。

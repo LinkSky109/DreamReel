@@ -182,3 +182,23 @@
   - 真实 WAL PITR 未演练；type-aware ESLint 受 TS7 阻塞。
   - `R1-T1B.6` 媒体严格访问开关仍 deferred。
 - 下一步：覆盖率增量提升 → PITR 演练 → 发布评审/tag。
+
+## 2026-10-23 12:00 (+08:00) · lead · 整改收口
+
+- 动作：R0–R3 全部完成，冻结 main 并输出最终收口文档。
+- 最终状态：
+  - `main` = `origin/main` = `74ff3af`
+  - `npm run check` → 后端 946（944 pass / 2 skip）/ 前端 162 / 覆盖率门槛 / 死链 0，exit 0
+  - `gate.sh e2e` / `build` / `smoke` 全通过
+  - 迁移 001–015 applied，pending 0
+- 文档：
+  - 总结：`docs/delivery/2026-10-23-remediation-closeout.md`
+  - R3 明细：`docs/delivery/2026-10-23-r3-debt.md`
+  - 备份演练：`docs/delivery/2026-10-23-backup-restore-drill.md`
+- 后续 backlog（不阻塞）：
+  - 覆盖率 80%（当前 lines 52.11%）
+  - WAL PITR 演练
+  - type-aware ESLint（TS7 上游）
+  - `R1-T1B.6` 媒体严格开关
+  - 生产管理员角色初始化 / API Key 惰性迁移
+- 结论：整改结束，进入维护。
