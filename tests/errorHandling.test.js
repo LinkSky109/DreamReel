@@ -60,6 +60,16 @@ describe('集中错误映射', () => {
     assert.match(res.body.error, /还没有分析结果/ )
   })
 
+  it('版本路由业务错误走集中映射', async () => {
+    const res = await request(app)
+      .get(`/api/projects/${projectId}/versions/not-exist-version`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('x-request-id', 'req-test-version')
+    assert.equal(res.status, 404)
+    assert.equal(res.body.code, 'NOT_FOUND')
+    assert.equal(res.body.requestId, 'req-test-version')
+  })
+
   it('未知错误 500 不泄漏 message', () => {
     const req = { id: 'req-test-500', method: 'GET', originalUrl: '/api/boom' }
     const res = {
