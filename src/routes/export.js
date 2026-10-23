@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { dubbingService } from '../services/dubbingService.js'
 import { videoCompositingService } from '../services/videoCompositingService.js'
 import { exportHistoryService } from '../services/exportHistoryService.js'
@@ -13,7 +14,7 @@ const router = Router()
  * POST /api/export/project/:projectId
  * Body: { burnSubtitles: true, language: 'zh', voiceId: 'zh_male_calm' }
  */
-router.post('/project/:projectId', async (req, res) => {
+router.post('/project/:projectId', async (req, res, next) => {
   const { projectId } = req.params
   const { burnSubtitles = true, language = 'zh', voiceId = 'zh_male_calm', speed = 1.0 } = req.body
 
@@ -72,7 +73,7 @@ router.post('/project/:projectId', async (req, res) => {
       }
     })()
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
@@ -80,7 +81,7 @@ router.post('/project/:projectId', async (req, res) => {
  * 同步导出（等待完成后返回结果，用于测试和小项目）
  * POST /api/export/project/:projectId/sync
  */
-router.post('/project/:projectId/sync', async (req, res) => {
+router.post('/project/:projectId/sync', async (req, res, next) => {
   const { projectId } = req.params
   const { burnSubtitles = true, language = 'zh', voiceId = 'zh_male_calm', speed = 1.0 } = req.body
 
@@ -143,7 +144,7 @@ router.post('/project/:projectId/sync', async (req, res) => {
     })
   } catch (error) {
     logger.error('Sync export failed:', error.message)
-    res.status(500).json({ error: error.message })
+    next(new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error }))
   }
 })
 
@@ -151,14 +152,14 @@ router.post('/project/:projectId/sync', async (req, res) => {
  * 获取项目导出历史
  * GET /api/export/project/:projectId/history
  */
-router.get('/project/:projectId/history', async (req, res) => {
+router.get('/project/:projectId/history', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
     const history = exportHistoryService.getExportHistory(req.params.projectId)
     res.json({ total: history.length, items: history })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 

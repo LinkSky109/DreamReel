@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { versionService } from '../services/versionService.js'
 import { requireProjectOwnership } from '../middleware/projectAccess.js'
 
@@ -8,7 +9,7 @@ const router = Router()
  * 获取项目版本列表
  * GET /api/projects/:projectId/versions
  */
-router.get('/:projectId/versions', async (req, res) => {
+router.get('/:projectId/versions', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
@@ -19,7 +20,7 @@ router.get('/:projectId/versions', async (req, res) => {
     })
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
@@ -27,7 +28,7 @@ router.get('/:projectId/versions', async (req, res) => {
  * 手动保存版本
  * POST /api/projects/:projectId/versions
  */
-router.post('/:projectId/versions', async (req, res) => {
+router.post('/:projectId/versions', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
@@ -39,7 +40,7 @@ router.post('/:projectId/versions', async (req, res) => {
     })
     res.status(201).json(version)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
@@ -47,7 +48,7 @@ router.post('/:projectId/versions', async (req, res) => {
  * 对比两个版本
  * GET /api/projects/:projectId/versions/compare?from=v1&to=v2
  */
-router.get('/:projectId/versions/compare', async (req, res) => {
+router.get('/:projectId/versions/compare', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
@@ -58,7 +59,7 @@ router.get('/:projectId/versions/compare', async (req, res) => {
     const result = versionService.compareVersions(req.params.projectId, from, to)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
@@ -66,14 +67,14 @@ router.get('/:projectId/versions/compare', async (req, res) => {
  * 获取版本详情
  * GET /api/projects/:projectId/versions/:versionId
  */
-router.get('/:projectId/versions/:versionId', async (req, res) => {
+router.get('/:projectId/versions/:versionId', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
     const version = versionService.getVersion(req.params.projectId, req.params.versionId)
     res.json(version)
   } catch (error) {
-    res.status(404).json({ error: error.message })
+    next(AppError.notFound(error.message, { cause: error }))
   }
 })
 
@@ -81,14 +82,14 @@ router.get('/:projectId/versions/:versionId', async (req, res) => {
  * 回滚到指定版本
  * POST /api/projects/:projectId/versions/:versionId/rollback
  */
-router.post('/:projectId/versions/:versionId/rollback', async (req, res) => {
+router.post('/:projectId/versions/:versionId/rollback', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
     const result = await versionService.rollback(req.params.projectId, req.params.versionId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
@@ -96,14 +97,14 @@ router.post('/:projectId/versions/:versionId/rollback', async (req, res) => {
  * 删除版本
  * DELETE /api/projects/:projectId/versions/:versionId
  */
-router.delete('/:projectId/versions/:versionId', async (req, res) => {
+router.delete('/:projectId/versions/:versionId', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
     versionService.deleteVersion(req.params.projectId, req.params.versionId)
     res.json({ success: true })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 

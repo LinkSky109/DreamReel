@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { collaborationService } from '../services/collaborationService.js'
 import { projectService } from '../services/projectService.js'
 import { requireProjectOwnership } from '../middleware/projectAccess.js'
@@ -8,7 +9,7 @@ const router = Router()
 // ============ Comments ============
 
 // 获取项目评论
-router.get('/:projectId/comments', async (req, res) => {
+router.get('/:projectId/comments', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
@@ -16,12 +17,12 @@ router.get('/:projectId/comments', async (req, res) => {
     const comments = collaborationService.getComments(req.params.projectId, { shotId })
     res.json({ total: comments.length, items: comments })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
 // 添加评论
-router.post('/:projectId/comments', async (req, res) => {
+router.post('/:projectId/comments', async (req, res, next) => {
   try {
     const { userId, userName, content, shotId, parentId } = req.body
     if (!content || !content.trim()) {
@@ -38,12 +39,12 @@ router.post('/:projectId/comments', async (req, res) => {
     })
     res.status(201).json(comment)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
 // 标记评论已解决
-router.patch('/:projectId/comments/:commentId/resolve', async (req, res) => {
+router.patch('/:projectId/comments/:commentId/resolve', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
@@ -55,24 +56,24 @@ router.patch('/:projectId/comments/:commentId/resolve', async (req, res) => {
     )
     res.json(comment)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
 // 删除评论
-router.delete('/:projectId/comments/:commentId', async (req, res) => {
+router.delete('/:projectId/comments/:commentId', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
     collaborationService.deleteComment(req.params.projectId, req.params.commentId)
     res.json({ success: true })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
 // 点赞评论
-router.post('/:projectId/comments/:commentId/like', async (req, res) => {
+router.post('/:projectId/comments/:commentId/like', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
@@ -86,12 +87,12 @@ router.post('/:projectId/comments/:commentId/like', async (req, res) => {
     if (error.message === 'Already liked') {
       return res.status(409).json({ error: error.message })
     }
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
 // 取消点赞
-router.delete('/:projectId/comments/:commentId/like', async (req, res) => {
+router.delete('/:projectId/comments/:commentId/like', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
@@ -103,40 +104,40 @@ router.delete('/:projectId/comments/:commentId/like', async (req, res) => {
     res.json(result)
   } catch (error) {
     if (error.message === 'Not liked') {
-      return res.status(404).json({ error: error.message })
+      return next(AppError.notFound(error.message, { cause: error }))
     }
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
 // 获取评论回复
-router.get('/:projectId/comments/:commentId/replies', async (req, res) => {
+router.get('/:projectId/comments/:commentId/replies', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
     const replies = collaborationService.getCommentReplies(req.params.projectId, req.params.commentId)
     res.json({ total: replies.length, items: replies })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
 // 获取评论统计
-router.get('/:projectId/comments/stats', async (req, res) => {
+router.get('/:projectId/comments/stats', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
     const stats = collaborationService.getCommentStats(req.params.projectId)
     res.json(stats)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
 // ============ Activities ============
 
 // 获取项目活动记录
-router.get('/:projectId/activities', async (req, res) => {
+router.get('/:projectId/activities', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
@@ -147,26 +148,26 @@ router.get('/:projectId/activities', async (req, res) => {
     })
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
 // ============ Sharing ============
 
 // 获取分享设置
-router.get('/:projectId/share', async (req, res) => {
+router.get('/:projectId/share', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
     const share = collaborationService.getShareSettings(req.params.projectId)
     res.json(share)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
 // 更新分享设置
-router.put('/:projectId/share', async (req, res) => {
+router.put('/:projectId/share', async (req, res, next) => {
   try {
     const guard = await requireProjectOwnership(req, res)
     if (!guard) return
@@ -178,7 +179,7 @@ router.put('/:projectId/share', async (req, res) => {
     })
     res.json(share)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
@@ -191,12 +192,12 @@ router.get('/shared/:token', (req, res) => {
     }
     res.json({ projectId: result.projectId, share: result.share })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    next(AppError.badRequest(error.message, { cause: error }))
   }
 })
 
 // 通过分享 token 读取项目详情（公开访问，只读）
-router.get('/shared/:token/project', async (req, res) => {
+router.get('/shared/:token/project', async (req, res, next) => {
   try {
     const result = collaborationService.getProjectByShareToken(req.params.token)
     if (!result) {
@@ -205,7 +206,7 @@ router.get('/shared/:token/project', async (req, res) => {
     const project = await projectService.getProject(result.projectId)
     res.json(project.toJSON())
   } catch (error) {
-    res.status(404).json({ error: error.message })
+    next(AppError.notFound(error.message, { cause: error }))
   }
 })
 
