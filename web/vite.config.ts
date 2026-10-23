@@ -47,6 +47,19 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
       css: false,
+      coverage: {
+        provider: 'v8',
+        reporter: ['text-summary'],
+        include: ['src/**/*.{ts,tsx}'],
+        exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts', 'src/main.tsx'],
+        // R3-T3.7：先把基线锁住，避免覆盖率回退；目标 80% 逐步抬升。
+        thresholds: {
+          statements: 46,
+          branches: 43,
+          functions: 32,
+          lines: 47,
+        },
+      },
     },
   }
 })
