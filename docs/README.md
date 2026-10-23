@@ -41,6 +41,7 @@ DreamReel（梦卷）是一个 AI 短片创作平台：从一句话想法到成�
 | `AGENT-HANDOFF.md` | 跨会话交接说明 |
 | `docs/api/v1.md` | 开放 API v1 文档 |
 | `docs/architecture/route-inventory.md` | 全部路由清单（自动生成） |
+| `scripts/check-api-contract.js` | 后端路由与 `web/src/lib/api.ts` 端点比对（`npm run check:api`） |
 
 ## 3. 后端 `src/`
 
