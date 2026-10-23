@@ -24,7 +24,7 @@
 | main | 与 origin/main 同步；R2 tag `r2-cutover` 已推送 |
 | PostgreSQL | 迁移 `001`–`015` 已应用；新增 `video_jobs`；pending 0 |
 | 小说数据 | 1 部《殖装》/1206 章/33 季/8496 集；角色 559/实体 725/资产 1621 |
-| 测试基线 | 后端 **946**（944 pass / 2 skip）、前端 **148**；覆盖率门槛生效；E2E 1 passed；smoke 通过 |
+| 测试基线 | 后端 **946**（944 pass / 2 skip）、前端 **158**；覆盖率门槛生效；E2E 1 passed；smoke 通过 |
 | 运行时 | 小说域 PG-only；`db.json` 仅非小说集合；无 JSON 导出快照、无 outbox |
 | 恢复 | `pg_dump`/PITR 为唯一数据回滚；归档 JSON 仅离线应急 |
 
@@ -99,6 +99,7 @@
 | 2026-10-23 09:25 | `gate.sh e2e` / `build` / `smoke` | E2E 1 passed；双构建通过；smoke 通过 | lead |
 | 2026-10-23 09:40 | 备份恢复演练 | 关键表行数一致；报告 `2026-10-23-backup-restore-drill.md` | lead |
 | 2026-10-23 09:50 | Redis 双实例集成 | 限流共享 + 幂等重放 2/2 通过 | lead |
+| 2026-10-23 11:10 | 覆盖率增量 | 50.39/46.65/35.23/51.58；门槛 50/46/35/51 | lead |
 
 > 合并 main 前必须重跑 `npm run check` + `series:verify` + 恢复演练。
 
