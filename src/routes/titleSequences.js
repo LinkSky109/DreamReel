@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { titleSequenceService } from '../services/titleSequenceService.js'
 import logger from '../utils/logger.js'
 
@@ -11,7 +12,7 @@ router.get('/', (_req, res) => {
     res.json({ total: templates.length, items: templates })
   } catch (error) {
     logger.error('List title templates failed:', error.message)
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -35,10 +36,10 @@ router.post('/:id/generate', async (req, res) => {
     return res.status(201).json(result)
   } catch (error) {
     if (error.message.startsWith('Title template not found')) {
-      return res.status(404).json({ error: error.message })
+      throw AppError.notFound(error.message, { cause: error })
     }
     logger.error('Generate title sequence failed:', error.message)
-    return res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

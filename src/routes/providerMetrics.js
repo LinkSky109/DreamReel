@@ -12,6 +12,7 @@
  */
 
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { queryMetrics, compareModels, costSummary } from '../services/providerMetricsService.js'
 
 const router = Router()
@@ -33,7 +34,7 @@ router.get('/metrics', (req, res) => {
     const result = queryMetrics(filters, { groupBy })
     res.json({ range: { from: from || null, to: to || null }, ...result })
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 
@@ -44,7 +45,7 @@ router.get('/compare', (req, res) => {
     const rows = compareModels({ stage, models: parseModels(models), from, to, taskType })
     res.json({ stage: stage || null, models: rows })
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 
@@ -56,7 +57,7 @@ router.get('/costs', (req, res) => {
     const result = costSummary(filters, { groupBy })
     res.json({ range: { from: from || null, to: to || null }, ...result })
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { quotaService } from '../services/quotaService.js'
 
 const router = Router()
@@ -10,7 +11,7 @@ router.get('/me', (req, res) => {
     const overview = quotaService.getQuotaOverview(userId)
     res.json(overview)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -21,7 +22,7 @@ router.get('/:userId', (req, res) => {
     const overview = quotaService.getQuotaOverview(userId)
     res.json(overview)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

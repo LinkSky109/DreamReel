@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { dubbingService } from '../services/dubbingService.js'
 import { projectService } from '../services/projectService.js'
 import { quotaService } from '../services/quotaService.js'
@@ -48,7 +49,7 @@ router.post('/generate', async (req, res) => {
 
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -58,7 +59,7 @@ router.get('/voices', async (_req, res) => {
     const voices = await dubbingService.getAvailableVoices()
     res.json({ voices })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -86,7 +87,7 @@ router.post('/preview', async (req, res) => {
     })
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

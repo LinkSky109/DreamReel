@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { directorService } from '../services/directorService.js'
 import logger from '../utils/logger.js'
 
@@ -12,7 +13,7 @@ router.get('/', (_req, res) => {
     res.json(result)
   } catch (error) {
     logger.error('List directors failed:', error.message)
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -28,10 +29,10 @@ router.post('/disable', async (req, res) => {
     return res.json(project)
   } catch (error) {
     if (error.message.startsWith('Project not found')) {
-      return res.status(404).json({ error: error.message })
+      throw AppError.notFound(error.message, { cause: error })
     }
     logger.error('Disable director failed:', error.message)
-    return res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -41,7 +42,7 @@ router.get('/:id', (req, res) => {
     const director = directorService.getDirector(req.params.id)
     res.json(director)
   } catch (error) {
-    res.status(404).json({ error: error.message })
+    throw AppError.notFound(error.message, { cause: error })
   }
 })
 
@@ -60,10 +61,10 @@ router.post('/:id/apply', async (req, res) => {
       error.message.startsWith('Director not found') ||
       error.message.startsWith('Project not found')
     ) {
-      return res.status(404).json({ error: error.message })
+      throw AppError.notFound(error.message, { cause: error })
     }
     logger.error('Apply director failed:', error.message)
-    return res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

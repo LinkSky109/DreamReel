@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { ANONYMOUS_USER_ID } from '../middleware/identity.js'
 import { audioService } from '../services/audioService.js'
 import { projectService } from '../services/projectService.js'
@@ -14,7 +15,7 @@ router.get('/bgm', (req, res) => {
     const result = audioService.listBgm({ emotion, search })
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -29,7 +30,7 @@ router.get('/bgm/:id', (req, res) => {
     }
     res.json(bgm)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -45,7 +46,7 @@ router.post('/bgm/recommend', (req, res) => {
     const result = audioService.recommendBgm(scriptText)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -58,7 +59,7 @@ router.get('/sfx', (req, res) => {
     const result = audioService.listSfx({ category, search })
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -73,7 +74,7 @@ router.get('/sfx/:id', (req, res) => {
     }
     res.json(sfx)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -85,7 +86,7 @@ router.get('/stats', (req, res) => {
     const stats = audioService.getStats()
     res.json(stats)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

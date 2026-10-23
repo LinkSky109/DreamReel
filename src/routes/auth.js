@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { authService } from '../services/authService.js'
 import { authRequired } from '../middleware/auth.js'
 import { resolveProviderConfig } from '../providers/providerResolver.js'
@@ -16,7 +17,7 @@ router.post('/register', (req, res) => {
     const result = authService.register({ username, email, password })
     res.status(201).json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -81,7 +82,7 @@ router.get('/me/model-preferences', authRequired, (req, res) => {
       },
     })
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 
@@ -124,7 +125,7 @@ router.put('/me/model-preferences', authRequired, (req, res) => {
       },
     })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

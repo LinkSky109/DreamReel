@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { statsService } from '../services/statsService.js'
 
 const router = Router()
@@ -13,7 +14,7 @@ router.get('/dashboard', (req, res) => {
     const dashboard = statsService.getDashboard(userId)
     res.json(dashboard)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -26,7 +27,7 @@ router.get('/overview', (req, res) => {
     const userId = req.userId
     res.json(statsService.getOverview(userId))
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -40,7 +41,7 @@ router.get('/trend', (req, res) => {
     const days = parseInt(req.query.days, 10) || 14
     res.json(statsService.getTrend(userId, days))
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -53,7 +54,7 @@ router.get('/styles', (req, res) => {
     const userId = req.userId
     res.json(statsService.getStyleDistribution(userId))
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -66,7 +67,7 @@ router.get('/quota', (req, res) => {
     const userId = req.userId
     res.json(statsService.getQuotaUsage(userId))
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

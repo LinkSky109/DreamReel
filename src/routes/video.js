@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { z } from 'zod'
 import { videoService } from '../services/videoService.js'
 import { projectService } from '../services/projectService.js'
@@ -132,7 +133,7 @@ router.post('/generate', validateBody(videoGenerateSchema), async (req, res) => 
         logger.error(`Video generation failed for shot ${targetShotId}:`, error.message)
       })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -279,7 +280,7 @@ router.post('/generate-all/:projectId', validateBody(z.object({ styleId: z.strin
         logger.error('Batch generation failed:', error.message)
       })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -299,7 +300,7 @@ router.get('/history/:projectId', async (req, res) => {
     })
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -312,7 +313,7 @@ router.get('/history/shot/:shotId', (req, res) => {
     const history = generationHistoryService.getShotHistory(req.params.shotId, { limit })
     res.json({ history })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -326,7 +327,7 @@ router.get('/history/:projectId/stats', async (req, res) => {
     const stats = generationHistoryService.getStats(req.params.projectId)
     res.json(stats)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -340,7 +341,7 @@ router.delete('/history/:projectId', async (req, res) => {
     const result = generationHistoryService.clearProjectHistory(req.params.projectId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -352,7 +353,7 @@ router.get('/queue', (req, res) => {
     const stats = videoService.getQueueStats()
     res.json(stats)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -366,7 +367,7 @@ router.get('/queue/project/:projectId', async (req, res) => {
     const tasks = videoService.getProjectActiveTasks(req.params.projectId)
     res.json({ tasks, count: tasks.length })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -378,7 +379,7 @@ router.post('/queue/cancel/:taskId', async (req, res) => {
     const result = await videoService.cancelTask(req.params.taskId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -392,7 +393,7 @@ router.post('/queue/cancel-project/:projectId', async (req, res) => {
     const result = await videoService.cancelProjectTasks(req.params.projectId)
     res.json(result)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -414,7 +415,7 @@ router.get('/queue/history', async (req, res) => {
     })
     res.json({ history, total: history.length })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -481,7 +482,7 @@ router.post('/regenerate', validateBody(videoRegenerateSchema), async (req, res)
         logger.error(`Regenerate failed for shot ${shotId}:`, error.message)
       })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -541,7 +542,7 @@ router.post('/candidates', validateBody(videoCandidatesSchema), async (req, res)
         logger.error(`Candidate generation failed for shot ${shotId}:`, error.message)
       })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -566,7 +567,7 @@ router.put('/shots/:shotId/lock', validateBody(shotLockSchema), async (req, res)
     await projectService.updateProject(projectId, { shots: project.shots })
     res.json({ success: true, shot: shot.toJSON ? shot.toJSON() : shot })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -599,7 +600,7 @@ router.put('/shots/:shotId', validateBody(shotUpdateSchema), async (req, res) =>
     await projectService.updateProject(projectId, { shots: project.shots })
     res.json({ success: true, shot: shot.toJSON ? shot.toJSON() : shot })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -624,7 +625,7 @@ router.post('/shots/:shotId/version/:versionIndex', validateBody(shotVersionSche
     await projectService.updateProject(projectId, { shots: project.shots })
     res.json({ success: true, shot: updatedShot.toJSON ? updatedShot.toJSON() : updatedShot })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -643,7 +644,7 @@ router.get('/continuity/check', validateQuery(continuityQuerySchema), async (req
     const warnings = videoService.checkSceneContinuity(project)
     res.json({ success: true, warnings, total: warnings.length })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

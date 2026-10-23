@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import config from '../config/index.js'
 import {
   getAvailableProviders as getAvailableVideoProviders,
@@ -61,7 +62,7 @@ router.get('/status', (req, res) => {
     }
     res.json(status)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 
@@ -129,7 +130,7 @@ router.get('/available', async (req, res) => {
       },
     })
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 
@@ -143,7 +144,7 @@ router.get('/video-models', (req, res) => {
       models: getVideoModelCatalog(),
     })
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    throw new AppError(500, 'INTERNAL_ERROR', error.message, { cause: error, expose: false })
   }
 })
 

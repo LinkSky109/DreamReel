@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { challengeService } from '../services/challengeService.js'
 
 const router = Router()
@@ -8,7 +9,7 @@ router.get('/', async (req, res) => {
   try {
     res.json(await challengeService.listChallengesWithCounts({ status: req.query.status }))
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 

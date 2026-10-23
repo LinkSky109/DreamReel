@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { AppError } from '../utils/appError.js'
 import { studioService } from '../services/studioService.js'
 import logger from '../utils/logger.js'
 
@@ -11,7 +12,7 @@ router.get('/', async (_req, res) => {
     res.json(result)
   } catch (error) {
     logger.error('List studios failed:', error.message)
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -29,7 +30,7 @@ router.post('/', async (req, res) => {
     })
     res.status(201).json(studio.toJSON())
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -40,9 +41,9 @@ router.get('/:id', async (req, res) => {
     res.json(detail)
   } catch (error) {
     if (error.message.startsWith('Studio not found')) {
-      return res.status(404).json({ error: error.message })
+      throw AppError.notFound(error.message, { cause: error })
     }
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -53,9 +54,9 @@ router.put('/:id', async (req, res) => {
     res.json(studio.toJSON())
   } catch (error) {
     if (error.message.startsWith('Studio not found')) {
-      return res.status(404).json({ error: error.message })
+      throw AppError.notFound(error.message, { cause: error })
     }
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -69,8 +70,8 @@ router.post('/:id/members', async (req, res) => {
     })
     res.json(studio.toJSON())
   } catch (error) {
-    if (error.message.startsWith('Studio not found')) return res.status(404).json({ error: error.message })
-    res.status(400).json({ error: error.message })
+    if (error.message.startsWith('Studio not found')) throw AppError.notFound(error.message, { cause: error })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -80,8 +81,8 @@ router.delete('/:id/members/:userId', async (req, res) => {
     const studio = await studioService.removeMember(req.params.id, req.params.userId)
     res.json(studio.toJSON())
   } catch (error) {
-    if (error.message.startsWith('Studio not found')) return res.status(404).json({ error: error.message })
-    res.status(400).json({ error: error.message })
+    if (error.message.startsWith('Studio not found')) throw AppError.notFound(error.message, { cause: error })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -95,8 +96,8 @@ router.post('/:id/shows', async (req, res) => {
     })
     res.status(201).json(show)
   } catch (error) {
-    if (error.message.startsWith('Studio not found')) return res.status(404).json({ error: error.message })
-    res.status(400).json({ error: error.message })
+    if (error.message.startsWith('Studio not found')) throw AppError.notFound(error.message, { cause: error })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -106,8 +107,8 @@ router.get('/:id/shows', async (req, res) => {
     const studio = await studioService.getStudio(req.params.id)
     res.json({ total: studio.shows.length, items: studio.shows })
   } catch (error) {
-    if (error.message.startsWith('Studio not found')) return res.status(404).json({ error: error.message })
-    res.status(400).json({ error: error.message })
+    if (error.message.startsWith('Studio not found')) throw AppError.notFound(error.message, { cause: error })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -118,9 +119,9 @@ router.get('/:id/shows/:showId', async (req, res) => {
     res.json(show)
   } catch (error) {
     if (error.message.startsWith('Studio not found') || error.message.startsWith('Show not found')) {
-      return res.status(404).json({ error: error.message })
+      throw AppError.notFound(error.message, { cause: error })
     }
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -131,9 +132,9 @@ router.post('/:id/projects/:projectId', async (req, res) => {
     res.json(studio.toJSON())
   } catch (error) {
     if (error.message.startsWith('Studio not found') || error.message.startsWith('Project not found')) {
-      return res.status(404).json({ error: error.message })
+      throw AppError.notFound(error.message, { cause: error })
     }
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -143,8 +144,8 @@ router.get('/:id/projects', async (req, res) => {
     const works = await studioService.listStudioWorks(req.params.id)
     res.json({ total: works.length, items: works })
   } catch (error) {
-    if (error.message.startsWith('Studio not found')) return res.status(404).json({ error: error.message })
-    res.status(400).json({ error: error.message })
+    if (error.message.startsWith('Studio not found')) throw AppError.notFound(error.message, { cause: error })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
@@ -159,9 +160,9 @@ router.post('/:id/shows/:showId/projects/:projectId', async (req, res) => {
       error.message.startsWith('Show not found') ||
       error.message.startsWith('Project not found')
     ) {
-      return res.status(404).json({ error: error.message })
+      throw AppError.notFound(error.message, { cause: error })
     }
-    res.status(400).json({ error: error.message })
+    throw AppError.badRequest(error.message, { cause: error })
   }
 })
 
