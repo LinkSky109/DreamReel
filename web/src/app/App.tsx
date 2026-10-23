@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AppShell } from './AppShell'
 import { ErrorBoundary } from './ErrorBoundary'
 import { NotFoundPage } from '../pages/NotFound'
@@ -112,12 +112,19 @@ function EditorRedirect() {
 
 export function App() {
   const [routeKey, setRouteKey] = useState(0)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const rerender = () => setRouteKey((key) => key + 1)
     window.addEventListener('dreamreel:rerender', rerender)
     return () => window.removeEventListener('dreamreel:rerender', rerender)
   }, [])
+
+  useEffect(() => {
+    const onUnauthorized = () => navigate('/login', { replace: true })
+    window.addEventListener('dreamreel:unauthorized', onUnauthorized)
+    return () => window.removeEventListener('dreamreel:unauthorized', onUnauthorized)
+  }, [navigate])
 
   return (
     <AppShell>

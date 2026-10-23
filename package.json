@@ -21,7 +21,7 @@
     "check": "npm run lint && npm run typecheck && npm run check:docs && npm run check:legacy && npm test && npm run test:web",
     "check:full": "npm run check && npm run test:e2e",
     "check:web-build": "node scripts/check-web-build.js",
-    "lint": "eslint src/ tests/ public/js/",
+    "lint": "eslint src/ tests/",
     "seed:audio": "node scripts/seed_audio_pack.js",
     "seed:community": "node scripts/seed-community.js",
     "novel": "node scripts/novel.js",
