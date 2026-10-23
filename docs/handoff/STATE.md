@@ -2,17 +2,17 @@
 
 > **唯一实时状态**。任务开始/结束/阻塞时必须更新本文件；历史只追加到 `JOURNAL.md`。
 > 计划：`docs/plans/2026-10-22-remediation-plan.md`；规范：`docs/handoff/README.md`。
-> 本文件最后更新：**2026-10-23 10:30 (+08:00)** ／ 更新人：**lead**
+> 本文件最后更新：**2026-10-23 12:00 (+08:00)** ／ 更新人：**lead**
 
 ## 1. 当前阶段
 
 | 项 | 值 |
 |---|---|
-| 阶段 | **R3 还债完成（T3.1–T3.9）；main 已推送并过发布门禁** |
-| 轮次 | R3 完成，进入发布准备 |
-| 目标 | 提升覆盖率至 80%、补 WAL PITR 演练、发布评审 |
-| 阻塞 | 覆盖率仍为基线门槛；PITR 需 WAL 归档环境；TS7 下无 type-aware ESLint |
-| 下一步 | 1) 覆盖率增量提升；2) 真实 PITR 演练；3) 发布评审与 tag |
+| 阶段 | **整改结束：R0–R3 全部收口；main 已推送并过发布门禁** |
+| 轮次 | R0–R3 完成，进入维护 |
+| 目标 | 无进行中目标；按 backlog 增量改进 |
+| 阻塞 | 无发布阻塞；后续见 `docs/delivery/2026-10-23-remediation-closeout.md` §6 |
+| 下一步 | 维护：覆盖率 80%、WAL PITR、type-aware ESLint、T1B.6、运营初始化 |
 
 ## 2. 事实基线
 
@@ -20,11 +20,11 @@
 |---|---|
 | 仓库 | `/Users/link/myApp/DreamReel` |
 | 当前分支 | `main`（已推送 `origin/main`） |
-| HEAD | 以 `git log --oneline -1` 为准（R3 收口合并：`82a5180`） |
+| HEAD | 以 `git log --oneline -1` 为准（整改收口：`74ff3af`） |
 | main | 与 origin/main 同步；R2 tag `r2-cutover` 已推送 |
 | PostgreSQL | 迁移 `001`–`015` 已应用；新增 `video_jobs`；pending 0 |
 | 小说数据 | 1 部《殖装》/1206 章/33 季/8496 集；角色 559/实体 725/资产 1621 |
-| 测试基线 | 后端 **946**（944 pass / 2 skip）、前端 **158**；覆盖率门槛生效；E2E 1 passed；smoke 通过 |
+| 测试基线 | 后端 **946**（944 pass / 2 skip）、前端 **162**；覆盖率门槛生效；E2E 1 passed；smoke 通过 |
 | 运行时 | 小说域 PG-only；`db.json` 仅非小说集合；无 JSON 导出快照、无 outbox |
 | 恢复 | `pg_dump`/PITR 为唯一数据回滚；归档 JSON 仅离线应急 |
 
@@ -100,6 +100,7 @@
 | 2026-10-23 09:40 | 备份恢复演练 | 关键表行数一致；报告 `2026-10-23-backup-restore-drill.md` | lead |
 | 2026-10-23 09:50 | Redis 双实例集成 | 限流共享 + 幂等重放 2/2 通过 | lead |
 | 2026-10-23 11:10 | 覆盖率增量 | 50.39/46.65/35.23/51.58；门槛 50/46/35/51 | lead |
+| 2026-10-23 12:00 | 最终收口 | `npm run check` 946/162 exit 0；e2e/build/smoke 通过 | lead |
 
 > 合并 main 前必须重跑 `npm run check` + `series:verify` + 恢复演练。
 
