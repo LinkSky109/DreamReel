@@ -28,8 +28,16 @@ if (isMainModule) {
   server.headersTimeout = 10 * 60 * 1000
 
 
+  let videoJobWorker = null
+  if (config.videoJobs.workerEnabled) {
+    const { getVideoJobWorker } = await import('./workers/videoJobWorker.js')
+    videoJobWorker = getVideoJobWorker()
+    videoJobWorker.start()
+  }
+
   const shutdown = (signal) => {
     logger.info(`${signal} received, shutting down gracefully`)
+    if (videoJobWorker) videoJobWorker.stop()
     server.close(async (error) => {
       if (error) {
         logger.error('Graceful shutdown failed:', error.message)

@@ -1,6 +1,7 @@
 import projectsRouter from './projects.js'
 import scriptRouter from './script.js'
 import videoRouter from './video.js'
+import videoJobsRouter from './videoJobs.js'
 import charactersRouter from './characters.js'
 import dubbingRouter from './dubbing.js'
 import exportRouter from './export.js'
@@ -53,6 +54,7 @@ export const apiMounts = [
   { path: '/moderation', router: moderationRouter },
   { path: '/notifications', router: notificationsRouter },
   { path: '/script', router: scriptRouter },
+  { path: '/video', router: videoJobsRouter },
   { path: '/video', router: videoRouter },
   { path: '/characters', router: charactersRouter },
   { path: '/dubbing', router: dubbingRouter },
