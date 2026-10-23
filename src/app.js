@@ -43,10 +43,28 @@ app.use((req, res, next) => {
 })
 
 // 基础安全响应头（不引入额外依赖，CSP 待前端资源清单稳定后单独启用）
+const CSP_POLICY = [
+  "default-src 'self'",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: https:",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "connect-src 'self' https: ws: wss:",
+  "font-src 'self' data:",
+  "worker-src 'self' blob:",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ')
+
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('X-Frame-Options', 'DENY')
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  if (process.env.CSP_DISABLED !== 'true') res.setHeader('Content-Security-Policy', CSP_POLICY)
+  if (config.env === 'production' || process.env.HSTS_ENABLED === 'true') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  }
   next()
 })
 
@@ -105,13 +123,29 @@ app.get('/health/ready', async (_req, res) => {
   }
   if (isPostgresEnabled()) {
     try {
-      const { healthCheck } = await import('./db/client.js')
+      const { healthCheck, getPool } = await import('./db/client.js')
       await healthCheck()
+      const pool = getPool()
+      const poolStats = {
+        total: pool.totalCount,
+        idle: pool.idleCount,
+        waiting: pool.waitingCount,
+      }
+      if (poolStats.waiting > 20) {
+        logger.warn(`[db] connection pool backlog: waiting=${poolStats.waiting}`)
+      }
+      return res.json({
+        status: 'ready',
+        storage: 'ok',
+        db: 'postgres',
+        novelsRepo: 'postgres',
+        pool: poolStats,
+      })
     } catch (error) {
       return res.status(503).json({ status: 'not_ready', storage: 'ok', db: 'error', message: error.message })
     }
   }
-  return res.json({ status: 'ready', storage: 'ok', db: 'postgres', novelsRepo: 'postgres' })
+  return res.json({ status: 'ready', storage: 'ok', db: 'disabled', novelsRepo: 'postgres' })
 })
 
 // 认证解析 + 写操作审计 + 强制登录闸门（默认关闭）
