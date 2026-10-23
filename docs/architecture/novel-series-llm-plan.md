@@ -246,7 +246,7 @@ cleaned.txt + chunks(offsets)
 | `src/services/episodeOutlineService.js` | **新增**：懒生成大纲 |
 | `src/services/episodeScriptService.js` | 用 `getEpisodeText`；生成前确保 outline |
 | `src/services/characterGrowthService.js` | 用 `getEpisodeText` |
-| `src/models/{NovelChunk,Episode,Season}.js` | 加字段（默认值，向后兼容） |
+| `src/models/NovelChunk.js` + `src/repositories/{episode,season}Repository.js` | 分季/分集已走 PG 仓储；旧 Episode/Season 模型已移除 |
 | `src/services/novelProjectService.js` | 加 `getChunkText/getEpisodeText`；保留 `readNovelFile/writeNovelFile` |
 | `scripts/novel.js` | `plan` 增加 `--llm/--no-llm/--llm-beats/--force` |
 | `scripts/rebuild-series.js` | **新增**：重建当前项目 |
